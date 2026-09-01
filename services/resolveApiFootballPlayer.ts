@@ -11,6 +11,16 @@ import {
     resolveApiFootballClub,
 } from "./resolveApiFootballClub"
 
+import {
+  ApiFootballPlayerMatchClassification,
+  calculateMatchConfidence,
+  calculateNameScore,
+  canAutomaticallySave,
+  classifyMatchConfidence,
+  getApiFullName,
+  normalizeMatcherText,
+} from "./apiFootballPlayerMatcherCore"
+
 /* ========================================
    CONFIGURAÇÃO
 ======================================== */
@@ -42,9 +52,7 @@ export type ApiFootballPlayerMatch = {
   confidence: number
 
   classification:
-    | "MATCH FORTE"
-    | "REVISAR"
-    | "MATCH FRACO"
+    ApiFootballPlayerMatchClassification
 
   source:
     | "database"
@@ -59,29 +67,8 @@ export type ApiFootballPlayerMatch = {
    NORMALIZAÇÃO DE TEXTO
 ======================================== */
 
-function normalizeText(
-  value:
-    | string
-    | null
-    | undefined
-) {
-  return String(value ?? "")
-    .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
-    .toLowerCase()
-    .replace(
-      /[^a-z0-9\s]/g,
-      " "
-    )
-    .replace(
-      /\s+/g,
-      " "
-    )
-    .trim()
-}
+const normalizeText =
+  normalizeMatcherText
 
 /* ========================================
    NACIONALIDADE
@@ -176,131 +163,6 @@ function formatDate(
   return value
     .toISOString()
     .slice(0, 10)
-}
-
-/* ========================================
-   NOME COMPLETO DA API
-======================================== */
-
-function getApiFullName(
-  candidate:
-    ApiFootballTeamPlayer
-) {
-  return [
-    candidate.player
-      ?.firstname,
-    candidate.player
-      ?.lastname,
-  ]
-    .filter(Boolean)
-    .join(" ")
-}
-
-/* ========================================
-   SCORE DE NOME
-======================================== */
-
-function calculateNameScore(
-  futScoutName: string,
-  candidate:
-    ApiFootballTeamPlayer
-) {
-  const target =
-    normalizeText(
-      futScoutName
-    )
-
-  const apiName =
-    normalizeText(
-      candidate.player
-        ?.name
-    )
-
-  const apiFullName =
-    normalizeText(
-      getApiFullName(
-        candidate
-      )
-    )
-
-  if (!target) {
-    return 0
-  }
-
-  if (
-    target === apiName ||
-    target === apiFullName
-  ) {
-    return 100
-  }
-
-  if (
-    apiFullName.includes(
-      target
-    ) ||
-    target.includes(
-      apiFullName
-    )
-  ) {
-    return 90
-  }
-
-  const targetParts =
-    target
-      .split(" ")
-      .filter(Boolean)
-
-  if (
-    targetParts.length ===
-    0
-  ) {
-    return 0
-  }
-
-  const candidateParts =
-    new Set(
-      `${apiName} ${apiFullName}`
-        .split(" ")
-        .filter(Boolean)
-    )
-
-  const matchingParts =
-    targetParts.filter(
-      (part) =>
-        candidateParts.has(
-          part
-        )
-    )
-
-  const ratio =
-    matchingParts.length /
-    targetParts.length
-
-  if (
-    ratio === 1
-  ) {
-    return 100
-  }
-
-  if (
-    ratio >= 0.75
-  ) {
-    return 90
-  }
-
-  if (
-    ratio >= 0.5
-  ) {
-    return 80
-  }
-
-  if (
-    ratio > 0
-  ) {
-    return 50
-  }
-
-  return 0
 }
 
 /* ========================================
@@ -440,27 +302,6 @@ function getLocalCandidates({
  *
  * Holland / Netherlands
  */
-
-function canAutomaticallySave(
-  match: {
-    classification:
-      ApiFootballPlayerMatch["classification"]
-
-    birthMatches: boolean
-
-    clubMatches: boolean
-
-    nameScore: number
-  }
-) {
-  return (
-    match.classification ===
-      "MATCH FORTE" &&
-    match.birthMatches &&
-    match.clubMatches &&
-    match.nameScore >= 80
-  )
-}
 
 /* ========================================
    AVALIAR CANDIDATO
@@ -612,47 +453,18 @@ function evaluateCandidate({
    * total         = 100
    */
 
-  const namePoints =
-    Math.round(
-      nameScore * 0.4
-    )
-
-  const birthPoints =
-    birthMatches
-      ? 35
-      : 0
-
-  const nationalityPoints =
-    nationalityMatches
-      ? 10
-      : 0
-
-  const clubPoints =
-    clubMatches
-      ? 15
-      : 0
-
   const confidence =
-    namePoints +
-    birthPoints +
-    nationalityPoints +
-    clubPoints
+    calculateMatchConfidence({
+      nameScore,
+      birthMatches,
+      nationalityMatches,
+      clubMatches,
+    })
 
-  let classification:
-    ApiFootballPlayerMatch["classification"] =
-      "MATCH FRACO"
-
-  if (
-    confidence >= 90
-  ) {
-    classification =
-      "MATCH FORTE"
-  } else if (
-    confidence >= 75
-  ) {
-    classification =
-      "REVISAR"
-  }
+  const classification =
+    classifyMatchConfidence(
+      confidence
+    )
 
   const autoSaveAllowed =
     canAutomaticallySave({

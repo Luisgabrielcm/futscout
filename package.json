@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "tsx --test tests/**/*.test.ts",
+    "test:watch": "tsx --test --watch tests/**/*.test.ts",
+    "test:matcher": "tsx --test tests/unit/services/apiFootballPlayerMatcher.test.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
