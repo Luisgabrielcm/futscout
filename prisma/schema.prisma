@@ -1,0 +1,867 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/**
+ * ========================================
+ * LEAGUE
+ * ========================================
+ */
+
+model League {
+  id         String  @id @default(cuid())
+  externalId String? @unique
+
+  name    String
+  slug    String @unique
+  country String
+
+  clubs Club[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/**
+ * ========================================
+ * CLUB
+ * ========================================
+ */
+
+model Club {
+  id         String  @id @default(cuid())
+  externalId String? @unique
+
+  /**
+   * ID DO CLUBE NA API-FOOTBALL
+   *
+   * Mantemos separado do externalId da EA.
+   */
+  apiFootballId Int? @unique
+
+  name String
+  slug String @unique
+
+  /**
+   * Escudo/logo do clube
+   */
+  imageUrl String?
+
+  leagueId String
+  league   League @relation(fields: [leagueId], references: [id], onDelete: Restrict)
+
+  players Player[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leagueId])
+  @@index([apiFootballId])
+}
+
+/**
+ * ========================================
+ * PLAYER
+ * ========================================
+ */
+
+model Player {
+  id         String  @id @default(cuid())
+  externalId String? @unique
+
+  /**
+   * ID DO JOGADOR NA API-FOOTBALL
+   *
+   * Mantemos separado do externalId da EA.
+   */
+  apiFootballId Int? @unique
+
+  slug String @unique
+  name String
+
+  dateOfBirth DateTime?
+  nationality String?
+
+  /**
+   * POSIÇÕES
+   */
+
+  position String
+
+  secondaryPosition String?
+
+  secondaryPositions String[] @default([])
+
+  /**
+   * PERFIL
+   */
+
+  preferredFoot String?
+  height        Int?
+
+  skillMoves Int?
+
+  weakFootAbility Int?
+
+  /**
+   * IMAGEM
+   */
+
+  imageUrl String?
+
+  /**
+   * CLUBE
+   */
+
+  clubId String?
+  club   Club? @relation(fields: [clubId], references: [id], onDelete: SetNull)
+
+  /**
+   * OVERALL
+   */
+
+  officialOverall Int
+  potential       Int?
+
+  dynamicOverall Int?
+
+  /**
+   * MERCADO
+   */
+
+  marketValue    BigInt?
+  marketCurrency String?
+
+  /**
+   * FORMA
+   */
+
+  form String?
+
+  /**
+   * RELACIONAMENTOS EA
+   */
+
+  attributes PlayerAttributes?
+  playStyles PlayerPlayStyle[]
+
+  /**
+   * VIDA REAL
+   */
+
+  realLifeStats PlayerRealLifeStat[]
+  transfers     PlayerTransfer[]
+  trophies      PlayerTrophy[]
+
+  /**
+   * MATCHER API-FOOTBALL
+   */
+
+  apiFootballMatchAttempt ApiFootballPlayerMatchAttempt?
+
+  /**
+   * CONTROLE
+   */
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clubId])
+  @@index([name])
+  @@index([position])
+  @@index([officialOverall])
+  @@index([potential])
+  @@index([apiFootballId])
+}
+
+/**
+ * ========================================
+ * PLAYER ATTRIBUTES
+ * ========================================
+ */
+
+model PlayerAttributes {
+  id String @id @default(cuid())
+
+  playerId String @unique
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  /**
+   * RITMO
+   */
+
+  pace         Int
+  acceleration Int
+  sprintSpeed  Int
+
+  /**
+   * FINALIZAÇÃO
+   */
+
+  shooting    Int
+  positioning Int
+  finishing   Int
+  shotPower   Int
+  longShots   Int
+  volleys     Int
+  penalties   Int
+
+  /**
+   * PASSE
+   */
+
+  passing          Int
+  vision           Int
+  crossing         Int
+  freeKickAccuracy Int
+  shortPassing     Int
+  longPassing      Int
+  curve            Int
+
+  /**
+   * DRIBLE
+   */
+
+  dribbling     Int
+  agility       Int
+  balance       Int
+  reactions     Int
+  ballControl   Int
+  dribblingStat Int
+  composure     Int
+
+  /**
+   * DEFESA
+   */
+
+  defending          Int
+  interceptions      Int
+  headingAccuracy    Int
+  defensiveAwareness Int
+  standingTackle     Int
+  slidingTackle      Int
+
+  /**
+   * FÍSICO
+   */
+
+  physical   Int
+  jumping    Int
+  stamina    Int
+  strength   Int
+  aggression Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/**
+ * ========================================
+ * PLAYSTYLE
+ * ========================================
+ */
+
+model PlayStyle {
+  id         String  @id @default(cuid())
+  externalId String? @unique
+
+  code     String @unique
+  name     String
+  category String
+
+  description String?
+
+  players PlayerPlayStyle[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/**
+ * ========================================
+ * PLAYER PLAYSTYLE
+ * ========================================
+ */
+
+model PlayerPlayStyle {
+  id String @id @default(cuid())
+
+  playerId    String
+  playStyleId String
+
+  level String
+
+  player    Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  playStyle PlayStyle @relation(fields: [playStyleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([playerId, playStyleId])
+  @@index([playerId])
+  @@index([playStyleId])
+}
+
+/**
+ * ========================================
+ * VIDA REAL - ESTATÍSTICAS
+ * ========================================
+ */
+
+model PlayerRealLifeStat {
+  id String @id @default(cuid())
+
+  /**
+   * JOGADOR
+   */
+
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  /**
+   * IDs DA API-FOOTBALL
+   */
+
+  apiTeamId   Int?
+  apiLeagueId Int?
+
+  /**
+   * TEMPORADA
+   */
+
+  season Int
+
+  /**
+   * CLUBE OU SELEÇÃO
+   */
+
+  teamName    String
+  teamLogoUrl String?
+
+  /**
+   * COMPETIÇÃO
+   */
+
+  competitionName    String
+  competitionCountry String?
+  competitionLogoUrl String?
+  competitionFlagUrl String?
+
+  /**
+   * POSIÇÃO
+   */
+
+  position String?
+
+  /**
+   * JOGOS
+   */
+
+  appearances Int?
+  lineups     Int?
+  minutes     Int?
+
+  /**
+   * RATING
+   */
+
+  rating Float?
+
+  /**
+   * ATAQUE
+   */
+
+  goals         Int?
+  assists       Int?
+  shots         Int?
+  shotsOnTarget Int?
+
+  /**
+   * PASSES
+   */
+
+  passes       Int?
+  keyPasses    Int?
+  passAccuracy Int?
+
+  /**
+   * DEFESA
+   */
+
+  tackles       Int?
+  interceptions Int?
+
+  /**
+   * DUELOS
+   */
+
+  duels    Int?
+  duelsWon Int?
+
+  /**
+   * DRIBLES
+   */
+
+  dribbles        Int?
+  dribblesSuccess Int?
+
+  /**
+   * FALTAS
+   */
+
+  foulsDrawn     Int?
+  foulsCommitted Int?
+
+  /**
+   * CARTÕES
+   */
+
+  yellowCards Int?
+  redCards    Int?
+
+  /**
+   * CONTROLE
+   */
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([playerId, season, apiTeamId, apiLeagueId])
+  @@index([playerId])
+  @@index([season])
+  @@index([apiTeamId])
+  @@index([apiLeagueId])
+  @@index([playerId, season])
+}
+
+/**
+ * ========================================
+ * VIDA REAL - TRANSFERÊNCIAS
+ * ========================================
+ */
+
+model PlayerTransfer {
+  id String @id @default(cuid())
+
+  /**
+   * JOGADOR
+   */
+
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  /**
+   * DATA
+   */
+
+  transferDate DateTime
+
+  /**
+   * CLUBE DE ORIGEM
+   */
+
+  fromTeamApiId Int?
+  fromTeamName  String
+  fromTeamLogo  String?
+
+  /**
+   * CLUBE DE DESTINO
+   */
+
+  toTeamApiId Int?
+  toTeamName  String
+  toTeamLogo  String?
+
+  /**
+   * VALOR/TIPO ORIGINAL DA API
+   */
+
+  rawTransferType String?
+
+  /**
+   * CAMPOS NUMÉRICOS FUTUROS
+   */
+
+  transferValue    BigInt?
+  transferCurrency String?
+
+  /**
+   * CONTROLE
+   */
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([playerId, transferDate, fromTeamName, toTeamName])
+  @@index([playerId])
+  @@index([transferDate])
+  @@index([fromTeamApiId])
+  @@index([toTeamApiId])
+}
+
+/**
+ * ========================================
+ * VIDA REAL - TÍTULOS / CONQUISTAS
+ * ========================================
+ */
+
+model PlayerTrophy {
+  id String @id @default(cuid())
+
+  /**
+   * JOGADOR
+   */
+
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  /**
+   * PAÍS / REGIÃO DA COMPETIÇÃO
+   */
+
+  country String?
+
+  /**
+   * COMPETIÇÃO
+   */
+
+  competition String
+
+  /**
+   * TEMPORADA
+   */
+
+  season String
+
+  /**
+   * RESULTADO
+   */
+
+  place String
+
+  /**
+   * CONTROLE
+   */
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([playerId, country, competition, season, place])
+  @@index([playerId])
+  @@index([competition])
+  @@index([season])
+  @@index([place])
+}
+
+/**
+ * ========================================
+ * API-FOOTBALL - TENTATIVAS DE MATCH
+ * ========================================
+ */
+
+model ApiFootballPlayerMatchAttempt {
+  id String @id @default(cuid())
+
+  /**
+   * JOGADOR FUTSCOUT
+   *
+   * Um jogador possui no máximo
+   * um registro de controle do matcher.
+   */
+
+  playerId String @unique
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  /**
+   * STATUS
+   *
+   * Valores esperados:
+   *
+   * matched
+   * not_resolved
+   * review
+   * weak
+   * conflict
+   * error
+   */
+
+  status String
+
+  /**
+   * QUANTIDADE DE TENTATIVAS
+   */
+
+  attempts Int @default(0)
+
+  /**
+   * ÚLTIMO CANDIDATO ENCONTRADO
+   */
+
+  lastApiFootballId Int?
+
+  /**
+   * ÚLTIMOS SCORES
+   */
+
+  lastConfidence Int?
+  lastNameScore  Int?
+
+  /**
+   * VALIDAÇÕES
+   */
+
+  lastBirthMatches       Boolean?
+  lastNationalityMatches Boolean?
+  lastClubMatches        Boolean?
+
+  /**
+   * MOTIVO / OBSERVAÇÃO
+   */
+
+  lastReason String?
+
+  /**
+   * CONTROLE DE TENTATIVAS
+   */
+
+  lastTriedAt DateTime?
+
+  /**
+   * DATA MÍNIMA PARA NOVA TENTATIVA
+   *
+   * null = pode ser considerado normalmente.
+   */
+
+  nextRetryAt DateTime?
+
+  /**
+   * CONTROLE
+   */
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([nextRetryAt])
+  @@index([lastTriedAt])
+  @@index([status, nextRetryAt])
+}
+/**
+ * ========================================
+ * API-FOOTBALL - CACHE DE ELENCOS
+ * ========================================
+ */
+
+model ApiFootballTeamRosterCache {
+  id String @id @default(cuid())
+
+  /**
+   * ID DO CLUBE NA API-FOOTBALL
+   */
+  apiTeamId Int
+
+  /**
+   * TEMPORADA CONSULTADA
+   *
+   * Exemplo:
+   * 2024
+   */
+  season Int
+
+  /**
+   * ELENCO NORMALIZADO
+   *
+   * Guardamos os jogadores retornados
+   * pela API-Football em JSON para que
+   * o matcher possa reutilizar os dados
+   * sem fazer outra requisição.
+   */
+  players Json
+
+  /**
+   * QUANTIDADE DE JOGADORES SALVOS
+   */
+  playerCount Int @default(0)
+
+  /**
+   * DATA EM QUE O ELENCO FOI BUSCADO
+   */
+  fetchedAt DateTime @default(now())
+
+  /**
+   * QUANDO O CACHE DEVE SER CONSIDERADO
+   * VENCIDO.
+   */
+  expiresAt DateTime
+
+  /**
+   * CONTROLE
+   */
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([apiTeamId, season])
+  @@index([apiTeamId])
+  @@index([season])
+  @@index([expiresAt])
+}
+
+/**
+ * ========================================
+ * SYNC STATE
+ * ========================================
+ */
+
+model SyncState {
+  id String @id @default(cuid())
+
+  /**
+   * Identifica qual sincronização
+   * estamos controlando.
+   *
+   * Exemplos:
+   *
+   * ea-ratings-players
+   * api-football-player-matcher
+   */
+
+  key String @unique
+
+  /**
+   * Progresso da sincronização.
+   */
+
+  offset Int @default(0)
+
+  /**
+   * Quantidade de registros por lote.
+   */
+
+  batchSize Int @default(10)
+
+  /**
+   * Estado atual.
+   *
+   * Exemplos:
+   *
+   * idle
+   * running
+   * paused
+   * completed
+   */
+
+  status String @default("idle")
+
+  /**
+   * Último erro ocorrido.
+   */
+
+  lastError String?
+
+  /**
+   * Última execução bem-sucedida.
+   */
+
+  lastSuccessAt DateTime?
+
+  /**
+   * CONTROLE
+   */
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/**
+ * ========================================
+ * SYNC ERROR
+ * ========================================
+ */
+
+model SyncError {
+  id String @id @default(cuid())
+
+  /**
+   * FONTE
+   *
+   * Exemplos:
+   *
+   * ea
+   * api-football
+   */
+
+  provider String
+
+  /**
+   * ID externo do registro que
+   * estava sendo processado.
+   */
+
+  externalId String?
+
+  /**
+   * Offset/lote onde aconteceu.
+   */
+
+  offset Int?
+
+  /**
+   * ETAPA DO PIPELINE
+   *
+   * Exemplos:
+   *
+   * provider
+   * mapper
+   * normalizer
+   * database
+   * player-matcher
+   */
+
+  stage String
+
+  /**
+   * ERRO
+   */
+
+  message String
+
+  stack String?
+
+  /**
+   * PAYLOAD ORIGINAL / CONTEXTO
+   */
+
+  payload Json?
+
+  /**
+   * QUANTIDADE DE TENTATIVAS
+   */
+
+  attempts Int @default(1)
+
+  /**
+   * RESOLUÇÃO
+   */
+
+  resolved Boolean @default(false)
+
+  resolvedAt DateTime?
+
+  /**
+   * CONTROLE
+   */
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([provider])
+  @@index([externalId])
+  @@index([stage])
+  @@index([resolved])
+  @@index([provider, resolved])
+}
