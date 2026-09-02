@@ -2,6 +2,11 @@ import "dotenv/config"
 
 import { prisma } from "../lib/prisma"
 
+import {
+  ApiFootballRateLimitError,
+  hasApiFootballRateLimitSignal,
+} from "./apiFootballErrors"
+
 const API_URL =
   "https://v3.football.api-sports.io"
 
@@ -449,9 +454,7 @@ async function searchApiFootballClub(
   if (
     response.status === 429
   ) {
-    throw new Error(
-      "API-Football atingiu o limite de requisições (HTTP 429). Tente novamente mais tarde."
-    )
+    throw new ApiFootballRateLimitError()
   }
 
   if (!response.ok) {
@@ -470,6 +473,14 @@ async function searchApiFootballClub(
       data.errors
     )
   ) {
+    if (
+      hasApiFootballRateLimitSignal(
+        data.errors
+      )
+    ) {
+      throw new ApiFootballRateLimitError()
+    }
+
     throw new Error(
       `API-Football retornou erro ao buscar ${clubName}: ${JSON.stringify(
         data.errors

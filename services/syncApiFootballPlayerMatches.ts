@@ -19,6 +19,10 @@ import {
     recordWeakPlayer,
 } from "./apiFootballPlayerMatchAttempt"
 
+import {
+    runApiFootballPlayerMatchBatchCore,
+} from "./apiFootballPlayerMatchBatchCore"
+
 /* ========================================
    CONFIGURAÇÃO
 ======================================== */
@@ -375,473 +379,318 @@ export async function syncApiFootballPlayerMatches({
     })
 
   /* ======================================
-     3. CONTADORES
+     3. PROCESSAR LOTE
   ====================================== */
 
-  let processed = 0
+  const resolvedResults =
+    new Map<
+      string,
+      NonNullable<
+        Awaited<
+          ReturnType<
+            typeof resolveApiFootballPlayer
+          >
+        >
+      >
+    >()
 
-  let saved = 0
+  const batchResult =
+    await runApiFootballPlayerMatchBatchCore({
+      players,
+      previousOffset:
+        syncState.offset,
+      dependencies: {
+        resolvePlayer:
+          async (player) => {
+            const result =
+              await resolveApiFootballPlayer({
+                playerId:
+                  player.id,
+                season,
+                save: true,
+              })
 
-  let strongNotSaved = 0
-  let review = 0
-  let weak = 0
-  let notResolved = 0
-
-  let conflicts = 0
-  let errors = 0
-
-  let rateLimited = false
-
-  /* ======================================
-     4. PROCESSAR
-  ====================================== */
-
-  for (
-    const player of
-      players
-  ) {
-    console.log(
-      "\n----------------------------------------"
-    )
-
-    console.log(
-      `JOGADOR: ${player.name}`
-    )
-
-    console.log({
-      slug:
-        player.slug,
-
-      overall:
-        player.officialOverall,
-
-      birth:
-        player.dateOfBirth
-          ?.toISOString()
-          .slice(0, 10) ??
-        null,
-
-      nationality:
-        player.nationality,
-
-      club:
-        player.club?.name ??
-        null,
-
-      clubApiFootballId:
-        player.club
-          ?.apiFootballId ??
-        null,
-
-      previousAttempt:
-        player
-          .apiFootballMatchAttempt
-          ? {
-              status:
-                player
-                  .apiFootballMatchAttempt
-                  .status,
-
-              attempts:
-                player
-                  .apiFootballMatchAttempt
-                  .attempts,
-
-              nextRetryAt:
-                player
-                  .apiFootballMatchAttempt
-                  .nextRetryAt,
+            if (!result) {
+              return {
+                kind:
+                  "not_resolved",
+                reason:
+                  "Nenhum candidato confiável encontrado no elenco da API-Football.",
+              }
             }
-          : null,
+
+            resolvedResults.set(
+              player.id,
+              result
+            )
+
+            const details = {
+              apiFootballId:
+                result.apiFootballId,
+              confidence:
+                result.confidence,
+              nameScore:
+                result.nameScore,
+              birthMatches:
+                result.birthMatches,
+              nationalityMatches:
+                result.nationalityMatches,
+              clubMatches:
+                result.clubMatches,
+            }
+
+            if (result.saved) {
+              return {
+                kind: "saved",
+                ...details,
+              }
+            }
+
+            if (
+              result.classification ===
+              "MATCH FORTE"
+            ) {
+              return {
+                kind:
+                  "strong_not_saved",
+                ...details,
+              }
+            }
+
+            if (
+              result.classification ===
+              "REVISAR"
+            ) {
+              return {
+                kind: "review",
+                ...details,
+              }
+            }
+
+            return {
+              kind: "weak",
+              ...details,
+            }
+          },
+        recordMatched:
+          async (player, result) => {
+            await recordMatchedPlayer({
+              playerId: player.id,
+              ...result,
+            })
+            console.log(
+              `✅ SALVO: ${player.name} → ${result.apiFootballId}`
+            )
+          },
+        recordNotResolved:
+          async (player, result) => {
+            await recordNotResolvedPlayer({
+              playerId: player.id,
+              reason: result.reason,
+            })
+            console.log(
+              "RESULTADO: NÃO RESOLVIDO"
+            )
+          },
+        recordReview:
+          async (player, result) => {
+            await recordReviewPlayer({
+              playerId: player.id,
+              ...result,
+            })
+            console.log(
+              result.kind ===
+                "strong_not_saved"
+                ? "⚠️ Match forte, mas sem autorização para auto-save."
+                : "⚠️ Necessita revisão."
+            )
+          },
+        recordWeak:
+          async (player, result) => {
+            await recordWeakPlayer({
+              playerId: player.id,
+              ...result,
+            })
+            console.log(
+              "❌ Match fraco."
+            )
+          },
+        recordConflict:
+          async (player, error) => {
+            await recordConflictPlayer({
+              playerId: player.id,
+              apiFootballId: null,
+              reason: error.message,
+            })
+          },
+        recordError:
+          async (player, error) => {
+            await recordErrorPlayer({
+              playerId: player.id,
+              reason: error.message,
+            })
+          },
+        registerSyncError:
+          async (player, error) => {
+            const selectedPlayer =
+              players.find(
+                (candidate) =>
+                  candidate.id ===
+                  player.id
+              )!
+
+            await registerSyncError({
+              playerExternalId:
+                selectedPlayer.externalId,
+              message:
+                error.message,
+              stack:
+                error.stack,
+              payload: {
+                playerId:
+                  selectedPlayer.id,
+                playerName:
+                  selectedPlayer.name,
+                slug:
+                  selectedPlayer.slug,
+                clubId:
+                  selectedPlayer.club?.id ??
+                  null,
+                clubName:
+                  selectedPlayer.club?.name ??
+                  null,
+                season,
+              },
+            })
+          },
+        onPlayerStart:
+          (player) => {
+            const selectedPlayer =
+              players.find(
+                (candidate) =>
+                  candidate.id ===
+                  player.id
+              )!
+
+            console.log(
+              "\n----------------------------------------"
+            )
+            console.log(
+              `JOGADOR: ${selectedPlayer.name}`
+            )
+            console.log({
+              slug:
+                selectedPlayer.slug,
+              overall:
+                selectedPlayer.officialOverall,
+              birth:
+                selectedPlayer.dateOfBirth
+                  ?.toISOString()
+                  .slice(0, 10) ??
+                null,
+              nationality:
+                selectedPlayer.nationality,
+              club:
+                selectedPlayer.club?.name ??
+                null,
+              clubApiFootballId:
+                selectedPlayer.club
+                  ?.apiFootballId ??
+                null,
+              previousAttempt:
+                selectedPlayer.apiFootballMatchAttempt
+                  ? {
+                      status:
+                        selectedPlayer.apiFootballMatchAttempt.status,
+                      attempts:
+                        selectedPlayer.apiFootballMatchAttempt.attempts,
+                      nextRetryAt:
+                        selectedPlayer.apiFootballMatchAttempt.nextRetryAt,
+                    }
+                  : null,
+            })
+          },
+        onResolution:
+          (player, resolution) => {
+            if (
+              resolution.kind ===
+              "not_resolved"
+            ) {
+              return
+            }
+
+            const result =
+              resolvedResults.get(
+                player.id
+              )
+
+            if (result) {
+              console.log({
+                apiFootballId:
+                  result.apiFootballId,
+                apiName:
+                  result.apiName,
+                apiFullName:
+                  result.apiFullName,
+                nameScore:
+                  `${result.nameScore}%`,
+                birthMatches:
+                  result.birthMatches,
+                nationalityMatches:
+                  result.nationalityMatches,
+                clubMatches:
+                  result.clubMatches,
+                confidence:
+                  `${result.confidence}%`,
+                classification:
+                  result.classification,
+                canAutoSave:
+                  result.canAutoSave,
+                saved:
+                  result.saved,
+                source:
+                  result.source,
+              })
+            }
+          },
+        onRateLimit:
+          () => {
+            console.log(
+              "\nAPI-FOOTBALL: HTTP 429"
+            )
+            console.log(
+              "Sincronização pausada para preservar a cota."
+            )
+          },
+        onError:
+          (error) => {
+            console.error(
+              "ERRO:",
+              error.message
+            )
+          },
+        onSyncErrorRegistrationFailure:
+          (error) => {
+            console.error(
+              "Não foi possível registrar SyncError:",
+              error
+            )
+          },
+      },
     })
 
-    try {
-      const result =
-        await resolveApiFootballPlayer({
-          playerId:
-            player.id,
-
-          season,
-
-          save:
-            true,
-        })
-
-      /* ==================================
-         NÃO RESOLVIDO
-      ================================== */
-
-      if (!result) {
-        await recordNotResolvedPlayer({
-          playerId:
-            player.id,
-
-          reason:
-            "Nenhum candidato confiável encontrado no elenco da API-Football.",
-        })
-
-        console.log(
-          "RESULTADO: NÃO RESOLVIDO"
-        )
-
-        notResolved++
-        processed++
-
-        continue
-      }
-
-      console.log({
-        apiFootballId:
-          result.apiFootballId,
-
-        apiName:
-          result.apiName,
-
-        apiFullName:
-          result.apiFullName,
-
-        nameScore:
-          `${result.nameScore}%`,
-
-        birthMatches:
-          result.birthMatches,
-
-        nationalityMatches:
-          result.nationalityMatches,
-
-        clubMatches:
-          result.clubMatches,
-
-        confidence:
-          `${result.confidence}%`,
-
-        classification:
-          result.classification,
-
-        canAutoSave:
-          result.canAutoSave,
-
-        saved:
-          result.saved,
-
-        source:
-          result.source,
-      })
-
-      /* ==================================
-         SALVO
-      ================================== */
-
-      if (
-        result.saved
-      ) {
-        await recordMatchedPlayer({
-          playerId:
-            player.id,
-
-          apiFootballId:
-            result.apiFootballId,
-
-          confidence:
-            result.confidence,
-
-          nameScore:
-            result.nameScore,
-
-          birthMatches:
-            result.birthMatches,
-
-          nationalityMatches:
-            result.nationalityMatches,
-
-          clubMatches:
-            result.clubMatches,
-        })
-
-        saved++
-        processed++
-
-        console.log(
-          `✅ SALVO: ${player.name} → ${result.apiFootballId}`
-        )
-
-        continue
-      }
-
-      /* ==================================
-         MATCH FORTE NÃO SALVO
-      ================================== */
-
-      if (
-        result.classification ===
-        "MATCH FORTE"
-      ) {
-        await recordReviewPlayer({
-          playerId:
-            player.id,
-
-          apiFootballId:
-            result.apiFootballId,
-
-          confidence:
-            result.confidence,
-
-          nameScore:
-            result.nameScore,
-
-          birthMatches:
-            result.birthMatches,
-
-          nationalityMatches:
-            result.nationalityMatches,
-
-          clubMatches:
-            result.clubMatches,
-        })
-
-        strongNotSaved++
-        processed++
-
-        console.log(
-          "⚠️ Match forte, mas sem autorização para auto-save."
-        )
-
-        continue
-      }
-
-      /* ==================================
-         REVISAR
-      ================================== */
-
-      if (
-        result.classification ===
-        "REVISAR"
-      ) {
-        await recordReviewPlayer({
-          playerId:
-            player.id,
-
-          apiFootballId:
-            result.apiFootballId,
-
-          confidence:
-            result.confidence,
-
-          nameScore:
-            result.nameScore,
-
-          birthMatches:
-            result.birthMatches,
-
-          nationalityMatches:
-            result.nationalityMatches,
-
-          clubMatches:
-            result.clubMatches,
-        })
-
-        review++
-        processed++
-
-        console.log(
-          "⚠️ Necessita revisão."
-        )
-
-        continue
-      }
-
-      /* ==================================
-         MATCH FRACO
-      ================================== */
-
-      await recordWeakPlayer({
-        playerId:
-          player.id,
-
-        apiFootballId:
-          result.apiFootballId,
-
-        confidence:
-          result.confidence,
-
-        nameScore:
-          result.nameScore,
-
-        birthMatches:
-          result.birthMatches,
-
-        nationalityMatches:
-          result.nationalityMatches,
-
-        clubMatches:
-          result.clubMatches,
-      })
-
-      weak++
-      processed++
-
-      console.log(
-        "❌ Match fraco."
-      )
-    } catch (
-      error
-    ) {
-      /* ==================================
-         RATE LIMIT
-      ================================== */
-
-      if (
-        error instanceof
-          Error &&
-        error.message ===
-          "RATE_LIMIT_429"
-      ) {
-        console.log(
-          "\nAPI-FOOTBALL: HTTP 429"
-        )
-
-        console.log(
-          "Sincronização pausada para preservar a cota."
-        )
-
-        /*
-         * IMPORTANTE:
-         *
-         * Não registramos tentativa para
-         * este jogador porque o matcher
-         * não conseguiu terminar.
-         *
-         * Assim ele continua elegível
-         * quando a API voltar.
-         */
-
-        rateLimited =
-          true
-
-        break
-      }
-
-      const message =
-        error instanceof
-          Error
-          ? error.message
-          : String(error)
-
-      const stack =
-        error instanceof
-          Error
-          ? error.stack ??
-            null
-          : null
-
-      /* ==================================
-         CONFLITO
-      ================================== */
-
-      const isConflict =
-        message.startsWith(
-          "Conflito de apiFootballId="
-        ) ||
-        message.startsWith(
-          "Conflito: apiFootballId"
-        )
-
-      if (
-        isConflict
-      ) {
-        conflicts++
-
-        await recordConflictPlayer({
-          playerId:
-            player.id,
-
-          apiFootballId:
-            null,
-
-          reason:
-            message,
-        })
-      } else {
-        errors++
-
-        await recordErrorPlayer({
-          playerId:
-            player.id,
-
-          reason:
-            message,
-        })
-      }
-
-      console.error(
-        "ERRO:",
-        message
-      )
-
-      /*
-       * Além do controle específico
-       * do matcher, mantemos SyncError
-       * para erros técnicos.
-       */
-      try {
-        await registerSyncError({
-          playerExternalId:
-            player.externalId,
-
-          message,
-
-          stack,
-
-          payload: {
-            playerId:
-              player.id,
-
-            playerName:
-              player.name,
-
-            slug:
-              player.slug,
-
-            clubId:
-              player.club?.id ??
-              null,
-
-            clubName:
-              player.club?.name ??
-              null,
-
-            season,
-          },
-        })
-      } catch (
-        syncError
-      ) {
-        console.error(
-          "Não foi possível registrar SyncError:",
-          syncError
-        )
-      }
-
-      processed++
-    }
-  }
-
-  /* ======================================
-     5. PROGRESSO
-  ====================================== */
-
-  const previousOffset =
-    syncState.offset
-
-  /*
-   * Continuamos tratando offset como
-   * quantidade de IDs efetivamente
-   * associados pela rotina.
-   */
-
-  const nextOffset =
-    previousOffset +
-    saved
+  const {
+    processed,
+    saved,
+    strongNotSaved,
+    review,
+    weak,
+    notResolved,
+    conflicts,
+    errors,
+    rateLimited,
+    nextOffset,
+  } = batchResult
 
   /* ======================================
      6. CONTAR ELEGÍVEIS RESTANTES

@@ -2,6 +2,11 @@ import "dotenv/config"
 
 import { prisma } from "../lib/prisma"
 
+import {
+  ApiFootballRateLimitError,
+  hasApiFootballRateLimitSignal,
+} from "./apiFootballErrors"
+
 /* ========================================
    CONFIGURAÇÃO
 ======================================== */
@@ -482,9 +487,7 @@ async function fetchApiPage({
     response.status ===
     429
   ) {
-    throw new Error(
-      "RATE_LIMIT_429"
-    )
+    throw new ApiFootballRateLimitError()
   }
 
   if (!response.ok) {
@@ -529,20 +532,11 @@ async function fetchApiPage({
      * à cota/limite.
      */
     if (
-      errorText
-        .toLowerCase()
-        .includes(
-          "rate"
-        ) ||
-      errorText
-        .toLowerCase()
-        .includes(
-          "limit"
-        )
-    ) {
-      throw new Error(
-        "RATE_LIMIT_429"
+      hasApiFootballRateLimitSignal(
+        data.errors
       )
+    ) {
+      throw new ApiFootballRateLimitError()
     }
 
     throw new Error(
