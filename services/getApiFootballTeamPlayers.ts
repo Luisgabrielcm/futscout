@@ -14,8 +14,6 @@ import {
 const API_FOOTBALL_BASE_URL =
   "https://v3.football.api-sports.io"
 
-const MAX_API_PAGES = 3
-
 const CACHE_DAYS = 7
 
 /* ========================================
@@ -585,24 +583,8 @@ async function fetchTeamPlayersFromApi({
       ?.total ??
     1
 
-  /*
-   * O plano atual permite no máximo
-   * página 3.
-   */
   const pagesToFetch =
-    Math.min(
-      reportedTotalPages,
-      MAX_API_PAGES
-    )
-
-  if (
-    reportedTotalPages >
-    MAX_API_PAGES
-  ) {
-    console.log(
-      `Plano atual permite até ${MAX_API_PAGES}. Serão carregadas somente as páginas 1-${MAX_API_PAGES}.`
-    )
-  }
+    reportedTotalPages
 
   /*
    * Página 1 já foi carregada.
