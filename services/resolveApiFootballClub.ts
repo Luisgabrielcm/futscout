@@ -6,6 +6,11 @@ import {
   ApiFootballRateLimitError,
   hasApiFootballRateLimitSignal,
 } from "./apiFootballErrors"
+import {
+  getClubSearchTerm,
+  rankApiFootballClubCandidates,
+  selectBestApiFootballClubCandidate,
+} from "./apiFootballClubMatcherCore"
 
 const API_URL =
   "https://v3.football.api-sports.io"
@@ -83,310 +88,66 @@ const runtimeCache =
     ResolvedApiFootballClub
   >()
 
-/* ========================================
-   NORMALIZAR TEXTO
-======================================== */
-
-function normalizeText(
-  value:
-    | string
-    | null
-    | undefined
-) {
-  return String(
-    value ?? ""
-  )
-    .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
-    .toLowerCase()
-    .replace(
-      /[^a-z0-9\s]/g,
-      " "
-    )
-    .replace(
-      /\s+/g,
-      " "
-    )
-    .trim()
-}
-
-/* ========================================
-   NORMALIZAR NOME DE CLUBE
-======================================== */
-
-function normalizeClubName(
-  value:
-    | string
-    | null
-    | undefined
-) {
-  let normalized =
-    normalizeText(value)
-
-  const ignoredWords =
-    new Set([
-      "fc",
-      "cf",
-      "sc",
-      "ac",
-      "afc",
-      "club",
-      "football",
-      "futbol",
-      "futebol",
-    ])
-
-  let parts =
-    normalized
-      .split(" ")
-      .filter(
-        (part) =>
-          part &&
-          !ignoredWords.has(
-            part
-          )
-      )
-
-  /*
-   * Equivalências que já identificamos
-   * entre EA e API-Football.
-   */
-
-  parts =
-    parts.map(
-      (part) => {
-        if (
-          part === "munchen"
-        ) {
-          return "munich"
-        }
-
-        return part
-      }
-    )
-
-  return parts.join(" ")
-}
-
-/* ========================================
-   TERMO DE BUSCA
-======================================== */
-
-function getClubSearchTerm(
+async function persistApiFootballClubId({
+  clubId,
+  clubName,
+  currentApiFootballId,
+  apiFootballId,
+}: {
+  clubId: string
   clubName: string
-) {
-  const normalized =
-    normalizeClubName(
-      clubName
-    )
-
-  const parts =
-    normalized.split(" ")
-
-  /*
-   * Para Bayern, usar apenas Bayern
-   * produz resultados melhores.
-   */
-
-  if (
-    parts.includes(
-      "bayern"
-    )
-  ) {
-    return "Bayern"
-  }
-
-  return normalized
-}
-
-/* ========================================
-   DETECTAR EQUIPES FEMININAS
-======================================== */
-
-function looksLikeWomenTeam(
-  teamName:
-    | string
+  currentApiFootballId:
+    | number
     | null
-    | undefined
-) {
-  const normalized =
-    normalizeText(
-      teamName
+  apiFootballId: number
+}) {
+  if (
+    currentApiFootballId !==
+    null
+  ) {
+    if (
+      currentApiFootballId ===
+      apiFootballId
+    ) {
+      return
+    }
+
+    throw new Error(
+      `Clube ${clubName} já possui apiFootballId=${currentApiFootballId}.`
     )
-
-  return (
-    normalized.endsWith(
-      " w"
-    ) ||
-    normalized.includes(
-      " women"
-    ) ||
-    normalized.includes(
-      " feminino"
-    ) ||
-    normalized.includes(
-      " femenino"
-    ) ||
-    normalized.includes(
-      " frauen"
-    )
-  )
-}
-
-/* ========================================
-   DETECTAR EQUIPES DE BASE
-======================================== */
-
-function looksLikeYouthTeam(
-  teamName:
-    | string
-    | null
-    | undefined
-) {
-  const normalized =
-    normalizeText(
-      teamName
-    )
-
-  return (
-    /\bu\d{2}\b/.test(
-      normalized
-    ) ||
-    normalized.includes(
-      " youth"
-    ) ||
-    normalized.includes(
-      " academy"
-    ) ||
-    normalized.endsWith(
-      " ii"
-    ) ||
-    normalized.endsWith(
-      " iii"
-    ) ||
-    normalized.includes(
-      " reserve"
-    )
-  )
-}
-
-/* ========================================
-   SCORE DO CLUBE
-======================================== */
-
-function calculateClubScore(
-  futScoutClubName: string,
-  apiClubName:
-    | string
-    | null
-    | undefined
-) {
-  if (!apiClubName) {
-    return 0
   }
+
+  const existing =
+    await prisma.club.findUnique({
+      where: {
+        apiFootballId,
+      },
+
+      select: {
+        id: true,
+        name: true,
+      },
+    })
 
   if (
-    looksLikeWomenTeam(
-      apiClubName
+    existing &&
+    existing.id !== clubId
+  ) {
+    throw new Error(
+      `Conflito de apiFootballId=${apiFootballId}. ` +
+        `Já está associado ao clube ${existing.name}.`
     )
-  ) {
-    return 0
   }
 
-  if (
-    looksLikeYouthTeam(
-      apiClubName
-    )
-  ) {
-    return 0
-  }
+  await prisma.club.update({
+    where: {
+      id: clubId,
+    },
 
-  const futScout =
-    normalizeClubName(
-      futScoutClubName
-    )
-
-  const api =
-    normalizeClubName(
-      apiClubName
-    )
-
-  if (
-    !futScout ||
-    !api
-  ) {
-    return 0
-  }
-
-  /*
-   * Nome exato após normalização.
-   */
-
-  if (
-    futScout === api
-  ) {
-    return 100
-  }
-
-  /*
-   * Um nome contém completamente
-   * o outro.
-   */
-
-  if (
-    futScout.includes(
-      api
-    ) ||
-    api.includes(
-      futScout
-    )
-  ) {
-    return 90
-  }
-
-  const futScoutParts =
-    futScout.split(" ")
-
-  const apiParts =
-    api.split(" ")
-
-  const commonParts =
-    futScoutParts.filter(
-      (part) =>
-        apiParts.includes(
-          part
-        )
-    )
-
-  /*
-   * Todas as palavras relevantes
-   * do FutScout aparecem na API.
-   */
-
-  if (
-    commonParts.length ===
-      futScoutParts.length &&
-    commonParts.length > 0
-  ) {
-    return 85
-  }
-
-  if (
-    commonParts.length >= 2
-  ) {
-    return 75
-  }
-
-  if (
-    commonParts.length === 1
-  ) {
-    return 55
-  }
-
-  return 0
+    data: {
+      apiFootballId,
+    },
+  })
 }
 
 /* ========================================
@@ -489,39 +250,10 @@ async function searchApiFootballClub(
   }
 
   const candidates =
-    (
-      data.response ??
-      []
+    rankApiFootballClubCandidates(
+      clubName,
+      data.response ?? []
     )
-      .map(
-        (item) => {
-          return {
-            item,
-
-            score:
-              calculateClubScore(
-                clubName,
-                item.team?.name
-              ),
-          }
-        }
-      )
-      .filter(
-        (candidate) =>
-          candidate.score >
-            0 &&
-          candidate.item
-            .team?.id !==
-            undefined
-      )
-      .sort(
-        (
-          a,
-          b
-        ) =>
-          b.score -
-          a.score
-      )
 
   return candidates
 }
@@ -558,8 +290,74 @@ export async function resolveApiFootballClub({
       clubId
     )
 
-  if (cached) {
+  let clubFromCacheValidation:
+    | {
+        id: string
+        name: string
+        apiFootballId:
+          | number
+          | null
+      }
+    | undefined
+
+  if (
+    cached &&
+    !save &&
+    cached.source ===
+      "api-football"
+  ) {
     return cached
+  }
+
+  if (cached) {
+    const club =
+      await prisma.club.findUnique({
+        where: {
+          id: clubId,
+        },
+
+        select: {
+          id: true,
+          name: true,
+          apiFootballId: true,
+        },
+      })
+
+    if (!club) {
+      throw new Error(
+        `Clube não encontrado no FutScout: ${clubId}`
+      )
+    }
+
+    if (
+      cached.source ===
+      "api-football"
+    ) {
+      await persistApiFootballClubId({
+        clubId: club.id,
+        clubName: club.name,
+        currentApiFootballId:
+          club.apiFootballId,
+        apiFootballId:
+          cached.apiFootballId,
+      })
+
+      return cached
+    }
+
+    if (
+      club.apiFootballId ===
+      cached.apiFootballId
+    ) {
+      return cached
+    }
+
+    runtimeCache.delete(
+      clubId
+    )
+
+    clubFromCacheValidation =
+      club
   }
 
   /* ======================================
@@ -567,17 +365,18 @@ export async function resolveApiFootballClub({
   ====================================== */
 
   const club =
+    clubFromCacheValidation ??
     await prisma.club.findUnique({
-      where: {
-        id: clubId,
-      },
+        where: {
+          id: clubId,
+        },
 
-      select: {
-        id: true,
-        name: true,
-        apiFootballId: true,
-      },
-    })
+        select: {
+          id: true,
+          name: true,
+          apiFootballId: true,
+        },
+      })
 
   if (!club) {
     throw new Error(
@@ -645,7 +444,9 @@ export async function resolveApiFootballClub({
   }
 
   const best =
-    candidates[0]
+    selectBestApiFootballClubCandidate(
+      candidates
+    )
 
   if (!best) {
     return null
@@ -717,39 +518,13 @@ export async function resolveApiFootballClub({
      * vinculado a outro clube.
      */
 
-    const existing =
-      await prisma.club.findUnique({
-        where: {
-          apiFootballId:
-            apiTeam.id,
-        },
-
-        select: {
-          id: true,
-          name: true,
-        },
-      })
-
-    if (
-      existing &&
-      existing.id !==
-        club.id
-    ) {
-      throw new Error(
-        `Conflito de apiFootballId=${apiTeam.id}. ` +
-          `Já está associado ao clube ${existing.name}.`
-      )
-    }
-
-    await prisma.club.update({
-      where: {
-        id: club.id,
-      },
-
-      data: {
-        apiFootballId:
-          apiTeam.id,
-      },
+    await persistApiFootballClubId({
+      clubId: club.id,
+      clubName: club.name,
+      currentApiFootballId:
+        club.apiFootballId,
+      apiFootballId:
+        apiTeam.id,
     })
   }
 
