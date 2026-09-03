@@ -8,20 +8,24 @@ import {
   canAutomaticallySave,
   classifyMatchConfidence,
   evaluateApiFootballPlayerCandidateRanking,
+  evaluateApiFootballPlayerRoster,
   type ApiFootballPlayerMatchClassification,
 } from "../../../services/apiFootballPlayerMatcherCore"
 
 function candidate({
+  id,
   name,
   firstname,
   lastname,
 }: {
+  id?: number
   name?: string | null
   firstname?: string | null
   lastname?: string | null
 }) {
   return {
     player: {
+      id,
       name,
       firstname,
       lastname,
@@ -76,6 +80,29 @@ function evaluatedCandidate({
       nameScore,
     }),
   }
+}
+
+type NameCandidate = ReturnType<typeof candidate>
+
+function evaluateNameRoster(
+  target: string,
+  roster: readonly NameCandidate[]
+) {
+  return evaluateApiFootballPlayerRoster(
+    roster,
+    (currentCandidate) => {
+      const apiFootballId = currentCandidate.player.id
+
+      if (apiFootballId === undefined) {
+        return null
+      }
+
+      return evaluatedCandidate({
+        apiFootballId,
+        nameScore: calculateNameScore(target, currentCandidate),
+      })
+    }
+  )
 }
 
 test("atribui 100 para nome exato", () => {
@@ -412,4 +439,146 @@ test("aceita exatamente a margem mínima de dez pontos", () => {
   assert.equal(ranking.margin, 10)
   assert.equal(ranking.ambiguous, false)
   assert.equal(ranking.canAutoSave, true)
+})
+
+test("avalia candidato com nameScore 80 no roster completo", () => {
+  const target = "Alpha Beta"
+  const score80 = candidate({
+    id: 1,
+    name: "Alpha Other",
+    firstname: "Alpha",
+    lastname: "Other",
+  })
+  const evaluated = evaluateNameRoster(target, [score80])
+
+  assert.equal(calculateNameScore(target, score80), 80)
+  assert.equal(evaluated.length, 1)
+  assert.equal(evaluated[0]?.nameScore, 80)
+})
+
+test("avalia score 90 por inclusão reversa", () => {
+  const target = "Alexander"
+  const visible = candidate({
+    id: 1,
+    name: "Alexander Other",
+    firstname: "Alexander",
+    lastname: "Other",
+  })
+  const hiddenScore90 = candidate({
+    id: 2,
+    name: "A.",
+    firstname: "Alex",
+    lastname: null,
+  })
+  const evaluated = evaluateNameRoster(target, [
+    visible,
+    hiddenScore90,
+  ])
+
+  assert.equal(evaluated.length, 2)
+  assert.equal(evaluated[1]?.apiFootballId, 2)
+  assert.equal(evaluated[1]?.nameScore, 90)
+})
+
+test("candidato nominalmente fraco não oculta candidato competitivo", () => {
+  const target = "Alexander Alpha Beta"
+  const visibleWeak = candidate({
+    id: 1,
+    name: "Beta Other",
+    firstname: "Other",
+    lastname: "Person",
+  })
+  const hiddenCompetitive = candidate({
+    id: 2,
+    name: "A.",
+    firstname: "Alex",
+    lastname: null,
+  })
+  const evaluated = evaluateNameRoster(target, [
+    visibleWeak,
+    hiddenCompetitive,
+  ])
+  const ranking = evaluateApiFootballPlayerCandidateRanking(evaluated)
+
+  assert.equal(evaluated[0]?.nameScore, 50)
+  assert.equal(evaluated[1]?.nameScore, 90)
+  assert.equal(ranking.top1?.apiFootballId, 2)
+  assert.equal(ranking.top2?.apiFootballId, 1)
+})
+
+test("margem considera todos os concorrentes fortes do roster", () => {
+  const target = "Alexander Alpha Beta"
+  const visibleTop1 = candidate({
+    id: 1,
+    name: target,
+    firstname: "Alexander Alpha",
+    lastname: "Beta",
+  })
+  const hiddenTop2 = candidate({
+    id: 2,
+    name: "A.",
+    firstname: "Alex",
+    lastname: null,
+  })
+  const evaluated = evaluateNameRoster(target, [visibleTop1, hiddenTop2])
+  const ranking = evaluateApiFootballPlayerCandidateRanking(evaluated)
+
+  assert.equal(ranking.top1?.confidence, 100)
+  assert.equal(ranking.top2?.confidence, 96)
+  assert.equal(ranking.margin, 4)
+  assert.equal(ranking.ambiguous, true)
+  assert.equal(ranking.canAutoSave, false)
+})
+
+test("roster vazio não produz candidato", () => {
+  const evaluated = evaluateNameRoster("Completely Different", [])
+  const ranking = evaluateApiFootballPlayerCandidateRanking(evaluated)
+
+  assert.deepEqual(evaluated, [])
+  assert.equal(ranking.top1, null)
+  assert.equal(ranking.canAutoSave, false)
+})
+
+test("avalia todos os candidatos válidos mesmo com vários irrelevantes", () => {
+  const target = "Alpha Beta"
+  const relevant = candidate({
+    id: 2,
+    name: "Alpha Beta",
+    firstname: "Alpha",
+    lastname: "Beta",
+  })
+  const firstIrrelevant = candidate({
+    id: 1,
+    name: "Zulu Other",
+    firstname: "Zulu",
+    lastname: "Other",
+  })
+  const secondIrrelevant = candidate({
+    id: 3,
+    name: "Completely Different",
+    firstname: "Completely",
+    lastname: "Different",
+  })
+  const invalid = candidate({
+    name: "Alpha Beta",
+    firstname: "Alpha",
+    lastname: "Beta",
+  })
+  const evaluated = evaluateNameRoster(target, [
+    firstIrrelevant,
+    relevant,
+    secondIrrelevant,
+    invalid,
+  ])
+  const ranking = evaluateApiFootballPlayerCandidateRanking(evaluated)
+
+  assert.deepEqual(
+    evaluated.map((currentCandidate) => currentCandidate.apiFootballId),
+    [1, 2, 3]
+  )
+  assert.deepEqual(
+    evaluated.map((currentCandidate) => currentCandidate.nameScore),
+    [0, 100, 0]
+  )
+  assert.equal(ranking.top1?.apiFootballId, 2)
 })

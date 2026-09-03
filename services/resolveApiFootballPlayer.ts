@@ -18,6 +18,7 @@ import {
   canAutomaticallySave,
   classifyMatchConfidence,
   evaluateApiFootballPlayerCandidateRanking,
+  evaluateApiFootballPlayerRoster,
   getApiFullName,
   normalizeMatcherText,
 } from "./apiFootballPlayerMatcherCore"
@@ -164,122 +165,6 @@ function formatDate(
   return value
     .toISOString()
     .slice(0, 10)
-}
-
-/* ========================================
-   CANDIDATOS LOCAIS
-======================================== */
-
-function getLocalCandidates({
-  playerName,
-  teamPlayers,
-}: {
-  playerName: string
-  teamPlayers:
-    ApiFootballTeamPlayer[]
-}) {
-  const target =
-    normalizeText(
-      playerName
-    )
-
-  const targetParts =
-    target
-      .split(" ")
-      .filter(Boolean)
-
-  const lastName =
-    targetParts[
-      targetParts.length - 1
-    ] ?? ""
-
-  const candidates =
-    teamPlayers.filter(
-      (candidate) => {
-        const apiName =
-          normalizeText(
-            candidate.player
-              ?.name
-          )
-
-        const apiFullName =
-          normalizeText(
-            getApiFullName(
-              candidate
-            )
-          )
-
-        const combined =
-          `${apiName} ${apiFullName}`
-
-        if (
-          target &&
-          combined.includes(
-            target
-          )
-        ) {
-          return true
-        }
-
-        if (
-          lastName &&
-          combined
-            .split(" ")
-            .includes(
-              lastName
-            )
-        ) {
-          return true
-        }
-
-        if (
-          targetParts.length >
-          1
-        ) {
-          const combinedParts =
-            new Set(
-              combined
-                .split(" ")
-                .filter(Boolean)
-            )
-
-          const matches =
-            targetParts.filter(
-              (part) =>
-                combinedParts.has(
-                  part
-                )
-            ).length
-
-          if (
-            matches /
-              targetParts.length >=
-            0.5
-          ) {
-            return true
-          }
-        }
-
-        return false
-      }
-    )
-
-  /*
-   * Se não encontramos um candidato óbvio
-   * pelo nome, ainda avaliamos o elenco
-   * completo.
-   *
-   * Isso ajuda em abreviações diferentes
-   * entre EA e API-Football.
-   */
-  if (
-    candidates.length ===
-    0
-  ) {
-    return teamPlayers
-  }
-
-  return candidates
 }
 
 /* ========================================
@@ -698,30 +583,11 @@ export async function resolveApiFootballPlayer({
      6. CANDIDATOS
   ====================================== */
 
-  const candidates =
-    getLocalCandidates({
-      playerName:
-        player.name,
-
-      teamPlayers,
-    })
-
-  if (
-    candidates.length ===
-    0
-  ) {
-    return null
-  }
-
-  /* ======================================
-     7. AVALIAR TODOS
-  ====================================== */
-
   const evaluated =
-    candidates
-      .map(
-        (candidate) =>
-          evaluateCandidate({
+    evaluateApiFootballPlayerRoster(
+      teamPlayers,
+      (candidate) =>
+        evaluateCandidate({
             player: {
               id:
                 player.id,
@@ -745,14 +611,8 @@ export async function resolveApiFootballPlayer({
 
             apiTeamId:
               resolvedClub.apiFootballId,
-          })
-      )
-      .filter(
-        (
-          result
-        ): result is ApiFootballPlayerMatch =>
-          result !== null
-      )
+        })
+    )
 
   const candidateRanking =
     evaluateApiFootballPlayerCandidateRanking(

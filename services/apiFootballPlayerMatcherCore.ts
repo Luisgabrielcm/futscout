@@ -236,6 +236,25 @@ export function canAutomaticallySave(
   )
 }
 
+export function evaluateApiFootballPlayerRoster<
+  Candidate,
+  EvaluatedCandidate,
+>(
+  candidates: readonly Candidate[],
+  evaluateCandidate: (
+    candidate: Candidate
+  ) => EvaluatedCandidate | null
+) {
+  return candidates
+    .map(evaluateCandidate)
+    .filter(
+      (
+        candidate
+      ): candidate is EvaluatedCandidate =>
+        candidate !== null
+    )
+}
+
 export function evaluateApiFootballPlayerCandidateRanking<
   Candidate extends {
     confidence: number
