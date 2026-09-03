@@ -23,6 +23,10 @@ import {
     runApiFootballPlayerMatchBatchCore,
 } from "./apiFootballPlayerMatchBatchCore"
 
+import {
+    buildApiFootballPlayerMatchSelectionArgs,
+} from "./apiFootballPlayerMatchSelection"
+
 /* ========================================
    CONFIGURAÇÃO
 ======================================== */
@@ -231,9 +235,11 @@ async function registerSyncError({
 export async function syncApiFootballPlayerMatches({
   batchSize = DEFAULT_BATCH_SIZE,
   season = DEFAULT_SEASON,
+  playerIds,
 }: {
   batchSize?: number
   season?: number
+  playerIds?: readonly string[]
 } = {}): Promise<
   SyncApiFootballPlayerMatchesResult
 > {
@@ -252,6 +258,13 @@ export async function syncApiFootballPlayerMatches({
 
   const now =
     new Date()
+
+  const selectionArgs =
+    buildApiFootballPlayerMatchSelectionArgs({
+      batchSize,
+      now,
+      playerIds,
+    })
 
   /* ======================================
      2. SELECIONAR JOGADORES ELEGÍVEIS
@@ -279,50 +292,7 @@ export async function syncApiFootballPlayerMatches({
 
   const players =
     await prisma.player.findMany({
-      where: {
-        apiFootballId:
-          null,
-
-        dateOfBirth: {
-          not: null,
-        },
-
-        clubId: {
-          not: null,
-        },
-
-        OR: [
-          {
-            apiFootballMatchAttempt:
-              null,
-          },
-
-          {
-            apiFootballMatchAttempt: {
-              is: {
-                status: {
-                  not:
-                    "matched",
-                },
-
-                OR: [
-                  {
-                    nextRetryAt:
-                      null,
-                  },
-
-                  {
-                    nextRetryAt: {
-                      lte:
-                        now,
-                    },
-                  },
-                ],
-              },
-            },
-          },
-        ],
-      },
+      ...selectionArgs,
 
       select: {
         id: true,
@@ -362,20 +332,6 @@ export async function syncApiFootballPlayerMatches({
         },
       },
 
-      orderBy: [
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ],
-
-      take:
-        batchSize,
     })
 
   /* ======================================
