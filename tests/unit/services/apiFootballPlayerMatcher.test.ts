@@ -2,9 +2,12 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import {
+  API_FOOTBALL_PLAYER_MIN_AUTO_SAVE_MARGIN,
+  calculateMatchConfidence,
   calculateNameScore,
   canAutomaticallySave,
   classifyMatchConfidence,
+  evaluateApiFootballPlayerCandidateRanking,
   type ApiFootballPlayerMatchClassification,
 } from "../../../services/apiFootballPlayerMatcherCore"
 
@@ -23,6 +26,55 @@ function candidate({
       firstname,
       lastname,
     },
+  }
+}
+
+type EvaluatedCandidate = {
+  apiFootballId: number
+  nameScore: number
+  birthMatches: boolean
+  nationalityMatches: boolean
+  clubMatches: boolean
+  confidence: number
+  classification: ApiFootballPlayerMatchClassification
+  canAutoSave: boolean
+}
+
+function evaluatedCandidate({
+  apiFootballId,
+  nameScore,
+  birthMatches = true,
+  nationalityMatches = true,
+  clubMatches = true,
+}: {
+  apiFootballId: number
+  nameScore: number
+  birthMatches?: boolean
+  nationalityMatches?: boolean
+  clubMatches?: boolean
+}): EvaluatedCandidate {
+  const confidence = calculateMatchConfidence({
+    nameScore,
+    birthMatches,
+    nationalityMatches,
+    clubMatches,
+  })
+  const classification = classifyMatchConfidence(confidence)
+
+  return {
+    apiFootballId,
+    nameScore,
+    birthMatches,
+    nationalityMatches,
+    clubMatches,
+    confidence,
+    classification,
+    canAutoSave: canAutomaticallySave({
+      classification,
+      birthMatches,
+      clubMatches,
+      nameScore,
+    }),
   }
 }
 
@@ -224,3 +276,140 @@ test(
     assert.equal(score, 0)
   }
 )
+
+test("não autoriza auto-save em empate forte perfeito", () => {
+  const first = evaluatedCandidate({ apiFootballId: 101, nameScore: 100 })
+  const second = evaluatedCandidate({ apiFootballId: 202, nameScore: 100 })
+
+  const ranking = evaluateApiFootballPlayerCandidateRanking([first, second])
+
+  assert.equal(first.confidence, 100)
+  assert.equal(second.confidence, 100)
+  assert.equal(first.canAutoSave, true)
+  assert.equal(second.canAutoSave, true)
+  assert.equal(ranking.top1?.apiFootballId, 101)
+  assert.equal(ranking.margin, 0)
+  assert.equal(ranking.ambiguous, true)
+  assert.equal(ranking.canAutoSave, false)
+})
+
+test("bloqueia auto-save nas duas ordens de um empate forte", () => {
+  const first = evaluatedCandidate({ apiFootballId: 101, nameScore: 100 })
+  const second = evaluatedCandidate({ apiFootballId: 202, nameScore: 100 })
+
+  const firstOrder = evaluateApiFootballPlayerCandidateRanking([first, second])
+  const reversedOrder = evaluateApiFootballPlayerCandidateRanking([
+    second,
+    first,
+  ])
+
+  assert.equal(firstOrder.top1?.apiFootballId, 101)
+  assert.equal(reversedOrder.top1?.apiFootballId, 202)
+  assert.equal(firstOrder.ambiguous, true)
+  assert.equal(reversedOrder.ambiguous, true)
+  assert.equal(firstOrder.canAutoSave, false)
+  assert.equal(reversedOrder.canAutoSave, false)
+})
+
+test("não autoriza auto-save com margem forte de quatro pontos", () => {
+  const top1 = evaluatedCandidate({ apiFootballId: 101, nameScore: 100 })
+  const top2 = evaluatedCandidate({ apiFootballId: 202, nameScore: 90 })
+
+  const ranking = evaluateApiFootballPlayerCandidateRanking([top1, top2])
+
+  assert.equal(top1.confidence, 100)
+  assert.equal(top2.confidence, 96)
+  assert.equal(top1.canAutoSave, true)
+  assert.equal(top2.canAutoSave, true)
+  assert.equal(ranking.top1?.apiFootballId, 101)
+  assert.equal(ranking.margin, 4)
+  assert.equal(ranking.ambiguous, true)
+  assert.equal(ranking.canAutoSave, false)
+})
+
+test("mantém vencedor forte quando ele é claramente superior", () => {
+  const top1 = evaluatedCandidate({ apiFootballId: 101, nameScore: 100 })
+  const top2 = evaluatedCandidate({
+    apiFootballId: 202,
+    nameScore: 100,
+    clubMatches: false,
+  })
+
+  assert.equal(top1.confidence, 100)
+  assert.equal(top2.confidence, 85)
+  const ranking = evaluateApiFootballPlayerCandidateRanking([top1, top2])
+
+  assert.equal(ranking.top1?.apiFootballId, 101)
+  assert.equal(ranking.margin, 15)
+  assert.equal(ranking.ambiguous, false)
+  assert.equal(ranking.canAutoSave, true)
+})
+
+test("mantém candidato forte quando ele é o único candidato", () => {
+  const onlyCandidate = evaluatedCandidate({
+    apiFootballId: 101,
+    nameScore: 100,
+  })
+
+  const ranking = evaluateApiFootballPlayerCandidateRanking([onlyCandidate])
+
+  assert.equal(ranking.top1?.apiFootballId, 101)
+  assert.equal(ranking.top2, null)
+  assert.equal(ranking.margin, null)
+  assert.equal(ranking.ambiguous, false)
+  assert.equal(ranking.canAutoSave, true)
+})
+
+test("não autoriza auto-save quando nenhum candidato é forte", () => {
+  const review = evaluatedCandidate({
+    apiFootballId: 101,
+    nameScore: 100,
+    clubMatches: false,
+  })
+  const lowerReview = evaluatedCandidate({
+    apiFootballId: 202,
+    nameScore: 80,
+    clubMatches: false,
+  })
+
+  const ranking = evaluateApiFootballPlayerCandidateRanking([
+    review,
+    lowerReview,
+  ])
+
+  assert.equal(review.confidence, 85)
+  assert.equal(lowerReview.confidence, 77)
+  assert.equal(ranking.top1?.apiFootballId, 101)
+  assert.equal(ranking.canAutoSave, false)
+})
+
+test("considera margem de oito pontos ambígua", () => {
+  const top1 = evaluatedCandidate({ apiFootballId: 101, nameScore: 100 })
+  const top2 = evaluatedCandidate({ apiFootballId: 202, nameScore: 80 })
+
+  const ranking = evaluateApiFootballPlayerCandidateRanking([top1, top2])
+
+  assert.equal(top1.confidence, 100)
+  assert.equal(top2.confidence, 92)
+  assert.equal(ranking.margin, 8)
+  assert.equal(ranking.ambiguous, true)
+  assert.equal(ranking.canAutoSave, false)
+})
+
+test("aceita exatamente a margem mínima de dez pontos", () => {
+  const top1 = evaluatedCandidate({ apiFootballId: 101, nameScore: 100 })
+  const top2 = evaluatedCandidate({
+    apiFootballId: 202,
+    nameScore: 100,
+    nationalityMatches: false,
+  })
+
+  const ranking = evaluateApiFootballPlayerCandidateRanking([top1, top2])
+
+  assert.equal(API_FOOTBALL_PLAYER_MIN_AUTO_SAVE_MARGIN, 10)
+  assert.equal(top1.confidence, 100)
+  assert.equal(top2.confidence, 90)
+  assert.equal(ranking.margin, 10)
+  assert.equal(ranking.ambiguous, false)
+  assert.equal(ranking.canAutoSave, true)
+})

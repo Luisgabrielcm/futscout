@@ -17,6 +17,7 @@ import {
   calculateNameScore,
   canAutomaticallySave,
   classifyMatchConfidence,
+  evaluateApiFootballPlayerCandidateRanking,
   getApiFullName,
   normalizeMatcherText,
 } from "./apiFootballPlayerMatcherCore"
@@ -752,20 +753,24 @@ export async function resolveApiFootballPlayer({
         ): result is ApiFootballPlayerMatch =>
           result !== null
       )
-      .sort(
-        (
-          a,
-          b
-        ) =>
-          b.confidence -
-          a.confidence
-      )
+
+  const candidateRanking =
+    evaluateApiFootballPlayerCandidateRanking(
+      evaluated
+    )
 
   const best =
-    evaluated[0]
+    candidateRanking.top1
 
   if (!best) {
     return null
+  }
+
+  const safeBest = {
+    ...best,
+
+    canAutoSave:
+      candidateRanking.canAutoSave,
   }
 
   /* ======================================
@@ -773,7 +778,7 @@ export async function resolveApiFootballPlayer({
   ====================================== */
 
   if (!save) {
-    return best
+    return safeBest
   }
 
   /* ======================================
@@ -781,9 +786,9 @@ export async function resolveApiFootballPlayer({
   ====================================== */
 
   if (
-    !best.canAutoSave
+    !safeBest.canAutoSave
   ) {
-    return best
+    return safeBest
   }
 
   /* ======================================
@@ -794,7 +799,7 @@ export async function resolveApiFootballPlayer({
     await prisma.player.findUnique({
       where: {
         apiFootballId:
-          best.apiFootballId,
+          safeBest.apiFootballId,
       },
 
       select: {
@@ -826,7 +831,7 @@ export async function resolveApiFootballPlayer({
 
     data: {
       apiFootballId:
-        best.apiFootballId,
+        safeBest.apiFootballId,
     },
   })
 
@@ -835,7 +840,7 @@ export async function resolveApiFootballPlayer({
   ====================================== */
 
   return {
-    ...best,
+    ...safeBest,
 
     saved:
       true,

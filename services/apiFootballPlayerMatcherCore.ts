@@ -3,6 +3,8 @@ export type ApiFootballPlayerMatchClassification =
   | "REVISAR"
   | "MATCH FRACO"
 
+export const API_FOOTBALL_PLAYER_MIN_AUTO_SAVE_MARGIN = 10
+
 type ApiFootballPlayerNameCandidate = {
   player?: {
     name?: string | null
@@ -232,4 +234,29 @@ export function canAutomaticallySave(
     match.clubMatches &&
     match.nameScore >= 80
   )
+}
+
+export function evaluateApiFootballPlayerCandidateRanking<
+  Candidate extends {
+    confidence: number
+    canAutoSave: boolean
+  },
+>(candidates: readonly Candidate[]) {
+  const ranked = [...candidates].sort(
+    (a, b) => b.confidence - a.confidence
+  )
+
+  const top1 = ranked[0] ?? null
+  const top2 = ranked[1] ?? null
+  const margin = top1 && top2 ? top1.confidence - top2.confidence : null
+  const ambiguous =
+    margin !== null && margin < API_FOOTBALL_PLAYER_MIN_AUTO_SAVE_MARGIN
+
+  return {
+    top1,
+    top2,
+    margin,
+    ambiguous,
+    canAutoSave: Boolean(top1?.canAutoSave && !ambiguous),
+  }
 }
