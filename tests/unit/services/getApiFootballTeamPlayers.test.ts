@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { after, before, beforeEach, mock, test } from "node:test"
 
 import {
+  isApiFootballCacheOnlyMissError,
   isApiFootballRateLimitError,
 } from "../../../services/apiFootballErrors"
 
@@ -436,4 +437,103 @@ test("loads and caches a single-page roster", async () => {
   assert.deepEqual(second, first)
   assert.equal(database.findCalls, 1)
   assert.equal(database.upserts.length, 1)
+})
+
+test("cache-only miss blocks players fetch", async () => {
+  let fetchCalls = 0
+
+  globalThis.fetch = mock.fn(async () => {
+    fetchCalls++
+    return apiResponse({ page: 1, total: 1 })
+  }) as typeof fetch
+
+  await assert.rejects(
+    getApiFootballTeamPlayers({
+      teamId: 60,
+      season: 2024,
+      cacheOnly: true,
+    }),
+    isApiFootballCacheOnlyMissError
+  )
+
+  assert.equal(fetchCalls, 0)
+  assert.equal(database.upserts.length, 0)
+})
+
+test("memory roster cache remains available in cache-only mode", async () => {
+  let fetchCalls = 0
+
+  globalThis.fetch = mock.fn(async () => {
+    fetchCalls++
+    return apiResponse({ page: 1, total: 1 })
+  }) as typeof fetch
+
+  const first = await getApiFootballTeamPlayers({
+    teamId: 61,
+    season: 2024,
+  })
+
+  fetchCalls = 0
+  const second = await getApiFootballTeamPlayers({
+    teamId: 61,
+    season: 2024,
+    cacheOnly: true,
+  })
+
+  assert.deepEqual(second, first)
+  assert.equal(fetchCalls, 0)
+})
+
+test("valid PostgreSQL roster cache works in cache-only mode", async () => {
+  let fetchCalls = 0
+  database.cached = {
+    apiTeamId: 62,
+    season: 2024,
+    players: [player(62)],
+    playerCount: 1,
+    fetchedAt: new Date("2026-09-03T10:00:00.000Z"),
+    expiresAt: new Date("2099-09-10T10:00:00.000Z"),
+  }
+  globalThis.fetch = mock.fn(async () => {
+    fetchCalls++
+    return apiResponse({ page: 1, total: 1 })
+  }) as typeof fetch
+
+  const result = await getApiFootballTeamPlayers({
+    teamId: 62,
+    season: 2024,
+    cacheOnly: true,
+  })
+
+  assert.deepEqual(result, [player(62)])
+  assert.equal(fetchCalls, 0)
+  assert.equal(database.upserts.length, 0)
+})
+
+test("expired PostgreSQL roster cache is a cache-only miss", async () => {
+  let fetchCalls = 0
+  database.cached = {
+    apiTeamId: 63,
+    season: 2024,
+    players: [player(63)],
+    playerCount: 1,
+    fetchedAt: new Date("2020-01-01T00:00:00.000Z"),
+    expiresAt: new Date("2020-01-08T00:00:00.000Z"),
+  }
+  globalThis.fetch = mock.fn(async () => {
+    fetchCalls++
+    return apiResponse({ page: 1, total: 1 })
+  }) as typeof fetch
+
+  await assert.rejects(
+    getApiFootballTeamPlayers({
+      teamId: 63,
+      season: 2024,
+      cacheOnly: true,
+    }),
+    isApiFootballCacheOnlyMissError
+  )
+
+  assert.equal(fetchCalls, 0)
+  assert.equal(database.upserts.length, 0)
 })

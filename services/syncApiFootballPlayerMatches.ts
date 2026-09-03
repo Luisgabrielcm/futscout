@@ -57,6 +57,7 @@ export type SyncApiFootballPlayerMatchesResult = {
   errors: number
 
   rateLimited: boolean
+  cacheOnlyMiss: boolean
 
   status:
     | "completed"
@@ -236,10 +237,12 @@ export async function syncApiFootballPlayerMatches({
   batchSize = DEFAULT_BATCH_SIZE,
   season = DEFAULT_SEASON,
   playerIds,
+  cacheOnly = false,
 }: {
   batchSize?: number
   season?: number
   playerIds?: readonly string[]
+  cacheOnly?: boolean
 } = {}): Promise<
   SyncApiFootballPlayerMatchesResult
 > {
@@ -254,7 +257,9 @@ export async function syncApiFootballPlayerMatches({
 
   await markSyncRunning()
 
-  clearApiFootballTeamPlayersCache()
+  if (!cacheOnly) {
+    clearApiFootballTeamPlayersCache()
+  }
 
   const now =
     new Date()
@@ -350,6 +355,10 @@ export async function syncApiFootballPlayerMatches({
       >
     >()
 
+  let cacheOnlyMissError:
+    | string
+    | null = null
+
   const batchResult =
     await runApiFootballPlayerMatchBatchCore({
       players,
@@ -364,6 +373,7 @@ export async function syncApiFootballPlayerMatches({
                   player.id,
                 season,
                 save: true,
+                cacheOnly,
               })
 
             if (!result) {
@@ -618,6 +628,17 @@ export async function syncApiFootballPlayerMatches({
               "Sincronização pausada para preservar a cota."
             )
           },
+        onCacheOnlyMiss:
+          (error) => {
+            cacheOnlyMissError =
+              error.message
+            console.log(
+              "\nAPI-FOOTBALL: cache-only miss"
+            )
+            console.log(
+              "Sincronização pausada sem realizar chamada externa."
+            )
+          },
         onError:
           (error) => {
             console.error(
@@ -645,6 +666,7 @@ export async function syncApiFootballPlayerMatches({
     conflicts,
     errors,
     rateLimited,
+    cacheOnlyMiss,
     nextOffset,
   } = batchResult
 
@@ -722,14 +744,18 @@ export async function syncApiFootballPlayerMatches({
   ====================================== */
 
   if (
-    rateLimited
+    rateLimited ||
+    cacheOnlyMiss
   ) {
     await markSyncPaused({
       offset:
         nextOffset,
 
       error:
-        "API-Football rate limit HTTP 429",
+        cacheOnlyMiss
+          ? cacheOnlyMissError ??
+            "API-Football cache-only miss"
+          : "API-Football rate limit HTTP 429",
     })
   } else {
     await markSyncSuccess({
@@ -766,8 +792,11 @@ export async function syncApiFootballPlayerMatches({
 
     rateLimited,
 
+    cacheOnlyMiss,
+
     status:
-      rateLimited
+      rateLimited ||
+      cacheOnlyMiss
         ? "paused"
         : completed
           ? "completed"

@@ -413,10 +413,12 @@ export async function resolveApiFootballPlayer({
   playerId,
   season = DEFAULT_SEASON,
   save = false,
+  cacheOnly = false,
 }: {
   playerId: string
   season?: number
   save?: boolean
+  cacheOnly?: boolean
 }): Promise<
   ApiFootballPlayerMatch | null
 > {
@@ -552,6 +554,8 @@ export async function resolveApiFootballPlayer({
        */
       save:
         true,
+
+      cacheOnly,
     })
 
   if (
@@ -570,6 +574,8 @@ export async function resolveApiFootballPlayer({
         resolvedClub.apiFootballId,
 
       season,
+
+      cacheOnly,
     })
 
   if (

@@ -2,8 +2,10 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import {
+  ApiFootballCacheOnlyMissError,
   ApiFootballRateLimitError,
   hasApiFootballRateLimitSignal,
+  isApiFootballCacheOnlyMissError,
   isApiFootballRateLimitError,
 } from "../../../services/apiFootballErrors"
 
@@ -21,6 +23,20 @@ test("isApiFootballRateLimitError rejects a generic Error", () => {
     isApiFootballRateLimitError(
       new Error("RATE_LIMIT_429")
     ),
+    false
+  )
+})
+
+test("recognizes cache-only miss without confusing it with rate limit", () => {
+  const error = new ApiFootballCacheOnlyMissError("team roster")
+
+  assert.equal(isApiFootballCacheOnlyMissError(error), true)
+  assert.equal(isApiFootballRateLimitError(error), false)
+})
+
+test("cache-only guard rejects a generic Error", () => {
+  assert.equal(
+    isApiFootballCacheOnlyMissError(new Error("cache miss")),
     false
   )
 })

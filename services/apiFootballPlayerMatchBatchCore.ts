@@ -1,4 +1,5 @@
 import {
+  isApiFootballCacheOnlyMissError,
   isApiFootballRateLimitError,
 } from "./apiFootballErrors"
 
@@ -78,6 +79,9 @@ type BatchDependencies = {
     resolution: ApiFootballPlayerMatchBatchResolution
   ) => void
   onRateLimit?: () => void
+  onCacheOnlyMiss?: (
+    error: ApiFootballPlayerMatchBatchError
+  ) => void
   onError?: (
     error: ApiFootballPlayerMatchBatchError
   ) => void
@@ -96,6 +100,7 @@ export type ApiFootballPlayerMatchBatchCoreResult = {
   conflicts: number
   errors: number
   rateLimited: boolean
+  cacheOnlyMiss: boolean
   status: "paused" | "idle"
   decision: "paused" | "continue"
   nextOffset: number
@@ -148,6 +153,7 @@ export async function runApiFootballPlayerMatchBatchCore({
   let conflicts = 0
   let errors = 0
   let rateLimited = false
+  let cacheOnlyMiss = false
 
   for (const player of players) {
     dependencies.onPlayerStart?.(
@@ -228,6 +234,18 @@ export async function runApiFootballPlayerMatchBatchCore({
         break
       }
 
+      if (
+        isApiFootballCacheOnlyMissError(
+          error
+        )
+      ) {
+        dependencies.onCacheOnlyMiss?.(
+          getErrorDetails(error)
+        )
+        cacheOnlyMiss = true
+        break
+      }
+
       const errorDetails =
         getErrorDetails(error)
 
@@ -278,12 +296,15 @@ export async function runApiFootballPlayerMatchBatchCore({
     conflicts,
     errors,
     rateLimited,
+    cacheOnlyMiss,
     status:
-      rateLimited
+      rateLimited ||
+      cacheOnlyMiss
         ? "paused"
         : "idle",
     decision:
-      rateLimited
+      rateLimited ||
+      cacheOnlyMiss
         ? "paused"
         : "continue",
     nextOffset:

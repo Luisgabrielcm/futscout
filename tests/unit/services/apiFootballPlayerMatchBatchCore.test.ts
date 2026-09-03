@@ -1,7 +1,10 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { ApiFootballRateLimitError } from "../../../services/apiFootballErrors"
+import {
+  ApiFootballCacheOnlyMissError,
+  ApiFootballRateLimitError,
+} from "../../../services/apiFootballErrors"
 import {
   runApiFootballPlayerMatchBatchCore,
   type ApiFootballPlayerMatchBatchPlayer,
@@ -381,4 +384,59 @@ test("weak records weak, updates only its counter, and continues", async () => {
   assert.equal(result.processed, 1)
   assert.equal(result.saved, 0)
   assert.equal(result.nextOffset, 9)
+})
+
+test("cache-only miss pauses without attempt or SyncError", async () => {
+  const harness = createHarness({
+    resolve: async () => {
+      throw new ApiFootballCacheOnlyMissError("team roster")
+    },
+  })
+
+  const result = await runApiFootballPlayerMatchBatchCore({
+    players,
+    previousOffset: 12,
+    dependencies: harness.dependencies,
+  })
+
+  assert.deepEqual(harness.calls.resolvedPlayers, ["player-a"])
+  assert.deepEqual(harness.calls.matched, [])
+  assert.deepEqual(harness.calls.notResolved, [])
+  assert.deepEqual(harness.calls.reviews, [])
+  assert.deepEqual(harness.calls.weak, [])
+  assert.deepEqual(harness.calls.errors, [])
+  assert.deepEqual(harness.calls.conflicts, [])
+  assert.deepEqual(harness.calls.syncErrors, [])
+  assert.equal(result.processed, 0)
+  assert.equal(result.saved, 0)
+  assert.equal(result.rateLimited, false)
+  assert.equal(result.cacheOnlyMiss, true)
+  assert.equal(result.status, "paused")
+  assert.equal(result.nextOffset, 12)
+})
+
+test("cache-only miss preserves completed results and stops later players", async () => {
+  const harness = createHarness({
+    resolve: async (player) => {
+      if (player.id === "player-a") return savedResolution
+      throw new ApiFootballCacheOnlyMissError("team roster")
+    },
+  })
+
+  const result = await runApiFootballPlayerMatchBatchCore({
+    players,
+    previousOffset: 20,
+    dependencies: harness.dependencies,
+  })
+
+  assert.deepEqual(harness.calls.resolvedPlayers, ["player-a", "player-b"])
+  assert.deepEqual(harness.calls.matched, ["player-a"])
+  assert.deepEqual(harness.calls.errors, [])
+  assert.deepEqual(harness.calls.syncErrors, [])
+  assert.equal(result.processed, 1)
+  assert.equal(result.saved, 1)
+  assert.equal(result.cacheOnlyMiss, true)
+  assert.equal(result.rateLimited, false)
+  assert.equal(result.status, "paused")
+  assert.equal(result.nextOffset, 21)
 })

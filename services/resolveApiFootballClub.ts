@@ -3,6 +3,7 @@ import "dotenv/config"
 import { prisma } from "../lib/prisma"
 
 import {
+  ApiFootballCacheOnlyMissError,
   ApiFootballRateLimitError,
   hasApiFootballRateLimitSignal,
 } from "./apiFootballErrors"
@@ -265,6 +266,7 @@ async function searchApiFootballClub(
 export async function resolveApiFootballClub({
   clubId,
   save = false,
+  cacheOnly = false,
 }: {
   clubId: string
 
@@ -278,6 +280,7 @@ export async function resolveApiFootballClub({
    */
 
   save?: boolean
+  cacheOnly?: boolean
 }): Promise<
   ResolvedApiFootballClub | null
 > {
@@ -333,14 +336,16 @@ export async function resolveApiFootballClub({
       cached.source ===
       "api-football"
     ) {
-      await persistApiFootballClubId({
-        clubId: club.id,
-        clubName: club.name,
-        currentApiFootballId:
-          club.apiFootballId,
-        apiFootballId:
-          cached.apiFootballId,
-      })
+      if (!cacheOnly) {
+        await persistApiFootballClubId({
+          clubId: club.id,
+          clubName: club.name,
+          currentApiFootballId:
+            club.apiFootballId,
+          apiFootballId:
+            cached.apiFootballId,
+        })
+      }
 
       return cached
     }
@@ -425,6 +430,12 @@ export async function resolveApiFootballClub({
     )
 
     return result
+  }
+
+  if (cacheOnly) {
+    throw new ApiFootballCacheOnlyMissError(
+      `club clubId=${club.id}`
+    )
   }
 
   /* ======================================

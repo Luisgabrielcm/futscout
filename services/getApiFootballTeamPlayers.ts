@@ -3,6 +3,7 @@ import "dotenv/config"
 import { prisma } from "../lib/prisma"
 
 import {
+  ApiFootballCacheOnlyMissError,
   ApiFootballRateLimitError,
   hasApiFootballRateLimitSignal,
 } from "./apiFootballErrors"
@@ -622,9 +623,11 @@ async function fetchTeamPlayersFromApi({
 export async function getApiFootballTeamPlayers({
   teamId,
   season,
+  cacheOnly = false,
 }: {
   teamId: number
   season: number
+  cacheOnly?: boolean
 }): Promise<
   ApiFootballTeamPlayer[]
 > {
@@ -668,6 +671,12 @@ export async function getApiFootballTeamPlayers({
     )
 
     return databaseResult
+  }
+
+  if (cacheOnly) {
+    throw new ApiFootballCacheOnlyMissError(
+      `team roster team=${teamId}, season=${season}`
+    )
   }
 
   /* ======================================

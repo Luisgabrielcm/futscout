@@ -7,6 +7,8 @@ import {
   test,
 } from "node:test"
 
+import { isApiFootballCacheOnlyMissError } from "../../../services/apiFootballErrors"
+
 const originalDirectUrl =
   process.env.DIRECT_URL
 const originalApiKey =
@@ -389,4 +391,56 @@ test("reutiliza cache database válido sem update ou fetch", async () => {
     database.apiCalls,
     0
   )
+})
+
+test("cache-only blocks teams fetch when club ID is unavailable", async () => {
+  await assert.rejects(
+    resolveApiFootballClub({
+      clubId: "club-1",
+      save: true,
+      cacheOnly: true,
+    }),
+    isApiFootballCacheOnlyMissError
+  )
+
+  assert.equal(database.apiCalls, 0)
+  assert.equal(database.updates.length, 0)
+})
+
+test("persisted club ID works in cache-only mode without fetch", async () => {
+  database.club.apiFootballId = 541
+
+  const result = await resolveApiFootballClub({
+    clubId: "club-1",
+    save: true,
+    cacheOnly: true,
+  })
+
+  assert.equal(result?.apiFootballId, 541)
+  assert.equal(result?.source, "database")
+  assert.equal(database.apiCalls, 0)
+  assert.equal(database.updates.length, 0)
+})
+
+test("runtime club cache works in cache-only mode without persistence", async () => {
+  const first =
+    await resolveApiFootballClub({
+      clubId: "club-1",
+      save: false,
+    })
+
+  assert.equal(first?.source, "api-football")
+  assert.equal(database.apiCalls, 1)
+  assert.equal(database.updates.length, 0)
+
+  const second =
+    await resolveApiFootballClub({
+      clubId: "club-1",
+      save: true,
+      cacheOnly: true,
+    })
+
+  assert.equal(second?.apiFootballId, 541)
+  assert.equal(database.apiCalls, 1)
+  assert.equal(database.updates.length, 0)
 })
