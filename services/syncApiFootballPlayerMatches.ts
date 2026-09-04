@@ -58,6 +58,7 @@ export type SyncApiFootballPlayerMatchesResult = {
 
   rateLimited: boolean
   cacheOnlyMiss: boolean
+  failedFast: boolean
 
   status:
     | "completed"
@@ -238,11 +239,13 @@ export async function syncApiFootballPlayerMatches({
   season = DEFAULT_SEASON,
   playerIds,
   cacheOnly = false,
+  failFast = false,
 }: {
   batchSize?: number
   season?: number
   playerIds?: readonly string[]
   cacheOnly?: boolean
+  failFast?: boolean
 } = {}): Promise<
   SyncApiFootballPlayerMatchesResult
 > {
@@ -358,12 +361,16 @@ export async function syncApiFootballPlayerMatches({
   let cacheOnlyMissError:
     | string
     | null = null
+  let failFastError:
+    | string
+    | null = null
 
   const batchResult =
     await runApiFootballPlayerMatchBatchCore({
       players,
       previousOffset:
         syncState.offset,
+      failFast,
       dependencies: {
         resolvePlayer:
           async (player) => {
@@ -641,6 +648,8 @@ export async function syncApiFootballPlayerMatches({
           },
         onError:
           (error) => {
+            failFastError =
+              error.message
             console.error(
               "ERRO:",
               error.message
@@ -667,6 +676,7 @@ export async function syncApiFootballPlayerMatches({
     errors,
     rateLimited,
     cacheOnlyMiss,
+    failedFast,
     nextOffset,
   } = batchResult
 
@@ -745,7 +755,8 @@ export async function syncApiFootballPlayerMatches({
 
   if (
     rateLimited ||
-    cacheOnlyMiss
+    cacheOnlyMiss ||
+    failedFast
   ) {
     await markSyncPaused({
       offset:
@@ -755,7 +766,10 @@ export async function syncApiFootballPlayerMatches({
         cacheOnlyMiss
           ? cacheOnlyMissError ??
             "API-Football cache-only miss"
-          : "API-Football rate limit HTTP 429",
+          : rateLimited
+            ? "API-Football rate limit HTTP 429"
+            : failFastError ??
+              "API-Football player matcher interrompido por fail-fast",
     })
   } else {
     await markSyncSuccess({
@@ -794,9 +808,12 @@ export async function syncApiFootballPlayerMatches({
 
     cacheOnlyMiss,
 
+    failedFast,
+
     status:
       rateLimited ||
-      cacheOnlyMiss
+      cacheOnlyMiss ||
+      failedFast
         ? "paused"
         : completed
           ? "completed"

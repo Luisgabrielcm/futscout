@@ -101,6 +101,7 @@ export type ApiFootballPlayerMatchBatchCoreResult = {
   errors: number
   rateLimited: boolean
   cacheOnlyMiss: boolean
+  failedFast: boolean
   status: "paused" | "idle"
   decision: "paused" | "continue"
   nextOffset: number
@@ -138,10 +139,12 @@ function isApiFootballIdConflict(
 export async function runApiFootballPlayerMatchBatchCore({
   players,
   previousOffset,
+  failFast = false,
   dependencies,
 }: {
   players: ApiFootballPlayerMatchBatchPlayer[]
   previousOffset: number
+  failFast?: boolean
   dependencies: BatchDependencies
 }): Promise<ApiFootballPlayerMatchBatchCoreResult> {
   let processed = 0
@@ -154,6 +157,7 @@ export async function runApiFootballPlayerMatchBatchCore({
   let errors = 0
   let rateLimited = false
   let cacheOnlyMiss = false
+  let failedFast = false
 
   for (const player of players) {
     dependencies.onPlayerStart?.(
@@ -283,6 +287,11 @@ export async function runApiFootballPlayerMatchBatchCore({
       }
 
       processed++
+
+      if (failFast) {
+        failedFast = true
+        break
+      }
     }
   }
 
@@ -297,14 +306,17 @@ export async function runApiFootballPlayerMatchBatchCore({
     errors,
     rateLimited,
     cacheOnlyMiss,
+    failedFast,
     status:
       rateLimited ||
-      cacheOnlyMiss
+      cacheOnlyMiss ||
+      failedFast
         ? "paused"
         : "idle",
     decision:
       rateLimited ||
-      cacheOnlyMiss
+      cacheOnlyMiss ||
+      failedFast
         ? "paused"
         : "continue",
     nextOffset:

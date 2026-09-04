@@ -144,6 +144,7 @@ test("rate limit on the first player pauses without attempts or a next player", 
   const result = await runApiFootballPlayerMatchBatchCore({
     players,
     previousOffset: 12,
+    failFast: true,
     dependencies: harness.dependencies,
   })
 
@@ -156,6 +157,7 @@ test("rate limit on the first player pauses without attempts or a next player", 
   assert.equal(result.processed, 0)
   assert.equal(result.saved, 0)
   assert.equal(result.rateLimited, true)
+  assert.equal(result.failedFast, false)
   assert.equal(result.status, "paused")
   assert.equal(result.decision, "paused")
   assert.equal(result.nextOffset, 12)
@@ -242,6 +244,98 @@ test("a generic error records attempt and SyncError, then continues", async () =
   assert.equal(result.nextOffset, 4)
 })
 
+test("failFast omitted preserves generic-error continuation through the batch", async () => {
+  const harness = createHarness({
+    resolve: async (player) => {
+      if (player.id === "player-a") {
+        throw new Error("temporary parsing failure")
+      }
+      return notResolvedResolution
+    },
+  })
+
+  const result = await runApiFootballPlayerMatchBatchCore({
+    players,
+    previousOffset: 4,
+    dependencies: harness.dependencies,
+  })
+
+  assert.deepEqual(harness.calls.resolvedPlayers, [
+    "player-a",
+    "player-b",
+    "player-c",
+  ])
+  assert.deepEqual(harness.calls.errors, ["player-a"])
+  assert.deepEqual(harness.calls.syncErrors, ["player-a"])
+  assert.deepEqual(harness.calls.notResolved, ["player-b", "player-c"])
+  assert.equal(result.processed, 3)
+  assert.equal(result.saved, 0)
+  assert.equal(result.errors, 1)
+  assert.equal(result.notResolved, 2)
+  assert.equal(result.failedFast, false)
+  assert.equal(result.status, "idle")
+  assert.equal(result.decision, "continue")
+  assert.equal(result.nextOffset, 4)
+})
+
+test("failFast stops after recording a generic error on the first player", async () => {
+  const harness = createHarness({
+    resolve: async () => {
+      throw new Error("temporary parsing failure")
+    },
+  })
+
+  const result = await runApiFootballPlayerMatchBatchCore({
+    players,
+    previousOffset: 4,
+    failFast: true,
+    dependencies: harness.dependencies,
+  })
+
+  assert.deepEqual(harness.calls.resolvedPlayers, ["player-a"])
+  assert.deepEqual(harness.calls.errors, ["player-a"])
+  assert.deepEqual(harness.calls.syncErrors, ["player-a"])
+  assert.deepEqual(harness.calls.matched, [])
+  assert.equal(result.processed, 1)
+  assert.equal(result.saved, 0)
+  assert.equal(result.errors, 1)
+  assert.equal(result.failedFast, true)
+  assert.equal(result.status, "paused")
+  assert.equal(result.decision, "paused")
+  assert.equal(result.nextOffset, 4)
+})
+
+test("failFast preserves a saved player before a generic error", async () => {
+  const harness = createHarness({
+    resolve: async (player) => {
+      if (player.id === "player-a") return savedResolution
+      if (player.id === "player-b") {
+        throw new Error("temporary parsing failure")
+      }
+      return notResolvedResolution
+    },
+  })
+
+  const result = await runApiFootballPlayerMatchBatchCore({
+    players,
+    previousOffset: 4,
+    failFast: true,
+    dependencies: harness.dependencies,
+  })
+
+  assert.deepEqual(harness.calls.resolvedPlayers, ["player-a", "player-b"])
+  assert.deepEqual(harness.calls.matched, ["player-a"])
+  assert.deepEqual(harness.calls.errors, ["player-b"])
+  assert.deepEqual(harness.calls.syncErrors, ["player-b"])
+  assert.equal(result.processed, 2)
+  assert.equal(result.saved, 1)
+  assert.equal(result.errors, 1)
+  assert.equal(result.failedFast, true)
+  assert.equal(result.status, "paused")
+  assert.equal(result.decision, "paused")
+  assert.equal(result.nextOffset, 5)
+})
+
 test("an apiFootballId conflict records conflict and continues", async () => {
   const harness = createHarness({
     resolve: async (player) => {
@@ -270,6 +364,73 @@ test("an apiFootballId conflict records conflict and continues", async () => {
   assert.equal(result.saved, 1)
   assert.equal(result.rateLimited, false)
   assert.equal(result.nextOffset, 8)
+})
+
+test("failFast stops after recording a conflict on the first player", async () => {
+  const harness = createHarness({
+    resolve: async () => {
+      throw new Error(
+        "Conflito de apiFootballId=101: já pertence a outro jogador."
+      )
+    },
+  })
+
+  const result = await runApiFootballPlayerMatchBatchCore({
+    players,
+    previousOffset: 7,
+    failFast: true,
+    dependencies: harness.dependencies,
+  })
+
+  assert.deepEqual(harness.calls.resolvedPlayers, ["player-a"])
+  assert.deepEqual(harness.calls.conflicts, ["player-a"])
+  assert.deepEqual(harness.calls.errors, [])
+  assert.deepEqual(harness.calls.syncErrors, ["player-a"])
+  assert.deepEqual(harness.calls.matched, [])
+  assert.equal(result.processed, 1)
+  assert.equal(result.saved, 0)
+  assert.equal(result.conflicts, 1)
+  assert.equal(result.failedFast, true)
+  assert.equal(result.status, "paused")
+  assert.equal(result.decision, "paused")
+  assert.equal(result.nextOffset, 7)
+})
+
+test("failFast false preserves conflict continuation through the batch", async () => {
+  const harness = createHarness({
+    resolve: async (player) => {
+      if (player.id === "player-a") {
+        throw new Error(
+          "Conflito de apiFootballId=101: já pertence a outro jogador."
+        )
+      }
+      return notResolvedResolution
+    },
+  })
+
+  const result = await runApiFootballPlayerMatchBatchCore({
+    players,
+    previousOffset: 7,
+    failFast: false,
+    dependencies: harness.dependencies,
+  })
+
+  assert.deepEqual(harness.calls.resolvedPlayers, [
+    "player-a",
+    "player-b",
+    "player-c",
+  ])
+  assert.deepEqual(harness.calls.conflicts, ["player-a"])
+  assert.deepEqual(harness.calls.syncErrors, ["player-a"])
+  assert.deepEqual(harness.calls.notResolved, ["player-b", "player-c"])
+  assert.equal(result.processed, 3)
+  assert.equal(result.saved, 0)
+  assert.equal(result.conflicts, 1)
+  assert.equal(result.notResolved, 2)
+  assert.equal(result.failedFast, false)
+  assert.equal(result.status, "idle")
+  assert.equal(result.decision, "continue")
+  assert.equal(result.nextOffset, 7)
 })
 
 test("rate limit after multiple results preserves earlier counters and stops later players", async () => {
@@ -396,6 +557,7 @@ test("cache-only miss pauses without attempt or SyncError", async () => {
   const result = await runApiFootballPlayerMatchBatchCore({
     players,
     previousOffset: 12,
+    failFast: true,
     dependencies: harness.dependencies,
   })
 
@@ -411,6 +573,7 @@ test("cache-only miss pauses without attempt or SyncError", async () => {
   assert.equal(result.saved, 0)
   assert.equal(result.rateLimited, false)
   assert.equal(result.cacheOnlyMiss, true)
+  assert.equal(result.failedFast, false)
   assert.equal(result.status, "paused")
   assert.equal(result.nextOffset, 12)
 })
