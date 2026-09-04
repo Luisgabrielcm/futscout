@@ -204,6 +204,77 @@ test("canonicaliza o alias contextual Paris SG como match forte", () => {
   )
 })
 
+test("canonicaliza TSG Hoffenheim e 1899 Hoffenheim para a mesma identidade", () => {
+  assert.equal(
+    normalizeClubName(
+      "TSG Hoffenheim"
+    ),
+    "hoffenheim"
+  )
+  assert.equal(
+    normalizeClubName(
+      "1899 Hoffenheim"
+    ),
+    "hoffenheim"
+  )
+})
+
+test("atribui score forte para Hoffenheim nos dois sentidos", () => {
+  assert.equal(
+    calculateClubScore(
+      "TSG Hoffenheim",
+      "1899 Hoffenheim"
+    ),
+    100
+  )
+  assert.equal(
+    calculateClubScore(
+      "1899 Hoffenheim",
+      "TSG Hoffenheim"
+    ),
+    100
+  )
+})
+
+test("seleciona o candidato real 1899 Hoffenheim para TSG Hoffenheim", () => {
+  const ranked =
+    rankApiFootballClubCandidates(
+      "TSG Hoffenheim",
+      [
+        {
+          team: {
+            id: 167,
+            name: "1899 Hoffenheim",
+            country: "Germany",
+          },
+        },
+      ]
+    )
+
+  assert.equal(
+    selectBestApiFootballClubCandidate(
+      ranked
+    )?.item.team?.id,
+    167
+  )
+})
+
+test("não torna variantes women, youth ou reserve de Hoffenheim elegíveis", () => {
+  for (const candidate of [
+    "Hoffenheim U19",
+    "Hoffenheim II",
+    "1899 Hoffenheim W",
+  ]) {
+    assert.equal(
+      calculateClubScore(
+        "TSG Hoffenheim",
+        candidate
+      ),
+      0
+    )
+  }
+})
+
 test("não expande SG isoladamente", () => {
   assert.equal(
     calculateClubScore(

@@ -25,6 +25,10 @@ function canonicalizeCompoundClubName(
     case "paris sg":
       return "paris saint germain"
 
+    case "tsg hoffenheim":
+    case "1899 hoffenheim":
+      return "hoffenheim"
+
     default:
       return normalizedName
   }
