@@ -156,7 +156,7 @@ const validPositions:
    IDADE
 ======================================== */
 
-function calculateAge(
+export function calculateAge(
   dateOfBirth:
     | Date
     | null

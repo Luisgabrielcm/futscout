@@ -3590,3 +3590,45 @@ body {
   .directoryHeader { align-items: flex-start; flex-direction: column; gap: 16px; }
   .directoryFilters .paginationButton { flex: 1 1 auto; }
 }
+
+/* Local favorites and two-player comparison. */
+.playerCard > .playerCardLink { display: block; color: inherit; }
+.playerActions { margin-bottom: 16px; font-size: 12px; overflow-wrap: anywhere; }
+.playerActionButtons, .comparisonSelection { display: flex; flex-wrap: wrap; gap: 8px; }
+.playerActionButtons button, .comparisonSelection button {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-light);
+  color: var(--beige-light);
+  font: inherit;
+  cursor: pointer;
+}
+.playerActions button[aria-pressed="true"] { border-color: var(--green); color: var(--green); }
+.playerActions button:disabled { opacity: .6; cursor: default; }
+.playerActions a { display: inline-block; margin-top: 8px; color: var(--beige); }
+.playerActionFeedback { display: block; margin-top: 6px; color: var(--gray); }
+.playerActions button:focus-visible, .playerActions a:focus-visible, .playerCardLink:focus-visible {
+  outline: 2px solid var(--green); outline-offset: 3px;
+}
+.comparisonSelection { align-items: center; margin: 0 0 24px; padding: 16px; border: 1px solid var(--border); border-radius: 16px; }
+.comparisonSelection a { color: var(--beige); padding: 8px; }
+.comparisonSingle { max-width: 360px; }
+.comparisonNotice { color: var(--beige-light); margin-bottom: 20px; line-height: 1.6; }
+.comparisonTable { width: 100%; table-layout: fixed; border-collapse: collapse; background: var(--surface); }
+.comparisonTable caption { text-align: left; color: var(--gray); padding: 12px 0; font-size: 13px; }
+.comparisonTable th, .comparisonTable td { padding: 16px; border: 1px solid var(--border); overflow-wrap: anywhere; text-align: center; }
+.comparisonTable th:first-child { width: 26%; text-align: left; }
+.comparisonTable thead th { vertical-align: top; }
+.comparisonTable thead a { display: block; margin-top: 8px; color: var(--beige-light); }
+.comparisonTable thead th > span:not(.comparisonPhoto) { display: block; margin-top: 6px; font-weight: 400; color: var(--gray); }
+.comparisonPhoto { width: 72px; height: 72px; object-fit: contain; display: inline-flex; }
+.comparisonHigher { color: var(--green); font-weight: 800; background: rgba(34, 197, 94, .07); }
+.comparisonActionGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 24px; }
+.comparisonActionGrid h2 { font-size: 18px; margin-bottom: 12px; }
+@media (max-width: 600px) {
+  .comparisonTable th, .comparisonTable td { padding: 10px 6px; font-size: 12px; }
+  .comparisonPhoto { width: 48px; height: 48px; }
+  .comparisonActionGrid { grid-template-columns: minmax(0, 1fr); }
+}

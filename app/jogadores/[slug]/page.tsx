@@ -11,6 +11,7 @@ import PlayerPlayStyles from "../../components/PlayerPlayStyles"
 import PlayerPositions from "../../components/PlayerPositions"
 import PlayerQuickProfile from "../../components/PlayerQuickProfile"
 import ScoutAnalysis from "../../components/ScoutAnalysis"
+import PlayerActions from "../../components/PlayerActions"
 
 type PlayerPageProps = {
   params: Promise<{
@@ -44,6 +45,7 @@ export default async function PlayerPage({
           <h1>
             {profile.name}
           </h1>
+          <PlayerActions slug={slug} name={profile.name} />
 
           <p>
             Perfil incompleto: os atributos deste jogador ainda não estão disponíveis.
@@ -69,6 +71,7 @@ export default async function PlayerPage({
       <PlayerHeader
         player={player}
       />
+      <PlayerActions slug={player.slug} name={player.name} />
 
       <PlayerQuickProfile
         player={player}

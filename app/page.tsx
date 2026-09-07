@@ -55,13 +55,13 @@ export default async function Home() {
             📋 Elencos
            <small>Em breve</small></span>
 
-          <span className="menuUnavailable" aria-disabled="true">
+          <Link href="/comparar">
             ⚖️ Comparar
-           <small>Em breve</small></span>
+          </Link>
 
-          <span className="menuUnavailable" aria-disabled="true">
+          <Link href="/favoritos">
             ☆ Favoritos
-           <small>Em breve</small></span>
+          </Link>
         </nav>
       </aside>
 

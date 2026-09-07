@@ -31,6 +31,7 @@ function detailPage(profile: PlayerProfile | null) {
     "../../components/ScoutAnalysis": marker("outfield-analysis"),
     "../../components/PlayerAttributes": marker("outfield-attributes"),
     "../../components/PlayerPlayStyles": marker("playstyles"),
+    "../../components/PlayerActions": () => null,
   })
   return { render: () => pageModule.default({ params: Promise.resolve({ slug: "fixture" }) }), notFoundSignal }
 }
@@ -65,11 +66,12 @@ test("outfield player keeps the existing analysis and attribute sections", async
   assert.match(html, /outfield-attributes/)
 })
 
-test("card has no false favorite, stable market trend or duplicated current OVR", () => {
+test("card keeps market absences honest and actions outside its main link", () => {
   type Props = Parameters<typeof import("../../../app/components/PlayerCard").default>[0]
   const { default: Card } = loadCatalogModule<{ default: ComponentType<Props> }>(
     "app/components/PlayerCard.tsx", {
       "next/link": link, "./PlayerImage": image,
+      "./PlayerActions": () => createElement("button", { type: "button" }, "Favoritar"),
       "../../utils/formatCurrency": { formatCurrency },
     },
   )
@@ -78,7 +80,9 @@ test("card has no false favorite, stable market trend or duplicated current OVR"
   const props = { ...profile.player, club: null }
   const html = renderToStaticMarkup(createElement(Card, props))
   assert.match(html, /OVR EA/)
-  assert.doesNotMatch(html, /Favoritar|<button|TENDÊNCIA|Estável|OVR ATUAL|OVR FUTSCOUT/)
+  assert.doesNotMatch(html, /TENDÊNCIA|Estável|OVR ATUAL|OVR FUTSCOUT/)
+  assert.match(html, /<button[^>]*>Favoritar<\/button><a/)
+  assert.doesNotMatch(html, /<a\b[^>]*>[^]*<button/)
   const dynamic = renderToStaticMarkup(createElement(Card, { ...props, dynamicOverall: 82 }))
   assert.match(dynamic, /OVR FUTSCOUT/)
 })
@@ -112,6 +116,8 @@ test("Home has no placeholder links or unsupported coverage claims", async () =>
   const html = renderToStaticMarkup(await Home())
   assert.doesNotMatch(html, /href="#"|70\.000\+|900\+|60\+|24H|compare atletas/)
   assert.match(html, /href="\/jogadores"/)
+  assert.match(html, /href="\/favoritos"/)
+  assert.match(html, /href="\/comparar"/)
   assert.match(html, /Em breve/)
 })
 

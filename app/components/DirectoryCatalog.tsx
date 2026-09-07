@@ -10,6 +10,8 @@ export function DirectoryNav() {
     <Link href="/jogadores">Jogadores</Link>
     <Link href="/clubes">Clubes</Link>
     <Link href="/ligas">Ligas</Link>
+    <Link href="/comparar">Comparar</Link>
+    <Link href="/favoritos">Favoritos</Link>
   </nav>
 }
 

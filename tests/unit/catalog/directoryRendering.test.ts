@@ -17,6 +17,7 @@ const { default: Image } = loadCatalogModule<typeof import("../../../app/compone
 const { default: Card } = loadCatalogModule<typeof import("../../../app/components/PlayerCard")>(
   "app/components/PlayerCard.tsx", {
     "next/link": link, "./PlayerImage": Image, "../../utils/formatCurrency": { formatCurrency },
+    "./PlayerActions": () => null,
   },
 )
 const components = loadCatalogModule<typeof import("../../../app/components/DirectoryCatalog")>(

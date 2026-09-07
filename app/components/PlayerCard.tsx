@@ -5,6 +5,7 @@ import {
 } from "../../utils/formatCurrency"
 
 import PlayerImage from "./PlayerImage"
+import PlayerActions from "./PlayerActions"
 
 type PlayerCardProps = {
   name: string
@@ -130,13 +131,12 @@ export default function PlayerCard({
   ====================================== */
 
   return (
-    <Link
+    <article className="playerCard">
+      <PlayerActions slug={slug} name={name} />
+      <Link
       href={`/jogadores/${slug}`}
       className="playerCardLink"
     >
-      <article
-        className="playerCard"
-      >
         {/* ==================================
             TOPO
         ================================== */}
@@ -334,7 +334,7 @@ export default function PlayerCard({
             </strong>
           </div>}
         </div>
-      </article>
-    </Link>
+      </Link>
+    </article>
   )
 }
