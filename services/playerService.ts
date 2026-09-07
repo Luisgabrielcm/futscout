@@ -85,7 +85,8 @@ function getBirthDateForMaxAge(
 ======================================== */
 
 export async function getPlayers(
-  input: GetPlayersParams = {}
+  input: GetPlayersParams = {},
+  scope?: { clubId: string },
 ): Promise<PlayersPage> {
   const params = parsePlayerCatalogParams(input)
   const { page, pageSize } = params
@@ -95,7 +96,7 @@ export async function getPlayers(
     pageSize
 
   const where:
-    Prisma.PlayerWhereInput = {}
+    Prisma.PlayerWhereInput = scope ? { clubId: scope.clubId } : {}
 
   /* ========================================
      SEARCH

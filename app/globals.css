@@ -3476,3 +3476,117 @@ body {
     min-height: auto;
   }
 }
+
+/* Public club/league catalogs: bounded grids and native GET filters. */
+.directoryNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-bottom: 32px;
+  color: var(--beige);
+}
+
+.directoryPage a:focus-visible,
+.directoryPage button:focus-visible,
+.directoryPage input:focus-visible,
+.directoryPage select:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 4px;
+}
+
+.directoryFilters {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.directoryFilters label {
+  display: grid;
+  gap: 8px;
+  flex: 1 1 220px;
+  min-width: 0;
+  color: var(--beige-light);
+}
+
+.directoryFilters input,
+.directoryFilters select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--white);
+  font: inherit;
+}
+
+.directoryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.directoryCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+
+.directoryCard:hover { border-color: var(--green); }
+.directoryCard h3 { font-size: 20px; color: var(--white); }
+.directoryCard p { color: var(--gray); }
+.directoryCard > span:last-child { color: var(--beige); font-size: 14px; }
+
+.directoryBadge {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.directoryBadgeFallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: var(--surface-light);
+  color: var(--beige);
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.directoryHeader {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 24px;
+}
+.directoryHeader > div { min-width: 0; }
+.directoryPage h1, .directoryPage h2 { overflow-wrap: anywhere; }
+.directoryHeader a { color: var(--beige); }
+.directorySection { margin-top: 36px; scroll-margin-top: 24px; }
+.directorySection > h2 { margin-bottom: 16px; color: var(--beige-light); }
+.directorySection > p { margin-bottom: 24px; color: var(--gray); }
+.directoryPage .playersPagination { flex-wrap: wrap; }
+
+@media (max-width: 1100px) {
+  .directoryGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 800px) {
+  .directoryGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 550px) {
+  .directoryGrid { grid-template-columns: minmax(0, 1fr); }
+  .directoryHeader { align-items: flex-start; flex-direction: column; gap: 16px; }
+  .directoryFilters .paginationButton { flex: 1 1 auto; }
+}

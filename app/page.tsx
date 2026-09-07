@@ -39,13 +39,13 @@ export default async function Home() {
             ⚽ Jogadores
           </Link>
 
-          <span className="menuUnavailable" aria-disabled="true">
+          <Link href="/clubes">
             🛡️ Clubes
-           <small>Em breve</small></span>
+          </Link>
 
-          <span className="menuUnavailable" aria-disabled="true">
+          <Link href="/ligas">
             🏆 Ligas
-           <small>Em breve</small></span>
+          </Link>
 
           <span className="menuUnavailable" aria-disabled="true">
             🧠 Scout IA
