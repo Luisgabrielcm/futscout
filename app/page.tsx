@@ -39,29 +39,29 @@ export default async function Home() {
             ⚽ Jogadores
           </Link>
 
-          <a href="#">
+          <span className="menuUnavailable" aria-disabled="true">
             🛡️ Clubes
-          </a>
+           <small>Em breve</small></span>
 
-          <a href="#">
+          <span className="menuUnavailable" aria-disabled="true">
             🏆 Ligas
-          </a>
+           <small>Em breve</small></span>
 
-          <a href="#">
+          <span className="menuUnavailable" aria-disabled="true">
             🧠 Scout IA
-          </a>
+           <small>Em breve</small></span>
 
-          <a href="#">
+          <span className="menuUnavailable" aria-disabled="true">
             📋 Elencos
-          </a>
+           <small>Em breve</small></span>
 
-          <a href="#">
+          <span className="menuUnavailable" aria-disabled="true">
             ⚖️ Comparar
-          </a>
+           <small>Em breve</small></span>
 
-          <a href="#">
+          <span className="menuUnavailable" aria-disabled="true">
             ☆ Favoritos
-          </a>
+           <small>Em breve</small></span>
         </nav>
       </aside>
 
@@ -85,8 +85,8 @@ export default async function Home() {
 
             <p>
               Encontre os melhores jogadores,
-              analise atributos, compare atletas
-              e monte elencos vencedores.
+              explore atributos e posições para
+              planejar seu modo carreira.
             </p>
 
             <HomeSearch />
@@ -107,24 +107,24 @@ export default async function Home() {
 
         <section className="stats">
           <div className="statCard">
-            <strong>70.000+</strong>
-            <span>Jogadores</span>
+            <strong>Jogadores</strong>
+            <span>Explore o catálogo</span>
           </div>
 
           <div className="statCard">
-            <strong>900+</strong>
-            <span>Clubes</span>
+            <strong>Filtros</strong>
+            <span>Encontre perfis para seu elenco</span>
           </div>
 
           <div className="statCard">
-            <strong>60+</strong>
-            <span>Ligas</span>
+            <strong>Atributos</strong>
+            <span>Conheça as características do jogador</span>
           </div>
 
           <div className="statCard">
-            <strong>24H</strong>
+            <strong>Career Mode</strong>
             <span>
-              Dados atualizados
+              Planeje suas contratações
             </span>
           </div>
         </section>

@@ -32,6 +32,37 @@ type ApiFootballResponse<T> = {
   response: T
 }
 
+// Types describe the fields already consumed below; no runtime behavior changes.
+type ApiTeam = { id?: number | null; name?: string | null; logo?: string | null }
+type ApiSeasonPlayer = {
+  statistics?: {
+    team?: ApiTeam | null
+    league?: ApiTeam & { country?: string | null; flag?: string | null } | null
+    games?: { position?: string | null; appearences?: number | null; lineups?: number | null; minutes?: number | null; rating?: string | number | null } | null
+    goals?: { total?: number | null; assists?: number | null } | null
+    shots?: { total?: number | null; on?: number | null } | null
+    passes?: { total?: number | null; key?: number | null; accuracy?: number | null } | null
+    tackles?: { total?: number | null; interceptions?: number | null } | null
+    duels?: { total?: number | null; won?: number | null } | null
+    dribbles?: { attempts?: number | null; success?: number | null } | null
+    fouls?: { drawn?: number | null; committed?: number | null } | null
+    cards?: { yellow?: number | null; red?: number | null } | null
+  }[] | null
+}
+type ApiTransferGroup = {
+  transfers?: {
+    date?: string | null
+    type?: string | null
+    teams?: { out?: ApiTeam | null; in?: ApiTeam | null } | null
+  }[] | null
+}
+type ApiTrophy = {
+  country?: string | null
+  league?: string | null
+  season?: string | number | null
+  place?: string | null
+}
+
 export type SyncApiFootballPlayerParams = {
   slug: string
   apiFootballId: number
@@ -94,7 +125,7 @@ async function syncSeasonStats({
   season: number
 }) {
   const response =
-    await apiFetch<any[]>(
+    await apiFetch<ApiSeasonPlayer[]>(
       `/players?id=${apiFootballId}&season=${season}`
     )
 
@@ -300,7 +331,7 @@ async function syncTransfers({
   apiFootballId: number
 }) {
   const response =
-    await apiFetch<any[]>(
+    await apiFetch<ApiTransferGroup[]>(
       `/transfers?player=${apiFootballId}`
     )
 
@@ -426,7 +457,7 @@ async function syncTrophies({
   apiFootballId: number
 }) {
   const response =
-    await apiFetch<any[]>(
+    await apiFetch<ApiTrophy[]>(
       `/trophies?player=${apiFootballId}`
     )
 

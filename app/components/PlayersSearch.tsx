@@ -15,6 +15,7 @@ import type {
 } from "../../types/player"
 
 import PlayerCard from "./PlayerCard"
+import { parsePlayerCatalogParams, playerCatalogQuery, removePlayerCatalogFilter } from "../../lib/playerCatalogParams"
 
 /* ========================================
    LIGA
@@ -246,9 +247,6 @@ export default function PlayersSearch({
   function applyFilters(
     overrides: FilterOverrides = {}
   ) {
-    const query =
-      new URLSearchParams()
-
     const values = {
       search:
         overrides.search ??
@@ -307,30 +305,24 @@ export default function PlayersSearch({
         sortBy,
     }
 
-    for (
-      const [
-        key,
-        rawValue,
-      ]
-      of Object.entries(
-        values
-      )
-    ) {
-      const value =
-        rawValue.trim()
-
-      if (value) {
-        query.set(
-          key,
-          value
-        )
-      }
-    }
-
-    const href =
-      query.toString()
-        ? `${pathname}?${query.toString()}`
-        : pathname
+    const applied = parsePlayerCatalogParams(values)
+    // Also reset drafts when normalization results in the current URL (no remount).
+    setSearch(applied.search ?? "")
+    setPosition(applied.position ?? "")
+    setLeague(applied.league ?? "")
+    setMaxAge(String(applied.maxAge ?? ""))
+    setMinOverall(String(applied.minOverall ?? ""))
+    setMinPotential(String(applied.minPotential ?? ""))
+    setMaxValue(String(applied.maxValue ?? ""))
+    setMinPace(String(applied.minPace ?? ""))
+    setMinShooting(String(applied.minShooting ?? ""))
+    setMinPassing(String(applied.minPassing ?? ""))
+    setMinDribbling(String(applied.minDribbling ?? ""))
+    setMinDefending(String(applied.minDefending ?? ""))
+    setMinPhysical(String(applied.minPhysical ?? ""))
+    setSortBy(applied.sort)
+    const query = playerCatalogQuery(applied)
+    const href = query ? `${pathname}?${query}` : pathname
 
     startTransition(
       () => {
@@ -402,68 +394,23 @@ export default function PlayersSearch({
     key:
       keyof FilterOverrides
   ) {
-    switch (key) {
-      case "search":
-        setSearch("")
-        break
-
-      case "position":
-        setPosition("")
-        break
-
-      case "league":
-        setLeague("")
-        break
-
-      case "maxAge":
-        setMaxAge("")
-        break
-
-      case "minOverall":
-        setMinOverall("")
-        break
-
-      case "minPotential":
-        setMinPotential("")
-        break
-
-      case "maxValue":
-        setMaxValue("")
-        break
-
-      case "minPace":
-        setMinPace("")
-        break
-
-      case "minShooting":
-        setMinShooting("")
-        break
-
-      case "minPassing":
-        setMinPassing("")
-        break
-
-      case "minDribbling":
-        setMinDribbling("")
-        break
-
-      case "minDefending":
-        setMinDefending("")
-        break
-
-      case "minPhysical":
-        setMinPhysical("")
-        break
-
-      case "sort":
-        setSortBy("")
-        break
-    }
-
-    applyFilters({
-      [key]:
-        "",
-    })
+    const query = removePlayerCatalogFilter({
+      search: initialSearch,
+      position: initialPosition,
+      league: initialLeague,
+      maxAge: initialMaxAge,
+      minOverall: initialMinOverall,
+      minPotential: initialMinPotential,
+      maxValue: initialMaxValue,
+      minPace: initialMinPace,
+      minShooting: initialMinShooting,
+      minPassing: initialMinPassing,
+      minDribbling: initialMinDribbling,
+      minDefending: initialMinDefending,
+      minPhysical: initialMinPhysical,
+      sort: initialSort,
+    }, key)
+    startTransition(() => router.push(query ? `${pathname}?${query}` : pathname))
   }
 
   return (
@@ -477,6 +424,7 @@ export default function PlayersSearch({
       >
         <input
           type="text"
+          aria-label="Pesquisar por jogador, clube ou nacionalidade"
           placeholder="Pesquisar por jogador, clube ou nacionalidade..."
           value={
             search
@@ -888,7 +836,7 @@ export default function PlayersSearch({
       <div
         className="activeFilters"
       >
-        {search && (
+        {initialSearch && (
           <button
             type="button"
             onClick={() =>
@@ -897,11 +845,11 @@ export default function PlayersSearch({
               )
             }
           >
-            Busca: {search} ×
+            Busca: {initialSearch} ×
           </button>
         )}
 
-        {position && (
+        {initialPosition && (
           <button
             type="button"
             onClick={() =>
@@ -910,11 +858,11 @@ export default function PlayersSearch({
               )
             }
           >
-            {position} ×
+            {initialPosition} ×
           </button>
         )}
 
-        {league && (
+        {initialLeague && (
           <button
             type="button"
             onClick={() =>
@@ -927,15 +875,15 @@ export default function PlayersSearch({
               leagues.find(
                 (item) =>
                   item.slug ===
-                  league
+                  initialLeague
               )?.name ??
-              league
+              initialLeague
             }{" "}
             ×
           </button>
         )}
 
-        {maxAge && (
+        {initialMaxAge && (
           <button
             type="button"
             onClick={() =>
@@ -944,11 +892,11 @@ export default function PlayersSearch({
               )
             }
           >
-            Idade ≤ {maxAge} ×
+            Idade ≤ {initialMaxAge} ×
           </button>
         )}
 
-        {minOverall && (
+        {initialMinOverall && (
           <button
             type="button"
             onClick={() =>
@@ -957,11 +905,11 @@ export default function PlayersSearch({
               )
             }
           >
-            OVR ≥ {minOverall} ×
+            OVR ≥ {initialMinOverall} ×
           </button>
         )}
 
-        {minPotential && (
+        {initialMinPotential && (
           <button
             type="button"
             onClick={() =>
@@ -971,11 +919,11 @@ export default function PlayersSearch({
             }
           >
             Potencial ≥{" "}
-            {minPotential} ×
+            {initialMinPotential} ×
           </button>
         )}
 
-        {maxValue && (
+        {initialMaxValue && (
           <button
             type="button"
             onClick={() =>
@@ -986,7 +934,7 @@ export default function PlayersSearch({
           >
             Valor ≤ €
             {Number(
-              maxValue
+              initialMaxValue
             ).toLocaleString(
               "pt-BR"
             )}{" "}
@@ -994,7 +942,7 @@ export default function PlayersSearch({
           </button>
         )}
 
-        {minPace && (
+        {initialMinPace && (
           <button
             type="button"
             onClick={() =>
@@ -1003,11 +951,11 @@ export default function PlayersSearch({
               )
             }
           >
-            Ritmo ≥ {minPace} ×
+            Ritmo ≥ {initialMinPace} ×
           </button>
         )}
 
-        {minShooting && (
+        {initialMinShooting && (
           <button
             type="button"
             onClick={() =>
@@ -1017,11 +965,11 @@ export default function PlayersSearch({
             }
           >
             Finalização ≥{" "}
-            {minShooting} ×
+            {initialMinShooting} ×
           </button>
         )}
 
-        {minPassing && (
+        {initialMinPassing && (
           <button
             type="button"
             onClick={() =>
@@ -1030,11 +978,11 @@ export default function PlayersSearch({
               )
             }
           >
-            Passe ≥ {minPassing} ×
+            Passe ≥ {initialMinPassing} ×
           </button>
         )}
 
-        {minDribbling && (
+        {initialMinDribbling && (
           <button
             type="button"
             onClick={() =>
@@ -1044,11 +992,11 @@ export default function PlayersSearch({
             }
           >
             Drible ≥{" "}
-            {minDribbling} ×
+            {initialMinDribbling} ×
           </button>
         )}
 
-        {minDefending && (
+        {initialMinDefending && (
           <button
             type="button"
             onClick={() =>
@@ -1058,11 +1006,11 @@ export default function PlayersSearch({
             }
           >
             Defesa ≥{" "}
-            {minDefending} ×
+            {initialMinDefending} ×
           </button>
         )}
 
-        {minPhysical && (
+        {initialMinPhysical && (
           <button
             type="button"
             onClick={() =>
@@ -1072,7 +1020,7 @@ export default function PlayersSearch({
             }
           >
             Físico ≥{" "}
-            {minPhysical} ×
+            {initialMinPhysical} ×
           </button>
         )}
       </div>
@@ -1087,6 +1035,7 @@ export default function PlayersSearch({
         <button
           type="button"
           className="advancedFiltersToggle"
+          aria-expanded={showAttributeFilters}
           onClick={() =>
             setShowAttributeFilters(
               !showAttributeFilters

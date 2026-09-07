@@ -9,7 +9,7 @@ import type {
    DATABASE PLAYER
 ======================================== */
 
-type DatabasePlayer = {
+export type DatabasePlayer = {
   id: string
   slug: string
   name: string
@@ -353,6 +353,18 @@ function mapPlayStyles(
    DATABASE → PLAYER
 ======================================== */
 
+export type PlayerProfile =
+  | { status: "ready"; player: Player }
+  | { status: "incomplete"; name: string }
+
+// Keep the complete catalog DTO strict; do not invent attributes for a partial row.
+export function mapDatabasePlayerProfile(databasePlayer: DatabasePlayer): PlayerProfile {
+  if (!databasePlayer.attributes) {
+    return { status: "incomplete", name: databasePlayer.name }
+  }
+  return { status: "ready", player: mapDatabasePlayer(databasePlayer) }
+}
+
 export function mapDatabasePlayer(
   databasePlayer:
     DatabasePlayer
@@ -491,8 +503,7 @@ export function mapDatabasePlayer(
           )
         : null,
 
-    valueTrend:
-      "stable",
+    valueTrend: null,
 
     /* ======================================
        PLAYSTYLES

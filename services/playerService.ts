@@ -1,9 +1,15 @@
 import "server-only"
 
 import { prisma } from "../lib/prisma"
+import { parsePlayerCatalogParams } from "../lib/playerCatalogParams"
+import { getPlayerOrderBy } from "../lib/playerCatalogOrder"
+import type { GetPlayersParams } from "../lib/playerCatalogParams"
+export type { GetPlayersParams, PlayerSort } from "../lib/playerCatalogParams"
 
 import {
   mapDatabasePlayer,
+  mapDatabasePlayerProfile,
+  type PlayerProfile,
 } from "../mappers/mapDatabasePlayer"
 
 import type {
@@ -14,12 +20,6 @@ import type {
   Prisma,
 } from "../app/generated/prisma/client"
 
-/* ========================================
-   CONFIGURAÇÃO
-======================================== */
-
-const DEFAULT_PAGE_SIZE = 24
-const MAX_PAGE_SIZE = 100
 
 /* ========================================
    INCLUDE PADRÃO
@@ -42,52 +42,6 @@ const playerInclude = {
 } satisfies Prisma.PlayerInclude
 
 /* ========================================
-   ORDENAÇÃO
-======================================== */
-
-export type PlayerSort =
-  | "overall-desc"
-  | "overall-asc"
-  | "potential-desc"
-  | "age-asc"
-  | "pace-desc"
-  | "passing-desc"
-  | "dribbling-desc"
-  | "value-asc"
-  | "value-desc"
-  | "name-asc"
-  | "name-desc"
-
-/* ========================================
-   FILTROS
-======================================== */
-
-export type GetPlayersParams = {
-  search?: string
-
-  position?: Player["position"]
-
-  league?: string
-
-  maxAge?: number
-  minOverall?: number
-  minPotential?: number
-  maxValue?: number
-
-  minPace?: number
-  minShooting?: number
-  minPassing?: number
-  minDribbling?: number
-  minDefending?: number
-  minPhysical?: number
-
-  page?: number
-  pageSize?: number
-
-  sort?: PlayerSort
-}
-
-/* ========================================
    RESULTADO
 ======================================== */
 
@@ -101,49 +55,6 @@ export type PlayersPage = {
   pageSize: number
 
   totalPages: number
-}
-
-/* ========================================
-   PAGE
-======================================== */
-
-function normalizePage(
-  value?: number
-) {
-  if (
-    value === undefined ||
-    !Number.isFinite(value)
-  ) {
-    return 1
-  }
-
-  return Math.max(
-    Math.floor(value),
-    1
-  )
-}
-
-/* ========================================
-   PAGE SIZE
-======================================== */
-
-function normalizePageSize(
-  value?: number
-) {
-  if (
-    value === undefined ||
-    !Number.isFinite(value)
-  ) {
-    return DEFAULT_PAGE_SIZE
-  }
-
-  return Math.min(
-    Math.max(
-      Math.floor(value),
-      1
-    ),
-    MAX_PAGE_SIZE
-  )
 }
 
 /* ========================================
@@ -170,253 +81,14 @@ function getBirthDateForMaxAge(
 }
 
 /* ========================================
-   ORDER BY
-======================================== */
-
-function getOrderBy(
-  sort: PlayerSort = "overall-desc"
-): Prisma.PlayerOrderByWithRelationInput[] {
-  switch (sort) {
-    /* ======================================
-       OVERALL MENOR → MAIOR
-    ====================================== */
-
-    case "overall-asc":
-      return [
-        {
-          officialOverall:
-            "asc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ]
-
-    /* ======================================
-       POTENCIAL
-    ====================================== */
-
-    case "potential-desc":
-      return [
-        {
-          potential:
-            "desc",
-        },
-
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ]
-
-    /* ======================================
-       MAIS JOVEM
-
-       Data de nascimento mais recente
-       significa jogador mais jovem.
-    ====================================== */
-
-    case "age-asc":
-      return [
-        {
-          dateOfBirth:
-            "desc",
-        },
-
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ]
-
-    /* ======================================
-       MAIS BARATO
-    ====================================== */
-
-    case "value-asc":
-      return [
-        {
-          marketValue:
-            "asc",
-        },
-
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ]
-
-    /* ======================================
-       MAIS CARO
-    ====================================== */
-
-    case "value-desc":
-      return [
-        {
-          marketValue:
-            "desc",
-        },
-
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ]
-
-    /* ======================================
-       MAIOR RITMO
-    ====================================== */
-
-    case "pace-desc":
-      return [
-        {
-          attributes: {
-            pace:
-              "desc",
-          },
-        },
-
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ]
-
-    /* ======================================
-       MAIOR PASSE
-    ====================================== */
-
-    case "passing-desc":
-      return [
-        {
-          attributes: {
-            passing:
-              "desc",
-          },
-        },
-
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ]
-
-    /* ======================================
-       MAIOR DRIBLE
-    ====================================== */
-
-    case "dribbling-desc":
-      return [
-        {
-          attributes: {
-            dribbling:
-              "desc",
-          },
-        },
-
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ]
-
-    /* ======================================
-       NOME A → Z
-    ====================================== */
-
-    case "name-asc":
-      return [
-        {
-          name:
-            "asc",
-        },
-      ]
-
-    /* ======================================
-       NOME Z → A
-    ====================================== */
-
-    case "name-desc":
-      return [
-        {
-          name:
-            "desc",
-        },
-      ]
-
-    /* ======================================
-       OVERALL MAIOR → MENOR
-    ====================================== */
-
-    case "overall-desc":
-    default:
-      return [
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ]
-  }
-}
-
-/* ========================================
    BUSCAR JOGADORES
 ======================================== */
 
 export async function getPlayers(
-  params: GetPlayersParams = {}
+  input: GetPlayersParams = {}
 ): Promise<PlayersPage> {
-  const page =
-    normalizePage(
-      params.page
-    )
-
-  const pageSize =
-    normalizePageSize(
-      params.pageSize
-    )
+  const params = parsePlayerCatalogParams(input)
+  const { page, pageSize } = params
 
   const skip =
     (page - 1) *
@@ -654,7 +326,7 @@ export async function getPlayers(
           playerInclude,
 
         orderBy:
-          getOrderBy(
+          getPlayerOrderBy(
             params.sort
           ),
 
@@ -738,7 +410,7 @@ export async function getAllPlayers(): Promise<
 
 export async function getPlayerBySlug(
   slug: string
-): Promise<Player | null> {
+): Promise<PlayerProfile | null> {
   const databasePlayer =
     await prisma.player.findUnique({
       where: {
@@ -755,7 +427,7 @@ export async function getPlayerBySlug(
     return null
   }
 
-  return mapDatabasePlayer(
+  return mapDatabasePlayerProfile(
     databasePlayer
   )
 }

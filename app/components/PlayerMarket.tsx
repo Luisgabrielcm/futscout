@@ -39,7 +39,7 @@ export default function PlayerMarket({
           )}
         </div>
 
-        {hasMarketValue ? (
+        {hasMarketValue && player.valueTrend !== null ? (
           <div
             className={`marketTrend ${player.valueTrend}`}
           >

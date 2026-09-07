@@ -277,6 +277,7 @@ export default function PlayerPositions({
         <h2>
           Mapa de posições
         </h2>
+        <p>Adequação estimada pelo FutScout — não são OVRs oficiais da EA.</p>
       </div>
 
       <div className="playerPositionsLayout">

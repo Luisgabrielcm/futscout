@@ -51,7 +51,8 @@ export default function HomeSearch() {
       <div className="searchBox">
         <input
           type="text"
-          placeholder="Pesquise jogador, clube ou posição..."
+          aria-label="Pesquisar jogador, clube ou nacionalidade"
+          placeholder="Pesquise jogador, clube ou nacionalidade..."
           value={search}
           onChange={(event) =>
             setSearch(event.target.value)

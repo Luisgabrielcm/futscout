@@ -40,6 +40,7 @@ type PlayerCardProps = {
     | "up"
     | "down"
     | "stable"
+    | null
 }
 
 /* ========================================
@@ -149,13 +150,6 @@ export default function PlayerCard({
             {position}
           </span>
 
-          <button
-            type="button"
-            className="favoriteButton"
-            aria-label={`Favoritar ${name}`}
-          >
-            ☆
-          </button>
         </div>
 
         {/* ==================================
@@ -205,7 +199,7 @@ export default function PlayerCard({
             <span
               className="smallLabel"
             >
-              OVR BASE
+              OVR EA
             </span>
 
             <strong>
@@ -213,6 +207,7 @@ export default function PlayerCard({
             </strong>
           </div>
 
+          {dynamicOverall !== null && <>
           <span
             className="overallArrow"
           >
@@ -223,7 +218,7 @@ export default function PlayerCard({
             <span
               className="smallLabel"
             >
-              OVR ATUAL
+              OVR FUTSCOUT
             </span>
 
             <strong
@@ -257,6 +252,7 @@ export default function PlayerCard({
               </span>
             )}
           </div>
+          </>}
         </div>
 
         {/* ==================================
@@ -315,7 +311,7 @@ export default function PlayerCard({
             </strong>
           </div>
 
-          <div
+          {valueTrend !== null && marketValue !== null && <div
             className={
               valueTrend ===
               "up"
@@ -336,7 +332,7 @@ export default function PlayerCard({
               {trendLabel}{" "}
               {trendSymbol}
             </strong>
-          </div>
+          </div>}
         </div>
       </article>
     </Link>

@@ -18,6 +18,14 @@ const headers: HeadersInit = {
 
 const SEASON = 2024
 
+type LeagueSearchItem = {
+  league?: { id: number; name: string; type?: string }
+  country?: { name: string }
+}
+type TeamSearchItem = {
+  team?: { id: number; name: string; country: string }
+}
+
 /* ========================================
    BUSCAR BUNDESLIGA
 ======================================== */
@@ -75,7 +83,7 @@ async function findBundesligaId() {
 
   const bundesliga =
     (data.response ?? []).find(
-      (item: any) =>
+      (item: LeagueSearchItem) =>
         item.league?.name ===
           "Bundesliga" &&
         item.country?.name ===
@@ -160,7 +168,7 @@ async function findBayernTeamId(
 
   const bayern =
     (data.response ?? []).find(
-      (item: any) => {
+      (item: TeamSearchItem) => {
         const name =
           String(
             item.team?.name ??

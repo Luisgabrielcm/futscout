@@ -108,13 +108,13 @@ export default function PlayerHeader({
           <div
             className="playerHeaderClub"
           >
-            {clubImageUrl && (
-              <img
-                src={clubImageUrl}
-                alt={`Escudo do ${clubName}`}
-                className="playerHeaderClubBadge"
-              />
-            )}
+            <PlayerImage
+              key={clubImageUrl}
+              src={clubImageUrl ?? undefined}
+              alt={clubName}
+              className="playerHeaderClubBadge"
+              fallbackClassName="playerHeaderClubBadge clubBadgeFallback"
+            />
 
             <p>
               {clubName}
@@ -172,7 +172,7 @@ export default function PlayerHeader({
           className="playerHeaderStat"
         >
           <span>
-            OVR ATUAL
+            {player.dynamicOverall !== null ? "OVR FUTSCOUT" : "OVR EA"}
           </span>
 
           <strong
@@ -255,8 +255,7 @@ export default function PlayerHeader({
               : "—"}
           </strong>
 
-          {player.marketValue !==
-          null ? (
+          {player.marketValue !== null && player.valueTrend !== null ? (
             <small
               className={`headerMarketTrend ${player.valueTrend}`}
             >
@@ -270,7 +269,7 @@ export default function PlayerHeader({
             </small>
           ) : (
             <small>
-              Não informado
+              {player.marketValue === null ? "Não informado" : "Tendência não disponível"}
             </small>
           )}
         </div>

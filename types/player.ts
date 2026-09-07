@@ -258,6 +258,7 @@ export type Player = {
     | "up"
     | "down"
     | "stable"
+    | null
 
   /* ======================================
      PLAYSTYLES

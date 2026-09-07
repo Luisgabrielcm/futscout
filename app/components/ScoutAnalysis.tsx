@@ -17,9 +17,10 @@ export default function ScoutAnalysis({
   return (
     <section className="scoutAnalysis">
       <div className="scoutAnalysisHeader">
-        <span>SCOUT IA</span>
+        <span>ANÁLISE POR ATRIBUTOS</span>
 
         <h2>Análise FutScout</h2>
+        <p>Leitura heurística dos atributos disponíveis, não uma análise em tempo real.</p>
       </div>
 
       <div className="scoutAnalysisGrid">

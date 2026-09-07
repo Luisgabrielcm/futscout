@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { notFound } from "next/navigation"
 
 import {
   getPlayerBySlug,
@@ -22,10 +23,14 @@ export default async function PlayerPage({
 }: PlayerPageProps) {
   const { slug } = await params
 
-  const player =
+  const profile =
     await getPlayerBySlug(slug)
 
-  if (!player) {
+  if (!profile) {
+    notFound()
+  }
+
+  if (profile.status === "incomplete") {
     return (
       <main className="playerPage">
         <Link
@@ -37,17 +42,20 @@ export default async function PlayerPage({
 
         <div className="playersEmpty">
           <h1>
-            Jogador não encontrado
+            {profile.name}
           </h1>
 
           <p>
-            O jogador solicitado não existe
-            ou ainda não foi sincronizado.
+            Perfil incompleto: os atributos deste jogador ainda não estão disponíveis.
+            Nenhuma estatística foi estimada para preencher esses dados.
           </p>
         </div>
       </main>
     )
   }
+
+  const player = profile.player
+  const isGoalkeeper = player.position === "GOL"
 
   return (
     <main className="playerPage">
@@ -66,23 +74,26 @@ export default async function PlayerPage({
         player={player}
       />
 
-      <PlayerPositions
-        player={player}
-      />
+      {isGoalkeeper ? (
+        <section className="playersEmpty">
+          <h2>Análise FutScout</h2>
+          <p>Análise específica para goleiros em desenvolvimento.</p>
+        </section>
+      ) : <PlayerPositions player={player} />}
 
       <PlayerPlayStyles
         player={player}
       />
 
-      <ScoutAnalysis
+      {!isGoalkeeper && <ScoutAnalysis
         player={player}
-      />
+      />}
 
-      <PlayerAttributes
+      {!isGoalkeeper && <PlayerAttributes
         attributes={
           player.attributes
         }
-      />
+      />}
     </main>
   )
 }
