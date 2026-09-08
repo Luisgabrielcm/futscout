@@ -12,58 +12,7 @@ export default async function Home() {
     await getFeaturedPlayers()
 
   return (
-    <div className="app">
-      <aside className="sidebar">
-        <div className="logo">
-          <span className="logoF">
-            F
-          </span>
-
-          <span>
-            FUT
-            <span className="green">
-              SCOUT
-            </span>
-          </span>
-        </div>
-
-        <nav className="menu">
-          <Link
-            className="active"
-            href="/"
-          >
-            🏠 Início
-          </Link>
-
-          <Link href="/jogadores">
-            ⚽ Jogadores
-          </Link>
-
-          <Link href="/clubes">
-            🛡️ Clubes
-          </Link>
-
-          <Link href="/ligas">
-            🏆 Ligas
-          </Link>
-
-          <span className="menuUnavailable" aria-disabled="true">
-            🧠 Scout IA
-           <small>Em breve</small></span>
-
-          <span className="menuUnavailable" aria-disabled="true">
-            📋 Elencos
-           <small>Em breve</small></span>
-
-          <Link href="/comparar">
-            ⚖️ Comparar
-          </Link>
-
-          <Link href="/favoritos">
-            ☆ Favoritos
-          </Link>
-        </nav>
-      </aside>
+    <div className="homePage">
 
       <main className="content">
         {/* HERO */}
@@ -148,6 +97,7 @@ export default async function Home() {
             </Link>
           </div>
 
+          {players.length === 0 && <p className="playersEmpty">Nenhum jogador em destaque disponível no momento. Explore o catálogo ou tente novamente mais tarde.</p>}
           <div className="playersGrid">
             {players.map(
               (player) => (

@@ -7,6 +7,7 @@ import type {
 import type {
   ExternalPlayer,
 } from "../types/externalPlayer"
+import { getVisualAssetSrc } from "../lib/visualAssets"
 
 /* ========================================
    STAT VALUE
@@ -581,8 +582,7 @@ export function mapEARatingsPlayer(
       player.team?.name,
 
     clubImageUrl:
-      player.shieldUrl ??
-      player.team?.imageUrl,
+      getVisualAssetSrc(player.team?.imageUrl, "club") ?? undefined,
 
     /* ====================================
        LIGA

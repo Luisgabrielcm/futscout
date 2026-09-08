@@ -3,12 +3,15 @@
 import {
     useState,
 } from "react"
+import { getVisualAssetSrc, type ImageKind } from "../../lib/visualAssets"
 
 type PlayerImageProps = {
   src?: string
   alt: string
   className?: string
   fallbackClassName?: string
+  kind?: ImageKind
+  fallbackText?: string
 }
 
 export default function PlayerImage({
@@ -16,36 +19,49 @@ export default function PlayerImage({
   alt,
   className,
   fallbackClassName,
+  kind = "player",
+  fallbackText,
 }: PlayerImageProps) {
   const [
-    hasError,
-    setHasError,
+    failedSrc,
+    setFailedSrc,
   ] =
-    useState(false)
+    useState<string | null>(null)
+
+  const imageSrc = getVisualAssetSrc(src, kind)
 
   const shouldShowImage =
-    Boolean(src) &&
-    !hasError
+    imageSrc !== null &&
+    failedSrc !== imageSrc
 
   if (!shouldShowImage) {
     return (
       <span
+        role={fallbackText === "" ? undefined : "img"}
+        aria-label={fallbackText === "" ? undefined : `${alt} — imagem indisponível`}
+        aria-hidden={fallbackText === "" ? true : undefined}
         className={
           fallbackClassName
         }
       >
-        {alt.charAt(0)}
+        {fallbackText ?? (alt.trim().charAt(0).toUpperCase() || "?")}
       </span>
     )
   }
 
   return (
+    // Remote URLs already come from the data contract; no Next image proxy.
+    // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      src={imageSrc}
       alt={alt}
       className={className}
+      ref={(image) => {
+        // A cached failure can occur before hydration attaches onError.
+        if (image?.complete && image.naturalWidth === 0) setFailedSrc(imageSrc)
+      }}
       onError={() =>
-        setHasError(true)
+        setFailedSrc(imageSrc)
       }
     />
   )

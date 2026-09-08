@@ -67,14 +67,6 @@ export default function PlayerQuickProfile({
       player.weakFootAbility
     )
 
-  const secondaryPositions =
-    player.secondaryPositions.length >
-    0
-      ? player.secondaryPositions.join(
-          ", "
-        )
-      : "—"
-
   return (
     <section
       className="playerQuickProfile"
@@ -149,30 +141,6 @@ export default function PlayerQuickProfile({
         {/* ==================================
             SEGUNDA LINHA
         ================================== */}
-
-        <div
-          className="quickProfileItem"
-        >
-          <span>
-            POSIÇÃO PRINCIPAL
-          </span>
-
-          <strong>
-            {player.position}
-          </strong>
-        </div>
-
-        <div
-          className="quickProfileItem"
-        >
-          <span>
-            POSIÇÕES SECUNDÁRIAS
-          </span>
-
-          <strong>
-            {secondaryPositions}
-          </strong>
-        </div>
 
         <div
           className="quickProfileItem"

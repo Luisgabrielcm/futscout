@@ -11,6 +11,8 @@ import {
 } from "../../utils/getOverallDifference"
 
 import PlayerImage from "./PlayerImage"
+import CountryFlag from "./CountryFlag"
+import { getPlayerProfilePositions } from "../../lib/playerProfilePositions"
 
 type PlayerHeaderProps = {
   player: Player
@@ -19,6 +21,7 @@ type PlayerHeaderProps = {
 export default function PlayerHeader({
   player,
 }: PlayerHeaderProps) {
+  const positions = getPlayerProfilePositions(player)
   /* ========================================
      OVR ATUAL
   ======================================== */
@@ -38,10 +41,6 @@ export default function PlayerHeader({
   /* ========================================
      DADOS OPCIONAIS
   ======================================== */
-
-  const nationality =
-    player.nationality ??
-    "Não informada"
 
   const age =
     player.age !== null
@@ -93,13 +92,13 @@ export default function PlayerHeader({
         <div
           className="playerHeaderInfo"
         >
-          <span
-            className="playerHeaderPosition"
-          >
-            {
-              player.position
-            }
-          </span>
+          <div className="playerHeaderPositions" aria-label="Posições do jogador">
+            {positions.map((position, index) => <span key={position}
+              className={`playerHeaderPosition ${index === 0 ? "playerPositionPrimary" : "playerPositionSecondary"}`}
+              title={index === 0 ? "Posição principal" : "Posição secundária"}>
+              {position}
+            </span>)}
+          </div>
 
           <h1>
             {player.name}
@@ -112,6 +111,7 @@ export default function PlayerHeader({
               key={clubImageUrl}
               src={clubImageUrl ?? undefined}
               alt={clubName}
+              kind="club"
               className="playerHeaderClubBadge"
               fallbackClassName="playerHeaderClubBadge clubBadgeFallback"
             />
@@ -119,14 +119,13 @@ export default function PlayerHeader({
             <p>
               {clubName}
             </p>
+            {player.league && <span className="playerHeaderLeague">{player.league}</span>}
           </div>
 
           <div
             className="playerHeaderMeta"
           >
-            <span>
-              {nationality}
-            </span>
+            <CountryFlag country={player.nationality} />
 
             <span>
               •
@@ -172,18 +171,19 @@ export default function PlayerHeader({
           className="playerHeaderStat"
         >
           <span>
-            {player.dynamicOverall !== null ? "OVR FUTSCOUT" : "OVR EA"}
+            OVR EA
           </span>
 
           <strong
             className="playerHeaderStatMain"
           >
             {
-              displayedDynamicOverall
+              player.baseOverall
             }
           </strong>
 
-          {overallDifference !== null && (
+          {player.dynamicOverall !== null && <small>OVR FutScout: {displayedDynamicOverall}</small>}
+          {overallDifference !== null && overallDifference !== 0 && (
             <small
               className={
                 overallDifference >

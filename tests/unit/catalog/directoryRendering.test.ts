@@ -9,10 +9,11 @@ import { catalogPlayer } from "../../fixtures/catalogPlayer"
 import { mapDatabasePlayer } from "../../../mappers/mapDatabasePlayer"
 import { formatCurrency } from "../../../utils/formatCurrency"
 import type { CatalogSearchParams } from "../../../lib/playerCatalogParams"
+import * as visualAssets from "../../../lib/visualAssets"
 
 const link = ({ children, ...props }: { href: string; children: ReactNode }) => createElement("a", props, children)
 const { default: Image } = loadCatalogModule<typeof import("../../../app/components/PlayerImage")>(
-  "app/components/PlayerImage.tsx", { react: React },
+  "app/components/PlayerImage.tsx", { react: React, "../../lib/visualAssets": visualAssets },
 )
 const { default: Card } = loadCatalogModule<typeof import("../../../app/components/PlayerCard")>(
   "app/components/PlayerCard.tsx", {
@@ -82,8 +83,8 @@ for (const kind of ["clubes", "ligas"] as const) {
     assert.match(html, /method="get"/)
     assert.match(html, /value="Teste"/)
     assert.equal((f.calls[0].input as { page: number }).page, 1)
-    assert.match(html, /href="\/clubes"/)
-    assert.match(html, /href="\/ligas"/)
+    assert.match(html, /href="\/"/)
+    assert.ok(html.includes(`href="/${kind}"`))
     assert.doesNotMatch(html, /href="#"/)
   })
 
@@ -137,9 +138,12 @@ test("directory card uses existing image fallback and does not invent a league l
 
 test("directory badge falls back after an image load error without retrying/proxying", () => {
   type ImageProps = Parameters<typeof Image>[0]
-  let failed = false
+  let failed: string | null = null
   const { default: TestImage } = loadCatalogModule<{ default: ComponentType<ImageProps> }>(
-    "app/components/PlayerImage.tsx", { react: { useState: () => [failed, (value: boolean) => { failed = value }] } },
+    "app/components/PlayerImage.tsx", {
+      react: { useState: () => [failed, (value: string | null) => { failed = value }] },
+      "../../lib/visualAssets": visualAssets,
+    },
   )
   const component = TestImage as (props: ImageProps) => React.ReactElement<{ onError: () => void }>
   const props = { src: "/fixture-badge.png", alt: "Clube Teste", fallbackClassName: "directoryBadgeFallback" }

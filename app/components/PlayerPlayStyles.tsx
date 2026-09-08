@@ -1,6 +1,8 @@
 import type {
   Player,
 } from "../../types/player"
+import { getPlayStyleVisual } from "../../lib/playStyleAssets"
+import PlayerImage from "./PlayerImage"
 
 type PlayerPlayStylesProps = {
   player: Player
@@ -36,9 +38,7 @@ export default function PlayerPlayStyles({
         >
           {player.playStyles.map(
             (playStyle) => {
-              const isPlus =
-                playStyle.level ===
-                "plus"
+              const { playStyleKey, displayName, isPlus, iconSrc } = getPlayStyleVisual(playStyle)
 
               return (
                 <div
@@ -50,13 +50,14 @@ export default function PlayerPlayStyles({
                       ? "playStylePlus"
                       : ""
                   }`}
+                  data-playstyle={playStyleKey}
                 >
                   <div
                     className="playStyleIcon"
+                    title={iconSrc ? displayName : "Arte do PlayStyle indisponível"}
                   >
-                    {isPlus
-                      ? "★"
-                      : "◆"}
+                    {iconSrc ? <PlayerImage src={iconSrc} alt={displayName} kind="asset" fallbackText="PS" />
+                      : <span className="playStyleArtUnavailable" role="img" aria-label="Arte do PlayStyle indisponível" />}
                   </div>
 
                   <div
@@ -67,13 +68,13 @@ export default function PlayerPlayStyles({
                     >
                       <strong>
                         {
-                          playStyle.name
+                          displayName
                         }
                       </strong>
 
                       {isPlus && (
                         <span>
-                          +
+                          PlayStyle+
                         </span>
                       )}
                     </div>

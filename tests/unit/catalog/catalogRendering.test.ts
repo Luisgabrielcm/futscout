@@ -9,6 +9,7 @@ import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import { formatCurrency } from "../../../utils/formatCurrency"
 import { getOverallDifference } from "../../../utils/getOverallDifference"
 import * as catalogParams from "../../../lib/playerCatalogParams"
+import * as profilePositions from "../../../lib/playerProfilePositions"
 
 const link = ({ href, children, className }: { href: string; children: ReactNode; className?: string }) =>
   createElement("a", { href, className }, children)
@@ -92,6 +93,8 @@ test("header labels the base EA overall and does not invent market stability", (
   const { default: Header } = loadCatalogModule<{ default: ComponentType<Props> }>(
     "app/components/PlayerHeader.tsx", {
       "./PlayerImage": image,
+      "../../lib/playerProfilePositions": profilePositions,
+      "./CountryFlag": ({ country }: { country: string | null }) => createElement("span", null, country),
       "../../utils/formatCurrency": { formatCurrency },
       "../../utils/getOverallDifference": { getOverallDifference },
     },
@@ -116,9 +119,8 @@ test("Home has no placeholder links or unsupported coverage claims", async () =>
   const html = renderToStaticMarkup(await Home())
   assert.doesNotMatch(html, /href="#"|70\.000\+|900\+|60\+|24H|compare atletas/)
   assert.match(html, /href="\/jogadores"/)
-  assert.match(html, /href="\/favoritos"/)
-  assert.match(html, /href="\/comparar"/)
-  assert.match(html, /Em breve/)
+  assert.doesNotMatch(html, /class="sidebar"|class="menu"/)
+  assert.match(html, /Nenhum jogador em destaque disponível/)
 })
 
 type ElementProps = {

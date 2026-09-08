@@ -7,11 +7,6 @@ import { displayCountry } from "../../lib/directoryCatalogParams"
 export function DirectoryNav() {
   return <nav className="directoryNav" aria-label="Catálogo FutScout">
     <Link href="/">← Início</Link>
-    <Link href="/jogadores">Jogadores</Link>
-    <Link href="/clubes">Clubes</Link>
-    <Link href="/ligas">Ligas</Link>
-    <Link href="/comparar">Comparar</Link>
-    <Link href="/favoritos">Favoritos</Link>
   </nav>
 }
 
@@ -37,7 +32,7 @@ export function DirectorySearch({ action, search, league, leagues }: {
 }
 
 export function DirectoryBadge({ name, imageUrl }: { name: string; imageUrl?: string | null }) {
-  return <PlayerImage key={imageUrl ?? name} src={imageUrl ?? undefined} alt={name}
+  return <PlayerImage key={imageUrl ?? name} src={imageUrl ?? undefined} alt={name} kind="club"
     className="directoryBadge" fallbackClassName="directoryBadge directoryBadgeFallback" />
 }
 

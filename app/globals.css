@@ -1105,6 +1105,9 @@ body {
 }
 
 .playerHeaderClub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 0 0 12px;
 
   color: #8fc8e8;
@@ -1112,6 +1115,20 @@ body {
   font-size: 15px;
   font-weight: 500;
 }
+
+.playerHeaderClub p { margin: 0; }
+.playerHeaderClubBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  object-fit: contain;
+}
+.playerNationality { display: inline-flex; align-items: center; gap: 6px; }
+.countryFlag { width: 24px; height: 18px; object-fit: contain; flex-shrink: 0; }
+.countryFlagUnavailable { display: none; }
 
 .playerHeaderMeta {
   display: flex;
@@ -3339,6 +3356,9 @@ body {
   font-size: 19px;
 }
 
+.playStyleIcon img { width: 100%; height: 100%; object-fit: contain; }
+.playStyleIcon > span { font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+
 /* ========================================
    CONTEÚDO
 ======================================== */
@@ -3631,4 +3651,81 @@ body {
   .comparisonTable th, .comparisonTable td { padding: 10px 6px; font-size: 12px; }
   .comparisonPhoto { width: 48px; height: 48px; }
   .comparisonActionGrid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Shared responsive shell: one navigation landmark for every public route. */
+.siteShell { width: 100%; min-height: 100vh; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+.siteContent { min-width: 0; }
+.siteNav { padding: 28px 18px; border-right: 1px solid var(--border); background: #06100b; }
+.siteNavTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.siteBrand { display: flex; align-items: center; gap: 10px; color: var(--white); font-weight: 800; font-size: 18px; }
+.siteBrand .logoF { width: 34px; height: 34px; font-size: 23px; }
+.siteNavLinks { display: flex; flex-direction: column; gap: 8px; margin-top: 36px; }
+.siteNavLinks a, .siteNavUnavailable { padding: 12px; border-radius: 10px; min-height: 44px; color: var(--beige-light); }
+.siteNavLinks a:hover { background: var(--surface-light); }
+.siteNavLinks a[aria-current="page"] { color: var(--green); background: #10281b; font-weight: 700; }
+.siteNavUnavailable { color: var(--gray); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.siteNavUnavailable small { font-size: 10px; }
+.mobileMenuButton { display: none; min-height: 44px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; color: var(--beige-light); background: var(--surface); font: inherit; cursor: pointer; }
+.skipLink { position: fixed; top: 8px; left: 8px; transform: translateY(-200%); z-index: 100; padding: 12px; background: var(--green); color: #020806; border-radius: 8px; }
+.skipLink:focus { transform: none; }
+:where(a, button, input, select, summary):focus-visible { outline: 2px solid var(--green); outline-offset: 4px; }
+.siteContent .content { padding: 48px 32px; min-width: 0; }
+.siteContent .playersPage, .siteContent .playerPage { padding: 32px; }
+.siteContent .playersGrid, .siteContent .playersPageGrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 235px), 1fr)); }
+.siteContent .directoryGrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.siteContent .playersPagination { flex-wrap: wrap; }
+.playerActionButtons button, .comparisonSelection button, .backButton { min-height: 44px; }
+.playerHeader { grid-template-columns: minmax(0, 1fr) minmax(280px, .8fr); gap: 24px; padding: 24px; }
+.playerHeaderIdentity { gap: 18px; }
+.playerHeaderPhoto { width: 96px; height: 96px; border-radius: 16px; }
+.playerHeaderInfo h1 { font-size: clamp(26px, 2.4vw, 36px); line-height: 1.12; overflow-wrap: anywhere; }
+.playerHeaderPositions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.playerHeaderPosition { margin: 0; min-width: 40px; padding: 5px 10px; }
+.playerPositionPrimary { color: var(--green); border-color: #287344; background: #0d2b19; }
+.playerPositionSecondary { color: var(--beige-light); border-color: var(--border); background: var(--surface-light); }
+.playerHeaderClub { flex-wrap: wrap; overflow-wrap: anywhere; }
+.playerHeaderLeague { color: var(--gray); font-size: 13px; }
+.playerHeaderMeta > span:nth-child(even) { color: var(--gray); }
+.playerNationality > span { color: inherit; }
+.playerHeaderStats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.playerHeaderStat { min-width: 0; min-height: 112px; padding: 14px 8px; overflow-wrap: anywhere; }
+.playerHeaderStat > span:first-child { letter-spacing: .6px; }
+.playerHeaderMarketValue { font-size: 22px !important; }
+.quickProfileGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.quickProfileItem { min-width: 0; overflow-wrap: anywhere; }
+.playStyleArtUnavailable { display: inline-flex; width: 22px; height: 22px; border: 1px dashed currentColor; border-radius: 50%; opacity: .65; }
+@media (max-width: 1279px) {
+  .playerHeader { grid-template-columns: minmax(0, 1fr); }
+  .siteContent .hero { grid-template-columns: minmax(0, 1fr); }
+  .siteContent .heroVisual { display: none; }
+}
+@media (max-width: 1023px) {
+  .siteShell { display: block; }
+  .siteNav { padding: 14px 20px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .mobileMenuButton { display: inline-flex; align-items: center; }
+  .siteNavLinks { display: none; margin-top: 16px; }
+  .siteNavLinks.isOpen { display: flex; }
+}
+@media (max-width: 600px) {
+  .siteNav { padding: 12px 16px; }
+  .siteBrand { font-size: 16px; gap: 7px; }
+  .mobileMenuButton { font-size: 12px; }
+  .siteContent .content, .siteContent .playersPage, .siteContent .playerPage { padding: 24px 16px; }
+  .siteContent .content h1 { font-size: 32px; overflow-wrap: anywhere; }
+  .playerHeader { padding: 16px; gap: 20px; }
+  .playerHeaderIdentity { align-items: flex-start; flex-direction: row; gap: 12px; }
+  .playerHeaderPhoto { width: 64px; height: 64px; border-radius: 12px; }
+  .playerHeaderPhoto > span { font-size: 30px; }
+  .playerHeaderInfo h1 { font-size: 25px; }
+  .playerHeaderStat { min-height: 104px; }
+  .playerHeaderStat strong { font-size: 28px; }
+  .playerHeaderMarketValue { font-size: 18px !important; }
+  .playerHeaderStat small { font-size: 10px; }
+  .quickProfileGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .quickProfileItem { padding: 14px; }
+  .sectionHeader { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0s !important; animation-duration: 0s !important; }
 }
