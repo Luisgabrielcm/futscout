@@ -55,24 +55,25 @@ function pageFixture(kind: "clubes" | "ligas", detail = false, missing = false, 
     getLeagueClubs: async (_slug: string, input: unknown) => { record("leagueClubs", input); return clubs },
     getLeaguePlayers: async (_slug: string, input: unknown) => { record("leaguePlayers", input); return players },
   }
-  const prefix = detail ? "../../../" : "../../"
-  const page = loadCatalogModule<PageModule>(`app/${kind}/${detail ? "[slug]/" : ""}page.tsx`, {
+  const prefix = detail ? "../../../../" : "../../../"
+  const page = loadCatalogModule<PageModule>(`app/[locale]/${kind}/${detail ? "[slug]/" : ""}page.tsx`, {
     "next/link": link, "next/navigation": { notFound: () => { throw signal } },
     [prefix + "lib/directoryCatalogParams"]: directory,
     [prefix + "services/clubService"]: clubService,
     [prefix + "services/leagueService"]: leagueService,
     [prefix + "services/playerService"]: { getLeagues: async () => [league] },
-    [detail ? "../../components/DirectoryCatalog" : "../components/DirectoryCatalog"]: components,
+    [detail ? "../../../components/DirectoryCatalog" : "../../components/DirectoryCatalog"]: components,
   })
   const props = (search: CatalogSearchParams = {}): Props => ({ params: Promise.resolve({ slug: "fixture" }), searchParams: Promise.resolve(search) })
   return { page, props, signal, calls, clubs, players }
 }
 
 for (const kind of ["clubes", "ligas"] as const) {
-  test(`${kind}: missing slug stops before roster queries and metadata also signals notFound`, async () => {
+  test(`${kind}: missing slug stops before roster queries and has honest missing metadata`, async () => {
     const f = pageFixture(kind, true, true)
     await assert.rejects(f.page.default(f.props()), (error) => error === f.signal)
-    await assert.rejects(f.page.generateMetadata(f.props()), (error) => error === f.signal)
+    const metadata = await f.page.generateMetadata(f.props())
+    assert.equal(metadata.title, kind === "clubes" ? "Clube não encontrado" : "Liga não encontrada")
     assert.equal(f.calls.length, 0)
   })
 
@@ -83,8 +84,8 @@ for (const kind of ["clubes", "ligas"] as const) {
     assert.match(html, /method="get"/)
     assert.match(html, /value="Teste"/)
     assert.equal((f.calls[0].input as { page: number }).page, 1)
-    assert.match(html, /href="\/"/)
-    assert.ok(html.includes(`href="/${kind}"`))
+    assert.match(html, /href="\/pt"/)
+    assert.ok(html.includes(`href="/pt/${kind}"`))
     assert.doesNotMatch(html, /href="#"/)
   })
 
@@ -96,17 +97,17 @@ for (const kind of ["clubes", "ligas"] as const) {
     assert.doesNotMatch(html, /Não informado|apiFootballId|Estádio|Títulos/)
     const metadata = await f.page.generateMetadata(f.props())
     assert.equal(metadata.title, kind === "clubes"
-      ? "Clube Teste — jogadores e elenco | FutScout" : "Liga Teste — clubes e jogadores | FutScout")
+      ? "Clube Teste — jogadores e elenco" : "Liga Teste — clubes e jogadores")
   })
 
   test(`${kind}: lists and profiles expose real entity and player links`, async () => {
     const list = pageFixture(kind, false, false, true)
     const html = renderToStaticMarkup(await list.page.default(list.props()))
-    assert.match(html, kind === "clubes" ? /href="\/clubes\/clube-teste"/ : /href="\/ligas\/liga-teste"/)
+    assert.match(html, kind === "clubes" ? /href="\/pt\/clubes\/clube-teste"/ : /href="\/pt\/ligas\/liga-teste"/)
     const f = pageFixture(kind, true, false, true)
     const detail = renderToStaticMarkup(await f.page.default(f.props()))
-    assert.match(detail, /href="\/jogadores\/fixture-player"/)
-    assert.match(detail, kind === "clubes" ? /href="\/ligas\/liga-teste"/ : /href="\/clubes\/clube-teste"/)
+    assert.match(detail, /href="\/pt\/jogadores\/fixture-player"/)
+    assert.match(detail, kind === "clubes" ? /href="\/pt\/ligas\/liga-teste"/ : /href="\/pt\/clubes\/clube-teste"/)
   })
 }
 
@@ -115,11 +116,11 @@ test("league's two paginations preserve each other and provide independent page 
   Object.assign(f.clubs, { page: 2, totalPages: 3 })
   Object.assign(f.players, { page: 3, totalPages: 5 })
   const html = renderToStaticMarkup(await f.page.default(f.props({ page: "3", clubsPage: "2" })))
-  assert.match(html, /href="\/ligas\/liga-teste\?page=3&amp;clubsPage=3#clubes"/)
-  assert.match(html, /href="\/ligas\/liga-teste\?page=4&amp;clubsPage=2#jogadores"/)
+  assert.match(html, /href="\/pt\/ligas\/liga-teste\?page=3&amp;clubsPage=3#clubes"/)
+  assert.match(html, /href="\/pt\/ligas\/liga-teste\?page=4&amp;clubsPage=2#jogadores"/)
   Object.assign(f.clubs, { page: 999 })
   const recovery = renderToStaticMarkup(await f.page.default(f.props({ page: "3", clubsPage: "999" })))
-  assert.match(recovery, /href="\/ligas\/liga-teste\?page=3#clubes"/)
+  assert.match(recovery, /href="\/pt\/ligas\/liga-teste\?page=3#clubes"/)
 })
 
 test("league detail sanitizes both page parameters without applying list search to rosters", async () => {

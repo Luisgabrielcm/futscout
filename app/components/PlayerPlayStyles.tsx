@@ -1,3 +1,5 @@
+import { t, type Locale } from "../../lib/i18n"
+
 import type {
   Player,
 } from "../../types/player"
@@ -5,10 +7,11 @@ import { getPlayStyleVisual } from "../../lib/playStyleAssets"
 import PlayerImage from "./PlayerImage"
 
 type PlayerPlayStylesProps = {
+  locale?: Locale
   player: Player
 }
 
-export default function PlayerPlayStyles({
+export default function PlayerPlayStyles({ locale = "pt",
   player,
 }: PlayerPlayStylesProps) {
   return (
@@ -27,9 +30,7 @@ export default function PlayerPlayStyles({
         </h2>
 
         <p>
-          Características especiais do jogador
-          dentro do jogo.
-        </p>
+          {t(locale, "Características especiais do jogador dentro do jogo.")}</p>
       </div>
 
       {player.playStyles.length > 0 ? (
@@ -54,10 +55,10 @@ export default function PlayerPlayStyles({
                 >
                   <div
                     className="playStyleIcon"
-                    title={iconSrc ? displayName : "Arte do PlayStyle indisponível"}
+                    title={iconSrc ? displayName : t(locale, "Arte do PlayStyle indisponível")}
                   >
-                    {iconSrc ? <PlayerImage src={iconSrc} alt={displayName} kind="asset" fallbackText="PS" />
-                      : <span className="playStyleArtUnavailable" role="img" aria-label="Arte do PlayStyle indisponível" />}
+                    {iconSrc ? <PlayerImage locale={locale} src={iconSrc} alt={displayName} kind="asset" fallbackText="PS" />
+                      : <span className="playStyleArtUnavailable" role="img" aria-label={t(locale, "Arte do PlayStyle indisponível")} />}
                   </div>
 
                   <div
@@ -93,9 +94,7 @@ export default function PlayerPlayStyles({
           </span>
 
           <p>
-            Este jogador não possui
-            PlayStyles cadastrados.
-          </p>
+            {t(locale, "Este jogador não possui PlayStyles cadastrados.")}</p>
         </div>
       )}
     </section>

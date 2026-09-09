@@ -1,8 +1,12 @@
+import { t, type Locale } from "../../lib/i18n"
+import { displayFoot } from "../../lib/i18n/presentation"
+
 import type {
   Player,
 } from "../../types/player"
 
 type PlayerQuickProfileProps = {
+  locale?: Locale
   player: Player
 }
 
@@ -37,25 +41,25 @@ function renderStars(
    QUICK PROFILE
 ======================================== */
 
-export default function PlayerQuickProfile({
+export default function PlayerQuickProfile({ locale = "pt",
   player,
 }: PlayerQuickProfileProps) {
   const nationality =
     player.nationality ??
-    "Não informada"
+    t(locale, "Não informada")
 
   const league =
     player.league ??
-    "Sem liga"
+    t(locale, "Sem liga")
 
   const height =
     player.height !== null
       ? `${player.height} cm`
-      : "Não informada"
+      : t(locale, "Não informada")
 
   const preferredFoot =
-    player.preferredFoot ??
-    "Não informado"
+    (player.preferredFoot ? displayFoot(player.preferredFoot, locale) : null) ??
+    t(locale, "Não informado")
 
   const skillMoves =
     renderStars(
@@ -75,12 +79,10 @@ export default function PlayerQuickProfile({
         className="quickProfileHeader"
       >
         <span>
-          PERFIL
-        </span>
+          {t(locale, "PERFIL")}</span>
 
         <h2>
-          Resumo rápido
-        </h2>
+          {t(locale, "Resumo rápido")}</h2>
       </div>
 
       <div
@@ -94,8 +96,7 @@ export default function PlayerQuickProfile({
           className="quickProfileItem"
         >
           <span>
-            NACIONALIDADE
-          </span>
+            {t(locale, "NACIONALIDADE")}</span>
 
           <strong>
             {nationality}
@@ -106,8 +107,7 @@ export default function PlayerQuickProfile({
           className="quickProfileItem"
         >
           <span>
-            LIGA
-          </span>
+            {t(locale, "LIGA")}</span>
 
           <strong>
             {league}
@@ -118,8 +118,7 @@ export default function PlayerQuickProfile({
           className="quickProfileItem"
         >
           <span>
-            ALTURA
-          </span>
+            {t(locale, "ALTURA")}</span>
 
           <strong>
             {height}
@@ -130,8 +129,7 @@ export default function PlayerQuickProfile({
           className="quickProfileItem"
         >
           <span>
-            PÉ PREFERIDO
-          </span>
+            {t(locale, "PÉ PREFERIDO")}</span>
 
           <strong>
             {preferredFoot}
@@ -160,8 +158,7 @@ export default function PlayerQuickProfile({
           className="quickProfileItem"
         >
           <span>
-            PERNA RUIM
-          </span>
+            {t(locale, "PERNA RUIM")}</span>
 
           <strong
             className="quickProfileStars"

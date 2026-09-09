@@ -1,3 +1,5 @@
+import { t, localizedHref, type Locale } from "../../lib/i18n"
+
 import Link from "next/link"
 
 import {
@@ -8,6 +10,7 @@ import PlayerImage from "./PlayerImage"
 import PlayerActions from "./PlayerActions"
 
 type PlayerCardProps = {
+  locale?: Locale
   name: string
   slug: string
 
@@ -48,7 +51,7 @@ type PlayerCardProps = {
    PLAYER CARD
 ======================================== */
 
-export default function PlayerCard({
+export default function PlayerCard({ locale = "pt",
   name,
   slug,
 
@@ -99,10 +102,10 @@ export default function PlayerCard({
 
   const trendLabel =
     valueTrend === "up"
-      ? "Em alta"
+      ? t(locale, "Em alta")
       : valueTrend === "down"
-        ? "Em baixa"
-        : "Estável"
+        ? t(locale, "Em baixa")
+        : t(locale, "Estável")
 
   /* ======================================
      DADOS OPCIONAIS
@@ -110,12 +113,12 @@ export default function PlayerCard({
 
   const playerAge =
     age !== null
-      ? `${age} anos`
-      : "Idade não informada"
+      ? t(locale, "ageYears", { age })
+      : t(locale, "Idade não informada")
 
   const playerClub =
     club ??
-    "Sem clube"
+    t(locale, "Sem clube")
 
   const playerPotential =
     potential !== null
@@ -132,9 +135,9 @@ export default function PlayerCard({
 
   return (
     <article className="playerCard">
-      <PlayerActions slug={slug} name={name} />
+      <PlayerActions locale={locale} slug={slug} name={name} />
       <Link
-      href={`/jogadores/${slug}`}
+      href={localizedHref(locale, `/jogadores/${slug}`)}
       className="playerCardLink"
     >
         {/* ==================================
@@ -162,7 +165,7 @@ export default function PlayerCard({
           <div
             className="playerPhotoGlow"
           >
-            <PlayerImage
+            <PlayerImage locale={locale}
               src={image}
               alt={name}
               className="playerPhoto"
@@ -264,8 +267,7 @@ export default function PlayerCard({
         >
           <div>
             <span>
-              Potencial
-            </span>
+              {t(locale, "Potencial")}</span>
 
             <strong>
               {
@@ -276,8 +278,7 @@ export default function PlayerCard({
 
           <div>
             <span>
-              Forma
-            </span>
+              {t(locale, "Forma")}</span>
 
             <strong>
               {playerForm}
@@ -296,17 +297,14 @@ export default function PlayerCard({
             <span
               className="marketLabel"
             >
-              VALOR ESTIMADO
-            </span>
+              {t(locale, "VALOR ESTIMADO")}</span>
 
             <strong
               className="marketValue"
             >
               {marketValue !==
               null
-                ? formatCurrency(
-                    marketValue
-                  )
+                ? formatCurrency(marketValue, locale)
                 : "—"}
             </strong>
           </div>
@@ -325,8 +323,7 @@ export default function PlayerCard({
             <span
               className="trendTitle"
             >
-              TENDÊNCIA
-            </span>
+              {t(locale, "TENDÊNCIA")}</span>
 
             <strong>
               {trendLabel}{" "}

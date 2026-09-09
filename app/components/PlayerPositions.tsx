@@ -1,3 +1,5 @@
+import { t, type Locale } from "../../lib/i18n"
+
 import type { Player } from "../../types/player"
 
 import {
@@ -6,10 +8,11 @@ import {
 } from "../../utils/calculatePositionOverall"
 
 type PlayerPositionsProps = {
+  locale?: Locale
   player: Player
 }
 
-export default function PlayerPositions({
+export default function PlayerPositions({ locale = "pt",
   player,
 }: PlayerPositionsProps) {
   /* ========================================
@@ -272,12 +275,11 @@ export default function PlayerPositions({
       {/* CABEÇALHO */}
 
       <div className="playerPositionsHeader">
-        <span>POSIÇÕES</span>
+        <span>{t(locale, "POSIÇÕES")}</span>
 
         <h2>
-          Mapa de posições
-        </h2>
-        <p>Adequação estimada pelo FutScout — não são OVRs oficiais da EA.</p>
+          {t(locale, "Mapa de posições")}</h2>
+        <p>{t(locale, "Adequação estimada pelo FutScout — não são OVRs oficiais da EA.")}</p>
       </div>
 
       <div className="playerPositionsLayout">
@@ -541,8 +543,7 @@ export default function PlayerPositions({
         <div className="bestPositions">
           <div className="bestPositionsHeader">
             <span>
-              POSIÇÕES E ADEQUAÇÃO
-            </span>
+              {t(locale, "POSIÇÕES E ADEQUAÇÃO")}</span>
 
             <strong>
               {player.position}
@@ -595,8 +596,7 @@ export default function PlayerPositions({
                       {positionType ===
                         "primary" && (
                         <small className="positionTypeLabel primary">
-                          Principal
-                        </small>
+                          {t(locale, "Principal")}</small>
                       )}
 
                       {/* SECUNDÁRIA */}
@@ -604,8 +604,7 @@ export default function PlayerPositions({
                       {positionType ===
                         "secondary" && (
                         <small className="positionTypeLabel secondary">
-                          Secundária
-                        </small>
+                          {t(locale, "Secundária")}</small>
                       )}
                     </div>
 

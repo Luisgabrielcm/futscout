@@ -3,6 +3,12 @@ import { resolve } from "node:path"
 import { runInNewContext } from "node:vm"
 import ts from "typescript"
 import * as jsxRuntime from "react/jsx-runtime"
+import * as i18n from "../../lib/i18n"
+import * as i18nConfig from "../../lib/i18n/config"
+import * as i18nMetadata from "../../lib/i18n/metadata"
+import * as i18nPresentation from "../../lib/i18n/presentation"
+import * as i18nServer from "../../lib/i18n/server"
+import * as i18nBrowser from "../../lib/i18n/browser"
 
 // Compile TSX in memory using React's automatic runtime, without starting Next.
 // Every runtime dependency must be supplied explicitly: no DB/env/network imports.
@@ -20,6 +26,16 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
   const compiledModule = { exports: {} }
   const allowed: Record<string, unknown> = { "react/jsx-runtime": jsxRuntime, ...dependencies }
   const requireFake = (name: string): unknown => {
+    // Shared presentation functions run for real. This explicit allowlist has
+    // no DB/env loading/network modules; operational dependencies remain fakes.
+    const presentation: Record<string, unknown> = {
+      "lib/i18n": i18n, "lib/i18n/config": i18nConfig,
+      "lib/i18n/metadata": i18nMetadata, "lib/i18n/presentation": i18nPresentation,
+      "lib/i18n/server": i18nServer,
+      "lib/i18n/browser": i18nBrowser,
+    }
+    const pureName = name.replace(/^(?:\.\.\/)+/, "")
+    if (Object.hasOwn(presentation, pureName)) return presentation[pureName]
     if (!Object.hasOwn(allowed, name)) throw new Error("Unmocked dependency: " + name)
     return allowed[name]
   }

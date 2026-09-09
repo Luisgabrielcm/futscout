@@ -1,11 +1,15 @@
 "use client"
 
+import { t, type Locale } from "../../lib/i18n"
+
+
 import {
     useState,
 } from "react"
 import { getVisualAssetSrc, type ImageKind } from "../../lib/visualAssets"
 
 type PlayerImageProps = {
+  locale?: Locale
   src?: string
   alt: string
   className?: string
@@ -14,7 +18,7 @@ type PlayerImageProps = {
   fallbackText?: string
 }
 
-export default function PlayerImage({
+export default function PlayerImage({ locale = "pt",
   src,
   alt,
   className,
@@ -38,7 +42,7 @@ export default function PlayerImage({
     return (
       <span
         role={fallbackText === "" ? undefined : "img"}
-        aria-label={fallbackText === "" ? undefined : `${alt} — imagem indisponível`}
+        aria-label={fallbackText === "" ? undefined : t(locale, "imageUnavailable", { name: alt })}
         aria-hidden={fallbackText === "" ? true : undefined}
         className={
           fallbackClassName

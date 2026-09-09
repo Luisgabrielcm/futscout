@@ -1,22 +1,26 @@
+import { t, type Locale } from "../../lib/i18n"
+import { displayFoot } from "../../lib/i18n/presentation"
+
 import type { Player } from "../../types/player"
 
 type PlayerInfoProps = {
+  locale?: Locale
   player: Player
 }
 
-export default function PlayerInfo({
+export default function PlayerInfo({ locale = "pt",
   player,
 }: PlayerInfoProps) {
   return (
     <section className="playerInfo">
       <div className="playerInfoHeader">
-        <span>PERFIL</span>
-        <h2>Informações do jogador</h2>
+        <span>{t(locale, "PERFIL")}</span>
+        <h2>{t(locale, "Informações do jogador")}</h2>
       </div>
 
       <div className="playerInfoGrid">
         <div className="playerInfoItem">
-          <span>NACIONALIDADE</span>
+          <span>{t(locale, "NACIONALIDADE")}</span>
 
           <strong>
             {player.nationality}
@@ -24,7 +28,7 @@ export default function PlayerInfo({
         </div>
 
         <div className="playerInfoItem">
-          <span>LIGA</span>
+          <span>{t(locale, "LIGA")}</span>
 
           <strong>
             {player.league}
@@ -32,15 +36,15 @@ export default function PlayerInfo({
         </div>
 
         <div className="playerInfoItem">
-          <span>PÉ PREFERIDO</span>
+          <span>{t(locale, "PÉ PREFERIDO")}</span>
 
           <strong>
-            {player.preferredFoot}
+            {player.preferredFoot ? displayFoot(player.preferredFoot, locale) : "—"}
           </strong>
         </div>
 
         <div className="playerInfoItem">
-          <span>ALTURA</span>
+          <span>{t(locale, "ALTURA")}</span>
 
           <strong>
             {player.height} cm

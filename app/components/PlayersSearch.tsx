@@ -1,5 +1,8 @@
 "use client"
 
+import { t, localeTags, type Locale } from "../../lib/i18n"
+
+
 import {
   useState,
   useTransition,
@@ -32,6 +35,7 @@ type LeagueOption = {
 ======================================== */
 
 type PlayersSearchProps = {
+  locale?: Locale
   players: Player[]
 
   leagues: LeagueOption[]
@@ -79,7 +83,7 @@ type FilterOverrides = {
    COMPONENT
 ======================================== */
 
-export default function PlayersSearch({
+export default function PlayersSearch({ locale = "pt",
   players,
   leagues,
 
@@ -424,8 +428,8 @@ export default function PlayersSearch({
       >
         <input
           type="text"
-          aria-label="Pesquisar por jogador, clube ou nacionalidade"
-          placeholder="Pesquisar por jogador, clube ou nacionalidade..."
+          aria-label={t(locale, "Pesquisar por jogador, clube ou nacionalidade")}
+          placeholder={t(locale, "Pesquisar por jogador, clube ou nacionalidade...")}
           value={
             search
           }
@@ -452,8 +456,8 @@ export default function PlayersSearch({
           className="playersSearchButton"
         >
           {isPending
-            ? "Buscando..."
-            : "Buscar"}
+            ? t(locale, "Buscando...")
+            : t(locale, "Buscar")}
         </button>
       </div>
 
@@ -473,8 +477,7 @@ export default function PlayersSearch({
             </span>
 
             <h3>
-              Filtros gerais
-            </h3>
+              {t(locale, "Filtros gerais")}</h3>
           </div>
 
           <div
@@ -490,8 +493,7 @@ export default function PlayersSearch({
                 isPending
               }
             >
-              Limpar filtros
-            </button>
+              {t(locale, "Limpar filtros")}</button>
 
             <button
               type="button"
@@ -504,8 +506,8 @@ export default function PlayersSearch({
               }
             >
               {isPending
-                ? "Aplicando..."
-                : "Aplicar filtros"}
+                ? t(locale, "Aplicando...")
+                : t(locale, "Aplicar filtros")}
             </button>
           </div>
         </div>
@@ -521,8 +523,7 @@ export default function PlayersSearch({
             <label
               htmlFor="position"
             >
-              Posição
-            </label>
+              {t(locale, "Posição")}</label>
 
             <select
               id="position"
@@ -538,48 +539,37 @@ export default function PlayersSearch({
               }
             >
               <option value="">
-                Todas as posições
-              </option>
+                {t(locale, "Todas as posições")}</option>
 
               <option value="GOL">
-                Goleiro
-              </option>
+                {t(locale, "Goleiro")}</option>
 
               <option value="LD">
-                Lateral Direito
-              </option>
+                {t(locale, "Lateral Direito")}</option>
 
               <option value="LE">
-                Lateral Esquerdo
-              </option>
+                {t(locale, "Lateral Esquerdo")}</option>
 
               <option value="ZAG">
-                Zagueiro
-              </option>
+                {t(locale, "Zagueiro")}</option>
 
               <option value="VOL">
-                Volante
-              </option>
+                {t(locale, "Volante")}</option>
 
               <option value="MC">
-                Meio-campista
-              </option>
+                {t(locale, "Meio-campista")}</option>
 
               <option value="MEI">
-                Meia ofensivo
-              </option>
+                {t(locale, "Meia ofensivo")}</option>
 
               <option value="PD">
-                Ponta Direito
-              </option>
+                {t(locale, "Ponta Direito")}</option>
 
               <option value="PE">
-                Ponta Esquerdo
-              </option>
+                {t(locale, "Ponta Esquerdo")}</option>
 
               <option value="ATA">
-                Atacante
-              </option>
+                {t(locale, "Atacante")}</option>
             </select>
           </div>
 
@@ -591,8 +581,7 @@ export default function PlayersSearch({
             <label
               htmlFor="league"
             >
-              Liga
-            </label>
+              {t(locale, "Liga")}</label>
 
             <select
               id="league"
@@ -610,8 +599,7 @@ export default function PlayersSearch({
               <option
                 value=""
               >
-                Todas as ligas
-              </option>
+                {t(locale, "Todas as ligas")}</option>
 
               {leagues.map(
                 (
@@ -642,8 +630,7 @@ export default function PlayersSearch({
             <label
               htmlFor="sortBy"
             >
-              Ordenar por
-            </label>
+              {t(locale, "Ordenar por")}</label>
 
             <select
               id="sortBy"
@@ -659,52 +646,40 @@ export default function PlayersSearch({
               }
             >
               <option value="">
-                Padrão
-              </option>
+                {t(locale, "Padrão")}</option>
 
               <option value="overall-desc">
-                Maior OVR
-              </option>
+                {t(locale, "Maior OVR")}</option>
 
               <option value="overall-asc">
-                Menor OVR
-              </option>
+                {t(locale, "Menor OVR")}</option>
 
               <option value="potential-desc">
-                Maior potencial
-              </option>
+                {t(locale, "Maior potencial")}</option>
 
               <option value="age-asc">
-                Mais jovem
-              </option>
+                {t(locale, "Mais jovem")}</option>
 
               <option value="value-asc">
-                Mais barato
-              </option>
+                {t(locale, "Mais barato")}</option>
 
               <option value="value-desc">
-                Mais caro
-              </option>
+                {t(locale, "Mais caro")}</option>
 
               <option value="pace-desc">
-                Maior ritmo
-              </option>
+                {t(locale, "Maior ritmo")}</option>
 
               <option value="passing-desc">
-                Maior passe
-              </option>
+                {t(locale, "Maior passe")}</option>
 
               <option value="dribbling-desc">
-                Maior drible
-              </option>
+                {t(locale, "Maior drible")}</option>
 
               <option value="name-asc">
-                Nome A-Z
-              </option>
+                {t(locale, "Nome A-Z")}</option>
 
               <option value="name-desc">
-                Nome Z-A
-              </option>
+                {t(locale, "Nome Z-A")}</option>
             </select>
           </div>
 
@@ -716,15 +691,14 @@ export default function PlayersSearch({
             <label
               htmlFor="maxAge"
             >
-              Idade máxima
-            </label>
+              {t(locale, "Idade máxima")}</label>
 
             <input
               id="maxAge"
               type="number"
               min="15"
               max="50"
-              placeholder="Ex: 23"
+              placeholder={t(locale, "Ex: 23")}
               value={
                 maxAge
               }
@@ -746,15 +720,14 @@ export default function PlayersSearch({
             <label
               htmlFor="minOverall"
             >
-              OVR mínimo
-            </label>
+              {t(locale, "OVR mínimo")}</label>
 
             <input
               id="minOverall"
               type="number"
               min="1"
               max="99"
-              placeholder="Ex: 80"
+              placeholder={t(locale, "Ex: 80")}
               value={
                 minOverall
               }
@@ -776,15 +749,14 @@ export default function PlayersSearch({
             <label
               htmlFor="minPotential"
             >
-              Potencial mínimo
-            </label>
+              {t(locale, "Potencial mínimo")}</label>
 
             <input
               id="minPotential"
               type="number"
               min="1"
               max="99"
-              placeholder="Ex: 85"
+              placeholder={t(locale, "Ex: 85")}
               value={
                 minPotential
               }
@@ -806,14 +778,13 @@ export default function PlayersSearch({
             <label
               htmlFor="maxValue"
             >
-              Valor máximo (€)
-            </label>
+              {t(locale, "Valor máximo (€)")}</label>
 
             <input
               id="maxValue"
               type="number"
               min="0"
-              placeholder="Ex: 50000000"
+              placeholder={t(locale, "Ex: 50000000")}
               value={
                 maxValue
               }
@@ -845,7 +816,7 @@ export default function PlayersSearch({
               )
             }
           >
-            Busca: {initialSearch} ×
+            {t(locale, "Busca:")}{" "}{initialSearch} ×
           </button>
         )}
 
@@ -892,7 +863,7 @@ export default function PlayersSearch({
               )
             }
           >
-            Idade ≤ {initialMaxAge} ×
+            {t(locale, "Idade ≤")}{" "}{initialMaxAge} ×
           </button>
         )}
 
@@ -905,7 +876,7 @@ export default function PlayersSearch({
               )
             }
           >
-            OVR ≥ {initialMinOverall} ×
+            {t(locale, "OVR ≥")}{" "}{initialMinOverall} ×
           </button>
         )}
 
@@ -918,7 +889,7 @@ export default function PlayersSearch({
               )
             }
           >
-            Potencial ≥{" "}
+            {t(locale, "Potencial ≥")}{" "}
             {initialMinPotential} ×
           </button>
         )}
@@ -932,11 +903,10 @@ export default function PlayersSearch({
               )
             }
           >
-            Valor ≤ €
-            {Number(
+            {t(locale, "Valor ≤ €")}{" "}{Number(
               initialMaxValue
             ).toLocaleString(
-              "pt-BR"
+              localeTags[locale]
             )}{" "}
             ×
           </button>
@@ -951,7 +921,7 @@ export default function PlayersSearch({
               )
             }
           >
-            Ritmo ≥ {initialMinPace} ×
+            {t(locale, "Ritmo ≥")}{" "}{initialMinPace} ×
           </button>
         )}
 
@@ -964,7 +934,7 @@ export default function PlayersSearch({
               )
             }
           >
-            Finalização ≥{" "}
+            {t(locale, "Finalização ≥")}{" "}
             {initialMinShooting} ×
           </button>
         )}
@@ -978,7 +948,7 @@ export default function PlayersSearch({
               )
             }
           >
-            Passe ≥ {initialMinPassing} ×
+            {t(locale, "Passe ≥")}{" "}{initialMinPassing} ×
           </button>
         )}
 
@@ -991,7 +961,7 @@ export default function PlayersSearch({
               )
             }
           >
-            Drible ≥{" "}
+            {t(locale, "Drible ≥")}{" "}
             {initialMinDribbling} ×
           </button>
         )}
@@ -1005,7 +975,7 @@ export default function PlayersSearch({
               )
             }
           >
-            Defesa ≥{" "}
+            {t(locale, "Defesa ≥")}{" "}
             {initialMinDefending} ×
           </button>
         )}
@@ -1019,7 +989,7 @@ export default function PlayersSearch({
               )
             }
           >
-            Físico ≥{" "}
+            {t(locale, "Físico ≥")}{" "}
             {initialMinPhysical} ×
           </button>
         )}
@@ -1044,12 +1014,10 @@ export default function PlayersSearch({
         >
           <div>
             <span>
-              ATRIBUTOS
-            </span>
+              {t(locale, "ATRIBUTOS")}</span>
 
             <strong>
-              Filtros avançados
-            </strong>
+              {t(locale, "Filtros avançados")}</strong>
           </div>
 
           <span>
@@ -1072,15 +1040,14 @@ export default function PlayersSearch({
                 <label
                   htmlFor="minPace"
                 >
-                  Ritmo mínimo
-                </label>
+                  {t(locale, "Ritmo mínimo")}</label>
 
                 <input
                   id="minPace"
                   type="number"
                   min="1"
                   max="99"
-                  placeholder="Ex: 85"
+                  placeholder={t(locale, "Ex: 85")}
                   value={
                     minPace
                   }
@@ -1100,15 +1067,14 @@ export default function PlayersSearch({
                 <label
                   htmlFor="minShooting"
                 >
-                  Finalização mínima
-                </label>
+                  {t(locale, "Finalização mínima")}</label>
 
                 <input
                   id="minShooting"
                   type="number"
                   min="1"
                   max="99"
-                  placeholder="Ex: 80"
+                  placeholder={t(locale, "Ex: 80")}
                   value={
                     minShooting
                   }
@@ -1128,15 +1094,14 @@ export default function PlayersSearch({
                 <label
                   htmlFor="minPassing"
                 >
-                  Passe mínimo
-                </label>
+                  {t(locale, "Passe mínimo")}</label>
 
                 <input
                   id="minPassing"
                   type="number"
                   min="1"
                   max="99"
-                  placeholder="Ex: 85"
+                  placeholder={t(locale, "Ex: 85")}
                   value={
                     minPassing
                   }
@@ -1156,15 +1121,14 @@ export default function PlayersSearch({
                 <label
                   htmlFor="minDribbling"
                 >
-                  Drible mínimo
-                </label>
+                  {t(locale, "Drible mínimo")}</label>
 
                 <input
                   id="minDribbling"
                   type="number"
                   min="1"
                   max="99"
-                  placeholder="Ex: 85"
+                  placeholder={t(locale, "Ex: 85")}
                   value={
                     minDribbling
                   }
@@ -1184,15 +1148,14 @@ export default function PlayersSearch({
                 <label
                   htmlFor="minDefending"
                 >
-                  Defesa mínima
-                </label>
+                  {t(locale, "Defesa mínima")}</label>
 
                 <input
                   id="minDefending"
                   type="number"
                   min="1"
                   max="99"
-                  placeholder="Ex: 75"
+                  placeholder={t(locale, "Ex: 75")}
                   value={
                     minDefending
                   }
@@ -1212,15 +1175,14 @@ export default function PlayersSearch({
                 <label
                   htmlFor="minPhysical"
                 >
-                  Físico mínimo
-                </label>
+                  {t(locale, "Físico mínimo")}</label>
 
                 <input
                   id="minPhysical"
                   type="number"
                   min="1"
                   max="99"
-                  placeholder="Ex: 75"
+                  placeholder={t(locale, "Ex: 75")}
                   value={
                     minPhysical
                   }
@@ -1249,8 +1211,8 @@ export default function PlayersSearch({
                 }
               >
                 {isPending
-                  ? "Aplicando..."
-                  : "Aplicar atributos"}
+                  ? t(locale, "Aplicando...")
+                  : t(locale, "Aplicar atributos")}
               </button>
             </div>
           </div>
@@ -1264,12 +1226,7 @@ export default function PlayersSearch({
       <p
         className="playersResultCount"
       >
-        {players.length} jogador
-        {players.length === 1
-          ? ""
-          : "es"}{" "}
-        nesta página
-      </p>
+        {players.length}{" "}{t(locale, players.length === 1 ? "jogador" : "jogadores")}{" "}{t(locale, "nesta página")}</p>
 
       {/* ====================================
           CARDS
@@ -1281,7 +1238,7 @@ export default function PlayersSearch({
         {players.length > 0 ? (
           players.map(
             (player) => (
-              <PlayerCard
+              <PlayerCard locale={locale}
                 key={
                   player.id
                 }
@@ -1327,13 +1284,10 @@ export default function PlayersSearch({
             className="playersEmpty"
           >
             <h3>
-              Nenhum jogador encontrado
-            </h3>
+              {t(locale, "Nenhum jogador encontrado")}</h3>
 
             <p>
-              Tente alterar sua pesquisa
-              ou os filtros.
-            </p>
+              {t(locale, "Tente alterar sua pesquisa ou os filtros.")}</p>
           </div>
         )}
       </section>

@@ -1,167 +1,170 @@
+import { t, type Locale } from "../../lib/i18n"
+
 import type { PlayerAttributes as PlayerAttributesType } from "../../types/player"
 import { getAttributeLevel } from "../../utils/getAttributeLevel"
 
 type PlayerAttributesProps = {
+  locale?: Locale
    attributes: PlayerAttributesType
 }
 
-export default function PlayerAttributes({
+export default function PlayerAttributes({ locale = "pt",
   attributes,
 }: PlayerAttributesProps) {
   const attributeGroups = [
     {
-      label: "Ritmo",
+      label: t(locale, "Ritmo"),
       value: attributes.pace.overall,
       subAttributes: [
         {
-          label: "Aceleração",
+          label: t(locale, "Aceleração"),
           value: attributes.pace.acceleration,
         },
         {
-          label: "Velocidade",
+          label: t(locale, "Velocidade"),
           value: attributes.pace.sprintSpeed,
         },
       ],
     },
 
     {
-      label: "Finalização",
+      label: t(locale, "Finalização"),
       value: attributes.shooting.overall,
       subAttributes: [
         {
-          label: "Posicionamento",
+          label: t(locale, "Posicionamento"),
           value: attributes.shooting.positioning,
         },
         {
-          label: "Finalização",
+          label: t(locale, "Finishing"),
           value: attributes.shooting.finishing,
         },
         {
-          label: "Força do chute",
+          label: t(locale, "Força do chute"),
           value: attributes.shooting.shotPower,
         },
         {
-          label: "Chutes de longe",
+          label: t(locale, "Chutes de longe"),
           value: attributes.shooting.longShots,
         },
         {
-          label: "Voleios",
+          label: t(locale, "Voleios"),
           value: attributes.shooting.volleys,
         },
         {
-          label: "Pênaltis",
+          label: t(locale, "Pênaltis"),
           value: attributes.shooting.penalties,
         },
       ],
     },
 
     {
-      label: "Passe",
+      label: t(locale, "Passe"),
       value: attributes.passing.overall,
       subAttributes: [
         {
-          label: "Visão",
+          label: t(locale, "Visão"),
           value: attributes.passing.vision,
         },
         {
-          label: "Cruzamento",
+          label: t(locale, "Cruzamento"),
           value: attributes.passing.crossing,
         },
         {
-          label: "Falta",
+          label: t(locale, "Falta"),
           value: attributes.passing.freeKickAccuracy,
         },
         {
-          label: "Passe curto",
+          label: t(locale, "Passe curto"),
           value: attributes.passing.shortPassing,
         },
         {
-          label: "Passe longo",
+          label: t(locale, "Passe longo"),
           value: attributes.passing.longPassing,
         },
         {
-          label: "Curva",
+          label: t(locale, "Curva"),
           value: attributes.passing.curve,
         },
       ],
     },
 
     {
-      label: "Drible",
+      label: t(locale, "Drible"),
       value: attributes.dribbling.overall,
       subAttributes: [
         {
-          label: "Agilidade",
+          label: t(locale, "Agilidade"),
           value: attributes.dribbling.agility,
         },
         {
-          label: "Equilíbrio",
+          label: t(locale, "Equilíbrio"),
           value: attributes.dribbling.balance,
         },
         {
-          label: "Reações",
+          label: t(locale, "Reações"),
           value: attributes.dribbling.reactions,
         },
         {
-          label: "Controle de bola",
+          label: t(locale, "Controle de bola"),
           value: attributes.dribbling.ballControl,
         },
         {
-          label: "Drible",
+          label: t(locale, "Drible"),
           value: attributes.dribbling.dribbling,
         },
         {
-          label: "Compostura",
+          label: t(locale, "Compostura"),
           value: attributes.dribbling.composure,
         },
       ],
     },
 
     {
-      label: "Defesa",
+      label: t(locale, "Defesa"),
       value: attributes.defending.overall,
       subAttributes: [
         {
-          label: "Interceptações",
+          label: t(locale, "Interceptações"),
           value: attributes.defending.interceptions,
         },
         {
-          label: "Cabeceio",
+          label: t(locale, "Cabeceio"),
           value: attributes.defending.headingAccuracy,
         },
         {
-          label: "Consciência defensiva",
+          label: t(locale, "Consciência defensiva"),
           value: attributes.defending.defensiveAwareness,
         },
         {
-          label: "Desarme em pé",
+          label: t(locale, "Desarme em pé"),
           value: attributes.defending.standingTackle,
         },
         {
-          label: "Carrinho",
+          label: t(locale, "Carrinho"),
           value: attributes.defending.slidingTackle,
         },
       ],
     },
 
     {
-      label: "Físico",
+      label: t(locale, "Físico"),
       value: attributes.physical.overall,
       subAttributes: [
         {
-          label: "Impulsão",
+          label: t(locale, "Impulsão"),
           value: attributes.physical.jumping,
         },
         {
-          label: "Resistência",
+          label: t(locale, "Resistência"),
           value: attributes.physical.stamina,
         },
         {
-          label: "Força",
+          label: t(locale, "Força"),
           value: attributes.physical.strength,
         },
         {
-          label: "Agressividade",
+          label: t(locale, "Agressividade"),
           value: attributes.physical.aggression,
         },
       ],
@@ -171,8 +174,8 @@ export default function PlayerAttributes({
   return (
     <section className="playerAttributes">
       <div className="attributesHeader">
-        <span>ATRIBUTOS</span>
-        <h2>Desempenho do jogador</h2>
+        <span>{t(locale, "ATRIBUTOS")}</span>
+        <h2>{t(locale, "Desempenho do jogador")}</h2>
       </div>
 
       <div className="attributesList">

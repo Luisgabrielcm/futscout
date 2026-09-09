@@ -11,7 +11,7 @@ import { formatCurrency } from "../../../utils/formatCurrency"
 
 const link = ({ children, ...props }: { href: string; children: ReactNode }) => createElement("a", props, children)
 const image = ({ alt }: { alt: string }) => createElement("span", null, alt)
-const card = (player: SelectedPlayer) => createElement("article", null, createElement("a", { href: "/jogadores/" + player.slug }, player.name))
+const card = (player: SelectedPlayer) => createElement("article", null, createElement("a", { href: "/pt/jogadores/" + player.slug }, player.name))
 const selected = (slug: string, changes: Partial<SelectedPlayer> = {}): SelectedPlayer => ({
   id: slug, slug, name: "Jogador " + slug, position: "MC", age: null, club: null,
   baseOverall: 80, dynamicOverall: null, potential: null, marketValue: null,
@@ -26,12 +26,12 @@ const { default: Comparison } = loadCatalogModule<typeof import("../../../app/co
 
 function comparePage(players: SelectedPlayer[]) {
   const calls: unknown[] = []
-  const page = loadCatalogModule<typeof import("../../../app/comparar/page")>("app/comparar/page.tsx", {
-    "next/link": link, "../components/DirectoryCatalog": { DirectoryNav: () => null },
-    "../components/PlayerCard": card, "../components/PlayerComparison": Comparison,
-    "../components/ComparisonSelection": () => null,
-    "../../services/playerSelectionService": { getSelectedPlayers: async (...args: unknown[]) => { calls.push(args); return players } },
-    "../../lib/playerSelections": selections,
+  const page = loadCatalogModule<typeof import("../../../app/[locale]/comparar/page")>("app/[locale]/comparar/page.tsx", {
+    "next/link": link, "../../components/DirectoryCatalog": { DirectoryNav: () => null },
+    "../../components/PlayerCard": card, "../../components/PlayerComparison": Comparison,
+    "../../components/ComparisonSelection": () => null,
+    "../../../services/playerSelectionService": { getSelectedPlayers: async (...args: unknown[]) => { calls.push(args); return players } },
+    "../../../lib/playerSelections": selections,
   })
   return { page, calls }
 }
@@ -47,7 +47,7 @@ test("comparison with one player renders the player and asks for the second", as
   const f = comparePage([selected("a")])
   const html = renderToStaticMarkup(await f.page.default({ searchParams: Promise.resolve({ players: "a" }) }))
   assert.match(html, /Falta um jogador/)
-  assert.match(html, /href="\/jogadores\/a"/)
+  assert.match(html, /href="\/pt\/jogadores\/a"/)
   assert.doesNotMatch(html, /<table/)
 })
 
@@ -117,7 +117,7 @@ test("favorites empty local storage renders a real catalog link", () => {
   const f = favoritesView([])
   const html = renderToStaticMarkup(createElement(f.View, { requested: [], players: [] }))
   assert.match(html, /Nenhum favorito ainda/)
-  assert.match(html, /href="\/jogadores"/)
+  assert.match(html, /href="\/pt\/jogadores"/)
 })
 
 test("favorites reconciles local slugs with server results using a safe replace URL", () => {
@@ -125,13 +125,13 @@ test("favorites reconciles local slugs with server results using a safe replace 
   const html = renderToStaticMarkup(createElement(f.View, { requested: [], players: [] }))
   assert.match(html, /Carregando/)
   f.effects.forEach((effect) => effect())
-  assert.deepEqual(f.navigations, ["/favoritos?players=b,a"])
+  assert.deepEqual(f.navigations, ["/pt/favoritos?players=b,a"])
 })
 
 test("favorites renders resolved players and a removable unavailable-player state", () => {
   const f = favoritesView(["a", "missing"])
   const html = renderToStaticMarkup(createElement(f.View, { requested: ["a", "missing"], players: [selected("a")] }))
-  assert.match(html, /href="\/jogadores\/a"/)
+  assert.match(html, /href="\/pt\/jogadores\/a"/)
   assert.match(html, /Jogadores indisponíveis/)
   assert.match(html, /aria-label="Remover missing dos favoritos"/)
   buttons(f.View({ requested: ["a", "missing"], players: [selected("a")] }))[0].props.onClick?.()
@@ -142,10 +142,10 @@ test("favorites renders resolved players and a removable unavailable-player stat
 
 test("favorites server shell requests the bounded slug set in one service call", async () => {
   const calls: unknown[] = []
-  const page = loadCatalogModule<typeof import("../../../app/favoritos/page")>("app/favoritos/page.tsx", {
-    "../components/DirectoryCatalog": { DirectoryNav: () => null },
-    "../components/FavoritesView": () => null, "../../lib/playerSelections": selections,
-    "../../services/playerSelectionService": { getSelectedPlayers: async (slugs: unknown) => { calls.push(slugs); return [] } },
+  const page = loadCatalogModule<typeof import("../../../app/[locale]/favoritos/page")>("app/[locale]/favoritos/page.tsx", {
+    "../../components/DirectoryCatalog": { DirectoryNav: () => null },
+    "../../components/FavoritesView": () => null, "../../../lib/playerSelections": selections,
+    "../../../services/playerSelectionService": { getSelectedPlayers: async (slugs: unknown) => { calls.push(slugs); return [] } },
   })
   const html = renderToStaticMarkup(await page.default({ searchParams: Promise.resolve({ players: "a,a,b" }) }))
   assert.match(html, /Favoritos/)
@@ -209,7 +209,7 @@ test("comparison buttons fill two slots, expose shared URL and reject a third un
   buttons(f.render("a"))[1].props.onClick?.()
   buttons(f.render("b"))[1].props.onClick?.()
   assert.equal(f.values.get(selections.COMPARISON_KEY), '["a","b"]')
-  assert.match(renderToStaticMarkup(f.render("b")), /href="\/comparar\?players=a,b"/)
+  assert.match(renderToStaticMarkup(f.render("b")), /href="\/pt\/comparar\?players=a,b"/)
   buttons(f.render("c"))[1].props.onClick?.()
   assert.match(renderToStaticMarkup(f.render("c")), /Seleção cheia/)
   assert.equal(f.values.get(selections.COMPARISON_KEY), '["a","b"]')

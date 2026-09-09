@@ -48,17 +48,18 @@ function contractFixture(row: mapper.DatabasePlayer) {
   const { default: Search } = loadCatalogModule<typeof import("../../../app/components/PlayersSearch")>(
     "app/components/PlayersSearch.tsx", {
       react: React,
-      "next/navigation": { usePathname: () => "/jogadores", useRouter: () => ({ push: () => {} }) },
+      "next/navigation": { usePathname: () => "/pt/jogadores", useRouter: () => ({ push: () => {} }) },
       "./PlayerCard": Card,
       "../../lib/playerCatalogParams": params,
     },
   )
-  const { default: Home } = loadCatalogModule<typeof import("../../../app/page")>(
-    "app/page.tsx", {
+  const { default: Home } = loadCatalogModule<typeof import("../../../app/[locale]/page")>(
+    "app/[locale]/page.tsx", {
+      "next/server": { connection: async () => {} },
       "next/link": link,
-      "../services/playerService": service,
-      "./components/HomeSearch": () => null,
-      "./components/PlayerCard": Card,
+      "../../services/playerService": service,
+      "../components/HomeSearch": () => null,
+      "../components/PlayerCard": Card,
     },
   )
   return { service, Search, Home }

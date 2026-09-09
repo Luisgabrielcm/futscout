@@ -11,13 +11,13 @@ function elements(node: ReactNode): React.ReactElement<Props>[] {
   if (!isValidElement<Props>(node)) return []
   return [node, ...elements(node.props.children)]
 }
-function fixture(path = "/jogadores/fixture") {
+function fixture(path = "/pt/jogadores/fixture") {
   let pathname = path
   let state: string | null = null
   let focused = 0
   const { default: Nav } = loadCatalogModule<typeof import("../../../app/components/SiteNav")>("app/components/SiteNav.tsx", {
     "next/link": ({ children, ...props }: Props) => createElement("a", props, children),
-    "next/navigation": { usePathname: () => pathname },
+    "next/navigation": { usePathname: () => pathname, useSearchParams: () => new URLSearchParams() },
     react: {
       useState: () => [state, (value: string | null) => { state = value }],
       useRef: () => ({ current: { focus: () => { focused++ } } }),
@@ -28,9 +28,9 @@ function fixture(path = "/jogadores/fixture") {
 test("shared navigation has six real destinations, nested-route active state and inert future features", () => {
   const { Nav } = fixture()
   const html = renderToStaticMarkup(Nav())
-  for (const href of ["/", "/jogadores", "/clubes", "/ligas", "/comparar", "/favoritos"]) assert.ok(html.includes(`href="${href}"`))
+  for (const href of ["/pt", "/pt/jogadores", "/pt/clubes", "/pt/ligas", "/pt/comparar", "/pt/favoritos"]) assert.ok(html.includes(`href="${href}"`))
   assert.equal((html.match(/aria-current="page"/g) ?? []).length, 1)
-  assert.match(html, /href="\/jogadores" aria-current="page"/)
+  assert.match(html, /href="\/pt\/jogadores" aria-current="page"/)
   assert.match(html, /Em breve/)
   assert.doesNotMatch(html, /href="#"|href="\/scout|href="\/elencos/)
 })
@@ -46,13 +46,13 @@ test("mobile toggle exposes its controlled menu and Escape closes it with focus 
   assert.equal(f.focused(), 1)
 })
 test("navigation closes on a destination click or a changed route, without prefix false positives", () => {
-  const f = fixture("/clubes")
+  const f = fixture("/pt/clubes")
   const open = () => elements(f.Nav()).find((el) => el.type === "button")!.props.onClick!()
   open()
-  elements(f.Nav()).find((el) => el.props.href === "/ligas")!.props.onClick!()
+  elements(f.Nav()).find((el) => el.props.href === "/pt/ligas")!.props.onClick!()
   assert.doesNotMatch(renderToStaticMarkup(f.Nav()), /siteNavLinks isOpen/)
   open()
-  f.route("/clubes-extra")
+  f.route("/pt/clubes-extra")
   const html = renderToStaticMarkup(f.Nav())
   assert.doesNotMatch(html, /siteNavLinks isOpen|aria-current="page"/)
 })

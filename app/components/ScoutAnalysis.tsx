@@ -1,3 +1,5 @@
+import { t, type Locale } from "../../lib/i18n"
+
 import type { Player } from "../../types/player"
 
 import {
@@ -5,22 +7,23 @@ import {
 } from "../../utils/generateScoutAnalysis"
 
 type ScoutAnalysisProps = {
+  locale?: Locale
   player: Player
 }
 
-export default function ScoutAnalysis({
+export default function ScoutAnalysis({ locale = "pt",
   player,
 }: ScoutAnalysisProps) {
   const analysis =
-    generateScoutAnalysis(player)
+    generateScoutAnalysis(player, locale)
 
   return (
     <section className="scoutAnalysis">
       <div className="scoutAnalysisHeader">
-        <span>ANÁLISE POR ATRIBUTOS</span>
+        <span>{t(locale, "ANÁLISE POR ATRIBUTOS")}</span>
 
-        <h2>Análise FutScout</h2>
-        <p>Leitura heurística dos atributos disponíveis, não uma análise em tempo real.</p>
+        <h2>{t(locale, "Análise FutScout")}</h2>
+        <p>{t(locale, "Leitura heurística dos atributos disponíveis, não uma análise em tempo real.")}</p>
       </div>
 
       <div className="scoutAnalysisGrid">
@@ -28,8 +31,7 @@ export default function ScoutAnalysis({
 
         <div className="scoutAnalysisCard">
           <span className="scoutAnalysisLabel">
-            PONTOS FORTES
-          </span>
+            {t(locale, "PONTOS FORTES")}</span>
 
           <div className="scoutAnalysisList strengths">
             {analysis.strengths.map(
@@ -47,8 +49,7 @@ export default function ScoutAnalysis({
 
         <div className="scoutAnalysisCard">
           <span className="scoutAnalysisLabel">
-            PONTOS DE ATENÇÃO
-          </span>
+            {t(locale, "PONTOS DE ATENÇÃO")}</span>
 
           <div className="scoutAnalysisList weaknesses">
             {analysis.weaknesses.map(
@@ -66,8 +67,7 @@ export default function ScoutAnalysis({
 
         <div className="scoutAnalysisCard">
           <span className="scoutAnalysisLabel">
-            IDEAL PARA
-          </span>
+            {t(locale, "IDEAL PARA")}</span>
 
           <div className="scoutRoles">
             {analysis.roles.map(

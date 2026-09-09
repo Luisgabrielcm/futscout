@@ -22,17 +22,17 @@ function detailPage(profile: PlayerProfile | null) {
   const notFoundSignal = new Error("NOT_FOUND")
   const pageModule = loadCatalogModule<{
     default: (props: { params: Promise<{ slug: string }> }) => Promise<ReactNode>
-  }>("app/jogadores/[slug]/page.tsx", {
+  }>("app/[locale]/jogadores/[slug]/page.tsx", {
     "next/link": link,
     "next/navigation": { notFound: () => { throw notFoundSignal } },
-    "../../../services/playerService": { getPlayerBySlug: async () => profile },
-    "../../components/PlayerHeader": marker("header"),
-    "../../components/PlayerQuickProfile": marker("quick-profile"),
-    "../../components/PlayerPositions": marker("outfield-positions"),
-    "../../components/ScoutAnalysis": marker("outfield-analysis"),
-    "../../components/PlayerAttributes": marker("outfield-attributes"),
-    "../../components/PlayerPlayStyles": marker("playstyles"),
-    "../../components/PlayerActions": () => null,
+    "../../../../services/playerService": { getPlayerBySlug: async () => profile },
+    "../../../components/PlayerHeader": marker("header"),
+    "../../../components/PlayerQuickProfile": marker("quick-profile"),
+    "../../../components/PlayerPositions": marker("outfield-positions"),
+    "../../../components/ScoutAnalysis": marker("outfield-analysis"),
+    "../../../components/PlayerAttributes": marker("outfield-attributes"),
+    "../../../components/PlayerPlayStyles": marker("playstyles"),
+    "../../../components/PlayerActions": () => null,
   })
   return { render: () => pageModule.default({ params: Promise.resolve({ slug: "fixture" }) }), notFoundSignal }
 }
@@ -109,16 +109,17 @@ test("header labels the base EA overall and does not invent market stability", (
 
 test("Home has no placeholder links or unsupported coverage claims", async () => {
   const { default: Home } = loadCatalogModule<{ default: () => Promise<ReactNode> }>(
-    "app/page.tsx", {
+    "app/[locale]/page.tsx", {
+      "next/server": { connection: async () => {} },
       "next/link": link,
-      "../services/playerService": { getFeaturedPlayers: async () => [] },
-      "./components/HomeSearch": marker("home-search"),
-      "./components/PlayerCard": marker("card"),
+      "../../services/playerService": { getFeaturedPlayers: async () => [] },
+      "../components/HomeSearch": marker("home-search"),
+      "../components/PlayerCard": marker("card"),
     },
   )
   const html = renderToStaticMarkup(await Home())
   assert.doesNotMatch(html, /href="#"|70\.000\+|900\+|60\+|24H|compare atletas/)
-  assert.match(html, /href="\/jogadores"/)
+  assert.match(html, /href="\/pt\/jogadores"/)
   assert.doesNotMatch(html, /class="sidebar"|class="menu"/)
   assert.match(html, /Nenhum jogador em destaque disponível/)
 })
@@ -148,7 +149,7 @@ test("active chips and chip removal use applied filters, never the edited draft"
         useTransition: () => [false, (callback: () => void) => callback()],
       },
       "next/navigation": {
-        usePathname: () => "/jogadores",
+        usePathname: () => "/pt/jogadores",
         useRouter: () => ({ push: (url: string) => navigations.push(url) }),
       },
       "./PlayerCard": marker("card"),
@@ -165,9 +166,9 @@ test("active chips and chip removal use applied filters, never the edited draft"
     element.type === "button" && renderToStaticMarkup(element).includes("Ritmo"))
   assert.ok(pace?.props.onClick)
   pace.props.onClick()
-  assert.equal(navigations[0], "/jogadores?search=applied")
+  assert.equal(navigations[0], "/pt/jogadores?search=applied")
   const clear = elements(tree).find((element) => element.props.className === "clearFiltersButton")
   assert.ok(clear?.props.onClick)
   clear.props.onClick()
-  assert.equal(navigations[1], "/jogadores")
+  assert.equal(navigations[1], "/pt/jogadores")
 })

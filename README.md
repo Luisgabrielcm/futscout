@@ -1,36 +1,215 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FutScout
 
-## Getting Started
+Catálogo de jogadores, clubes e ligas para planejar o Modo Carreira, com comparação
+de atributos e favoritos locais no navegador. Dados ausentes permanecem ausentes.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Next.js 16.3.4 (App Router), React 19.2.8, TypeScript, Prisma 7.9.1,
+PostgreSQL e adapter-pg. Use Node.js 24 LTS e npm com o lockfile versionado.
+O catálogo precisa de runtime Node, não Edge nem exportação estática.
+
+## Development
+
+1. `npm ci` (inclui `postinstall: prisma generate`; não executa migration/seed).
+2. Copiar `.env.example` para `.env` e preencher a conexão própria `DIRECT_URL`.
+3. `npx prisma generate` se precisar regenerar o cliente após trocar de checkout.
+4. `npm run dev` e abrir `http://localhost:3000`.
+
+O banco deve possuir schema e dados já importados. Não versionar `.env` nem
+`app/generated/prisma`. Nenhuma etapa acima provisiona ou migra o banco.
+
+## Quality gates
+
+Em checkout novo, executar `npx next typegen` antes do TypeScript para gerar
+os helpers de rota/layout (também gerados por next dev/build).
+
+```sh
+npm test
+npx tsc --noEmit
+npm run lint
+npm run build
+git diff --check
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Testes automatizados usam mocks/fakes, sem banco ou APIs reais. Scripts manuais em
+`scripts/`, `sync/` e `audit/` não fazem parte da descoberta de testes.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variável | Necessidade |
+| --- | --- |
+| `DIRECT_URL` | Obrigatória no runtime público. Build precisa de URL sintaticamente válida porque o singleton Prisma a valida ao importar. Não há fallback para DATABASE_URL. |
+| `SITE_URL` | Obrigatória em produção: origem pública HTTPS de canonical/hreflang/robots/sitemap. HTTP localhost permitido no smoke; rebuild ao trocar domínio. |
+| `API_FOOTBALL_KEY` | Somente operações opcionais; não fornecer ao deployment do catálogo. |
+| `DATABASE_*`, `EA_*` de .env.example | Somente tuning operacional existente de retry/sync/audit/repair. Omitir para defaults. |
+| `PORT` | Opcional no servidor próprio; também aceita next start --port. |
+| `NODE_ENV` | Gerenciada pelo Next; não sobrescrever manualmente. |
 
-## Learn More
+Instalação/prisma generate precisam somente do schema, não de credenciais.
+A configuração CLI tolera URL ausente para geração; comandos de banco exigem URL real.
+O build não consulta PostgreSQL: CI usa placeholder em loopback, sem servidor.
+**Nunca usar o placeholder de CI no runtime público.** Nenhum segredo usa NEXT_PUBLIC_.
 
-To learn more about Next.js, take a look at the following resources:
+## Production
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Configurar SITE_URL com o domínio real e DIRECT_URL no ambiente do servidor:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```sh
+npm ci
+npm run build
+npm run start
+```
 
-## Deploy on Vercel
+Smoke local: `npm run start -- --hostname 127.0.0.1 --port 3100`.
+Em hosting Node próprio, usar porta fornecida e bind 0.0.0.0, não loopback.
+Não usar next dev em produção. Build/start não executam operações de dados.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Rendering/cache
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Home chama connection() antes de PostgreSQL: dados por request, sem congelar o
+catálogo no build. Listagens usam searchParams; detalhes são rotas dinâmicas sem
+geração prévia de slugs. Não há ISR. React.cache nos detalhes compartilha consultas
+apenas por request. Robots, sitemap e ícone são estáticos.
+Comparar/favoritos preservam noindex por serem seleções pessoais/URLs variáveis;
+robots permite acesso, mas essas páginas não constam do sitemap.
+
+### Idiomas (pt-BR e en)
+
+Rotas públicas vivem em `app/[locale]`: `/pt` e `/en`, mantendo segmentos
+como jogadores/clubes/ligas e os mesmos slugs persistidos. O layout servidor
+valida o locale e define html lang, sem ajuste após hidratação. Não há biblioteca
+i18n adicional, tradução de entidades ou mudanças no banco.
+
+`proxy.ts` redireciona somente `/` e URLs públicas antigas sem prefixo. O cookie
+de preferência válido prevalece sobre Accept-Language; a preferência de maior
+peso pt* escolhe pt, demais idiomas escolhem en, ausência usa pt. URLs já
+localizadas nunca são redirecionadas pela preferência. Locale inválido tem
+fallback seguro/404. Assets e arquivos Next não passam pela negociação.
+
+PT/EN no menu usa a mesma rota, query e fragmento; o cookie é local, SameSite=Lax,
+com duração de um ano. Favoritos/comparação continuam com suas chaves originais
+de localStorage, compartilhadas entre idiomas. Se o navegador bloquear storage,
+a limitação preexistente de dados apenas na sessão continua aplicável.
+
+Mensagens tipadas em `lib/i18n/dictionaries` incluem templates de apresentação
+da análise heurística, sem mudar suas regras. Códigos de posição permanecem
+iguais aos atuais. Moeda/data recebem locale explícito; datas usam UTC para
+evitar mudança de dia. Nenhuma data ausente é inventada.
+
+Cada página possui canonical e alternates pt-BR/en. O sitemap mínimo tem oito
+URLs: Home, Jogadores, Clubes e Ligas em ambos os idiomas. Não enumera entidades
+nem URLs de comparação/favoritos (noindex). Não há cache global de locale.
+
+### KNOWN FRAMEWORK LIMITATION — ACCEPTED FOR BETA
+
+Decisão de produto: a limitação SSR dos 404 é aceita temporariamente para a
+primeira beta. Reproduzida no Next 16.3.1 e 16.3.4, entidades inexistentes retornam
+HTTP 404, e a UI localizada aparece corretamente no navegador com JavaScript.
+Porém, o HTML inicial de recuperação (`__next_error__`) não inclui o conteúdo
+do not-found nem html lang; a recuperação cliente aplica o layout localizado.
+O requisito de 404 totalmente localizado em SSR continua pendente, mas não bloqueia
+esta beta por decisão explícita. Páginas válidas continuam exigindo HTTP 200,
+SSR com lang e conteúdo localizados, canonical/hreflang e metadata corretos.
+Não foi introduzido patch de framework, flag experimental ou alteração manual
+de html lang após hidratação. Acompanhar correções upstream do Next e repetir o
+gate abaixo em cada atualização do framework; qualquer piora é bloqueante.
+
+A contraprova em produção local reproduziu o mesmo HTTP 404/HTML vazio numa
+rota temporária com root layout estático, not-found síncrono e sem i18n, banco
+ou componentes do catálogo. Essa rota foi removida após o diagnóstico. Portanto,
+mover apenas o layout ou remover hooks da navegação não é uma correção comprovada.
+O `getErrorRSCPayload` da versão instalada gera o documento de recuperação vazio
+quando o `notFound()` escapa da renderização SSR. `global-not-found` continua
+experimental e resolve rotas não correspondidas, não é uma solução comprovada
+para as exceções de entidades. Não foi habilitado.
+
+Gate HTTP obrigatório, separado dos testes mockados: após `npm run build`, iniciar
+`npm run start -- --hostname 127.0.0.1 --port 3100` com `PGOPTIONS` definido como
+`-c default_transaction_read_only=on`. Em outro terminal PowerShell, executar:
+
+```powershell
+$env:FUTSCOUT_SSR_TEST_ORIGIN = 'http://127.0.0.1:3100'
+npx tsx --test tests/production/i18n404.test.ts
+Remove-Item Env:FUTSCOUT_SSR_TEST_ORIGIN
+```
+
+Esse teste faz oito GETs locais e as páginas de entidades executam seus SELECTs
+usuais. Ele consome as respostas inteiras, exclui scripts/Flight da verificação
+de texto e exige HTTP 404, título traduzido e html lang no markup. Sem a variável,
+os oito casos ficam explicitamente skipped em `npm test`; isso NÃO aprova o gate
+SSR. Estado diagnosticado: oito falhas reais nesse gate, mantidas visíveis como
+KNOWN FRAMEWORK LIMITATION — ACCEPTED FOR BETA, não como regressão nova do FutScout.
+A aceitação não enfraquece as assertions nem autoriza falhas nos testes funcionais.
+O aviso `The destination stream closed early` não reapareceu nos GETs completos
+nem nas duas interrupções HTTP controladas. Sua causa permanece não confirmada;
+não é necessário para reproduzir o defeito de HTML e não foi suprimido.
+
+### Banco e segurança
+
+PostgreSQL deve estar acessível pelo hosting. Preferir credencial SELECT para o
+catálogo público, separada das credenciais operacionais. Não aplicar migrations
+automaticamente: publicar com o schema existente já validado.
+Configurar SSL/CA conforme provedor; não desabilitar verificação TLS.
+
+Adapter-pg usa pool nativo pg: default máximo 10 conexões por instância, idle 10 s.
+Prisma é reutilizado por módulo no runtime e por global no desenvolvimento.
+Não abrir cliente por request nem chamar disconnect após cada página. Serverless
+multiplica pools: escolher região próxima ao banco, limitar concorrência e avaliar
+endpoint pooled antes de escalar. O nome consumido continua DIRECT_URL, mesmo
+se a conexão de runtime for pooled; operações CLI devem usar URL direta apropriada.
+
+Serviços públicos possuem server-only; não importam Prisma em Client Components.
+Boundaries mostram mensagem genérica/retry, sem erro bruto, stack ou credenciais.
+Logs operacionais não são executados pelas páginas públicas; logs do servidor são privados.
+
+### Aceite temporário — audit do tooling Prisma
+
+Triagem de 09/09/2026: `npm audit --omit=dev` reporta quatro findings altos na
+cadeia Prisma 7.9.1 (`prisma`, `@prisma/config`, `deepmerge-ts@7.1.5` e
+`mysql2@3.15.3`). Não foram identificados nos traces/chunks do runtime HTTP
+público atual. A CLI já está em devDependencies, mas satisfaz um peer opcional
+do cliente; deepmerge é usado no carregamento de configuração local da CLI.
+MySQL2 atende ao Studio/MySQL; o FutScout usa PostgreSQL via adapter-pg.
+Aceitos temporariamente para a beta, mantendo configuração local confiável e
+CLI/Studio sem exposição pública. Isso não corrige os pacotes nem garante
+segurança geral. Reavaliar quando o Prisma atualizar os pins ou mudar o grafo
+de imports/deployment. Não usar `npm audit fix --force`, downgrade major ou
+override não comprovado. Audit permanece informativo, não um novo gate da CI.
+
+### Hosting e autorização
+
+Recomendação: Vercel, preset Next.js, Node 24, instalação npm ci, build npm run build,
+variáveis server-side e PostgreSQL acessível. Sem cron/sync/API keys.
+Alternativa: servidor/container Node, por exemplo Render, com build + next start.
+Hospedagem estática não atende. Standalone/container pode ser avaliado separadamente;
+o artefato atual usa o servidor Next padrão.
+
+Antes de autorizar deploy: confirmar domínio, região, TLS, limites de conexão,
+credencial pública, schema existente e smoke 200/404 no destino. Preview deve usar
+ambiente de leitura isolado e proteção contra indexação do hosting.
+Não mover banco, conectar GitHub ou publicar sem autorização.
+
+Referências: [Next.js](https://nextjs.org/docs/app/getting-started/deploying),
+[Node na Vercel](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions),
+[conexões Prisma](https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections).
+
+## CI
+
+Workflow sem secrets/banco: instalação, testes, TypeScript, lint e build com URL
+fictícia em loopback. Não realiza smoke com dados reais nem deploy. Uma dependência
+futura de PostgreSQL no prerender deverá quebrar o gate. Instalação ainda usa o
+registry npm; não há download de fontes no build.
+
+## Data operations
+
+Syncs EA/API-Football **não são necessários para rodar o catálogo público** já
+importado. Scripts operacionais exigem leitura/autorização individual: podem escrever,
+consumir quota ou resetar progresso. Não executar em install/build/start/CI.
+
+## Assets e licenças
+
+Fotos, bandeiras e fallbacks aprovados permanecem. Não há novos escudos/logos.
+public/flags/README.md e LICENSE.flag-icons preservam origem/MIT das bandeiras.
+app/icon.svg é um desenho geométrico F original nas cores FutScout, sem fonte
+externa nem marca de terceiros. Fontes são stacks do sistema, sem downloads.

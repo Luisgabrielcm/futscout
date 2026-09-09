@@ -1,3 +1,4 @@
+import { t, type Locale } from "../lib/i18n"
 import type { Player } from "../types/player"
 
 export type ScoutAnalysis = {
@@ -7,7 +8,8 @@ export type ScoutAnalysis = {
 }
 
 export function generateScoutAnalysis(
-  player: Player
+  player: Player,
+  locale: Locale = "pt"
 ): ScoutAnalysis {
   const {
     pace,
@@ -27,7 +29,7 @@ export function generateScoutAnalysis(
   ========================= */
 
   if (dribbling.overall >= 88) {
-    strengths.push("Drible de elite")
+    strengths.push(t(locale, "Drible de elite"))
   }
 
   if (
@@ -35,7 +37,7 @@ export function generateScoutAnalysis(
     passing.shortPassing >= 86
   ) {
     strengths.push(
-      "Excelente visão de jogo"
+      t(locale, "Excelente visão de jogo")
     )
   }
 
@@ -44,12 +46,12 @@ export function generateScoutAnalysis(
     dribbling.composure >= 86
   ) {
     strengths.push(
-      "Muito forte entre linhas"
+      t(locale, "Muito forte entre linhas")
     )
   }
 
   if (pace.overall >= 90) {
-    strengths.push("Aceleração e velocidade de elite")
+    strengths.push(t(locale, "Aceleração e velocidade de elite"))
   }
 
   if (
@@ -57,7 +59,7 @@ export function generateScoutAnalysis(
     shooting.positioning >= 86
   ) {
     strengths.push(
-      "Grande ameaça no último terço"
+      t(locale, "Grande ameaça no último terço")
     )
   }
 
@@ -66,7 +68,7 @@ export function generateScoutAnalysis(
     defending.standingTackle >= 80
   ) {
     strengths.push(
-      "Boa leitura defensiva"
+      t(locale, "Boa leitura defensiva")
     )
   }
 
@@ -74,7 +76,7 @@ export function generateScoutAnalysis(
     physical.stamina >= 88
   ) {
     strengths.push(
-      "Excelente resistência"
+      t(locale, "Excelente resistência")
     )
   }
 
@@ -82,7 +84,7 @@ export function generateScoutAnalysis(
     physical.strength >= 84
   ) {
     strengths.push(
-      "Boa presença física"
+      t(locale, "Boa presença física")
     )
   }
 
@@ -92,25 +94,25 @@ export function generateScoutAnalysis(
 
   if (defending.overall < 65) {
     weaknesses.push(
-      "Contribuição defensiva limitada"
+      t(locale, "Contribuição defensiva limitada")
     )
   }
 
   if (physical.overall < 70) {
     weaknesses.push(
-      "Físico abaixo da média"
+      t(locale, "Físico abaixo da média")
     )
   }
 
   if (shooting.overall < 75) {
     weaknesses.push(
-      "Pouca ameaça na finalização"
+      t(locale, "Pouca ameaça na finalização")
     )
   }
 
   if (pace.overall < 75) {
     weaknesses.push(
-      "Velocidade limitada"
+      t(locale, "Velocidade limitada")
     )
   }
 
@@ -118,7 +120,7 @@ export function generateScoutAnalysis(
     physical.strength < 65
   ) {
     weaknesses.push(
-      "Pode sofrer em duelos físicos"
+      t(locale, "Pode sofrer em duelos físicos")
     )
   }
 
@@ -134,7 +136,7 @@ export function generateScoutAnalysis(
       passing.vision >= 86 &&
       dribbling.ballControl >= 86
     ) {
-      roles.push("MEI criativo")
+      roles.push(t(locale, "MEI criativo"))
     }
   }
 
@@ -146,7 +148,7 @@ export function generateScoutAnalysis(
       passing.shortPassing >= 85 &&
       physical.stamina >= 80
     ) {
-      roles.push("Meia organizador")
+      roles.push(t(locale, "Meia organizador"))
     }
   }
 
@@ -160,7 +162,7 @@ export function generateScoutAnalysis(
       pace.overall >= 85 &&
       dribbling.overall >= 85
     ) {
-      roles.push("Ponta invertido")
+      roles.push(t(locale, "Ponta invertido"))
     }
   }
 
@@ -171,7 +173,7 @@ export function generateScoutAnalysis(
     if (
       shooting.finishing >= 84
     ) {
-      roles.push("Atacante móvel")
+      roles.push(t(locale, "Atacante móvel"))
     }
   }
 
@@ -180,7 +182,7 @@ export function generateScoutAnalysis(
     physical.overall >= 78 &&
     passing.shortPassing >= 80
   ) {
-    roles.push("Meio-campista box-to-box")
+    roles.push(t(locale, "Meio-campista box-to-box"))
   }
 
   /* =========================
@@ -189,13 +191,13 @@ export function generateScoutAnalysis(
 
   if (strengths.length === 0) {
     strengths.push(
-      "Perfil equilibrado"
+      t(locale, "Perfil equilibrado")
     )
   }
 
   if (weaknesses.length === 0) {
     weaknesses.push(
-      "Sem fraquezas claras no perfil atual"
+      t(locale, "Sem fraquezas claras no perfil atual")
     )
   }
 

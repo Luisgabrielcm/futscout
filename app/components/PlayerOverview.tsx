@@ -1,11 +1,14 @@
+import { t, type Locale } from "../../lib/i18n"
+
 import type { Player } from "../../types/player"
 import { getOverallDifference } from "../../utils/getOverallDifference"
 
 type PlayerOverviewProps = {
+  locale?: Locale
   player: Player
 }
 
-export default function PlayerOverview({
+export default function PlayerOverview({ locale = "pt",
   player,
 }: PlayerOverviewProps) {
   const overallDifference =
@@ -19,13 +22,13 @@ export default function PlayerOverview({
   return (
     <section className="playerOverview">
       <div className="overviewHeader">
-        <span>VISÃO GERAL</span>
-        <h2>Resumo do jogador</h2>
+        <span>{t(locale, "VISÃO GERAL")}</span>
+        <h2>{t(locale, "Resumo do jogador")}</h2>
       </div>
 
       <div className="overviewGrid">
         <div className="overviewCard">
-          <span>OVR BASE</span>
+          <span>{t(locale, "OVR BASE")}</span>
 
           <strong>
             {player.baseOverall}
@@ -33,7 +36,7 @@ export default function PlayerOverview({
         </div>
 
         <div className="overviewCard">
-          <span>OVR ATUAL</span>
+          <span>{t(locale, "OVR ATUAL")}</span>
 
           <strong className="overviewCurrent">
             {player.dynamicOverall !== null
@@ -52,7 +55,7 @@ export default function PlayerOverview({
         </div>
 
         <div className="overviewCard">
-          <span>POTENCIAL</span>
+          <span>{t(locale, "POTENCIAL")}</span>
 
           <strong>
             {player.potential ??
@@ -61,11 +64,11 @@ export default function PlayerOverview({
         </div>
 
         <div className="overviewCard">
-          <span>FORMA</span>
+          <span>{t(locale, "FORMA")}</span>
 
           <strong className="overviewForm">
             {player.form ??
-              "Não informada"}
+              t(locale, "Não informada")}
           </strong>
         </div>
       </div>

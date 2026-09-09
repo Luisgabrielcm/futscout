@@ -1,3 +1,6 @@
+import { t, type Locale } from "../../lib/i18n"
+import { displayFoot } from "../../lib/i18n/presentation"
+
 import type {
   Player,
 } from "../../types/player"
@@ -15,10 +18,11 @@ import CountryFlag from "./CountryFlag"
 import { getPlayerProfilePositions } from "../../lib/playerProfilePositions"
 
 type PlayerHeaderProps = {
+  locale?: Locale
   player: Player
 }
 
-export default function PlayerHeader({
+export default function PlayerHeader({ locale = "pt",
   player,
 }: PlayerHeaderProps) {
   const positions = getPlayerProfilePositions(player)
@@ -44,22 +48,22 @@ export default function PlayerHeader({
 
   const age =
     player.age !== null
-      ? `${player.age} anos`
-      : "Idade não informada"
+      ? t(locale, "ageYears", { age: player.age })
+      : t(locale, "Idade não informada")
 
   const height =
     player.height !== null
       ? `${player.height} cm`
-      : "Altura não informada"
+      : t(locale, "Altura não informada")
 
   const preferredFoot =
     player.preferredFoot
-      ? `Pé ${player.preferredFoot.toLowerCase()}`
-      : "Pé não informado"
+      ? t(locale, "footLabel", { foot: displayFoot(player.preferredFoot, locale) })
+      : t(locale, "Pé não informado")
 
   const clubName =
     player.club?.name ??
-    "Sem clube"
+    t(locale, "Sem clube")
 
   const clubImageUrl =
     player.club?.imageUrl ??
@@ -83,7 +87,7 @@ export default function PlayerHeader({
         <div
           className="playerHeaderPhoto"
         >
-          <PlayerImage
+          <PlayerImage locale={locale}
             src={player.image}
             alt={player.name}
           />
@@ -92,10 +96,10 @@ export default function PlayerHeader({
         <div
           className="playerHeaderInfo"
         >
-          <div className="playerHeaderPositions" aria-label="Posições do jogador">
+          <div className="playerHeaderPositions" aria-label={t(locale, "Posições do jogador")}>
             {positions.map((position, index) => <span key={position}
               className={`playerHeaderPosition ${index === 0 ? "playerPositionPrimary" : "playerPositionSecondary"}`}
-              title={index === 0 ? "Posição principal" : "Posição secundária"}>
+              title={index === 0 ? t(locale, "Posição principal") : t(locale, "Posição secundária")}>
               {position}
             </span>)}
           </div>
@@ -107,7 +111,7 @@ export default function PlayerHeader({
           <div
             className="playerHeaderClub"
           >
-            <PlayerImage
+            <PlayerImage locale={locale}
               key={clubImageUrl}
               src={clubImageUrl ?? undefined}
               alt={clubName}
@@ -125,7 +129,7 @@ export default function PlayerHeader({
           <div
             className="playerHeaderMeta"
           >
-            <CountryFlag country={player.nationality} />
+            <CountryFlag locale={locale} country={player.nationality} />
 
             <span>
               •
@@ -215,8 +219,7 @@ export default function PlayerHeader({
           className="playerHeaderStat"
         >
           <span>
-            POTENCIAL
-          </span>
+            {t(locale, "POTENCIAL")}</span>
 
           <strong>
             {player.potential !==
@@ -228,8 +231,8 @@ export default function PlayerHeader({
           <small>
             {player.potential !==
             null
-              ? "Potencial máximo"
-              : "Não informado"}
+              ? t(locale, "Potencial máximo")
+              : t(locale, "Não informado")}
           </small>
         </div>
 
@@ -241,17 +244,14 @@ export default function PlayerHeader({
           className="playerHeaderStat"
         >
           <span>
-            VALOR DE MERCADO
-          </span>
+            {t(locale, "VALOR DE MERCADO")}</span>
 
           <strong
             className="playerHeaderMarketValue"
           >
             {player.marketValue !==
             null
-              ? formatCurrency(
-                  player.marketValue
-                )
+              ? formatCurrency(player.marketValue, locale)
               : "—"}
           </strong>
 
@@ -261,15 +261,15 @@ export default function PlayerHeader({
             >
               {player.valueTrend ===
               "up"
-                ? "↑ Valorizando"
+                ? t(locale, "↑ Valorizando")
                 : player.valueTrend ===
                     "down"
-                  ? "↓ Desvalorizando"
-                  : "→ Estável"}
+                  ? t(locale, "↓ Desvalorizando")
+                  : t(locale, "→ Estável")}
             </small>
           ) : (
             <small>
-              {player.marketValue === null ? "Não informado" : "Tendência não disponível"}
+              {player.marketValue === null ? t(locale, "Não informado") : t(locale, "Tendência não disponível")}
             </small>
           )}
         </div>
