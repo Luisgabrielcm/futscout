@@ -1,11 +1,11 @@
 import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "../app/generated/prisma/client"
 
-const connectionString = process.env.DIRECT_URL
+const connectionString = process.env.DATABASE_URL
 
 if (!connectionString) {
   throw new Error(
-    "DIRECT_URL não encontrada no .env"
+    "DATABASE_URL não encontrada"
   )
 }
 

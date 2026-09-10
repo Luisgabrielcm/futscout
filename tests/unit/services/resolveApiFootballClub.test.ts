@@ -9,8 +9,8 @@ import {
 
 import { isApiFootballCacheOnlyMissError } from "../../../services/apiFootballErrors"
 
-const originalDirectUrl =
-  process.env.DIRECT_URL
+const originalDatabaseUrl =
+  process.env.DATABASE_URL
 const originalApiKey =
   process.env.API_FOOTBALL_KEY
 const originalFetch =
@@ -60,7 +60,7 @@ let resolveApiFootballClub:
   ResolverModule["resolveApiFootballClub"]
 
 before(async () => {
-  process.env.DIRECT_URL =
+  process.env.DATABASE_URL =
     "postgresql://unit:unit@127.0.0.1:5432/unit"
   process.env.API_FOOTBALL_KEY =
     "unit-test-key"
@@ -176,11 +176,11 @@ after(() => {
       originalApiKey
   }
 
-  if (originalDirectUrl === undefined) {
-    delete process.env.DIRECT_URL
+  if (originalDatabaseUrl === undefined) {
+    delete process.env.DATABASE_URL
   } else {
-    process.env.DIRECT_URL =
-      originalDirectUrl
+    process.env.DATABASE_URL =
+      originalDatabaseUrl
   }
 })
 

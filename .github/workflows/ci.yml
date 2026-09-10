@@ -14,6 +14,7 @@ jobs:
     timeout-minutes: 15
     env:
       # No database server or production credentials in CI.
+      DATABASE_URL: postgresql://build:build@127.0.0.1:1/build
       DIRECT_URL: postgresql://build:build@127.0.0.1:1/build
       SITE_URL: https://example.invalid
       NEXT_TELEMETRY_DISABLED: '1'

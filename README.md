@@ -12,7 +12,8 @@ O catálogo precisa de runtime Node, não Edge nem exportação estática.
 ## Development
 
 1. `npm ci` (inclui `postinstall: prisma generate`; não executa migration/seed).
-2. Copiar `.env.example` para `.env` e preencher a conexão própria `DIRECT_URL`.
+2. Copiar `.env.example` para `.env` e preencher `DATABASE_URL` com a conexão
+   PostgreSQL pooled e `DIRECT_URL` com a conexão direct do mesmo banco.
 3. `npx prisma generate` se precisar regenerar o cliente após trocar de checkout.
 4. `npm run dev` e abrir `http://localhost:3000`.
 
@@ -39,10 +40,11 @@ Testes automatizados usam mocks/fakes, sem banco ou APIs reais. Scripts manuais 
 
 | Variável | Necessidade |
 | --- | --- |
-| `DIRECT_URL` | Obrigatória no runtime público. Build precisa de URL sintaticamente válida porque o singleton Prisma a valida ao importar. Não há fallback para DATABASE_URL. |
+| `DATABASE_URL` | Conexão PostgreSQL TCP pooled, obrigatória no runtime público/local e na Vercel. Build usa URL sintaticamente válida ao importar o singleton, sem consultar o banco. Não há fallback para DIRECT_URL. |
+| `DIRECT_URL` | Conexão direct reservada à Prisma CLI/administração local e ao seed. Não é consumida pelo runtime público. |
 | `SITE_URL` | Obrigatória em produção: origem pública HTTPS de canonical/hreflang/robots/sitemap. HTTP localhost permitido no smoke; rebuild ao trocar domínio. |
 | `API_FOOTBALL_KEY` | Somente operações opcionais; não fornecer ao deployment do catálogo. |
-| `DATABASE_*`, `EA_*` de .env.example | Somente tuning operacional existente de retry/sync/audit/repair. Omitir para defaults. |
+| `DATABASE_MAX_RETRIES`, `DATABASE_RETRY_DELAY_MS`, `DATABASE_OPERATION_TIMEOUT_MS`, `EA_*` | Somente tuning operacional existente de retry/sync/audit/repair. Omitir para defaults. |
 | `PORT` | Opcional no servidor próprio; também aceita next start --port. |
 | `NODE_ENV` | Gerenciada pelo Next; não sobrescrever manualmente. |
 
@@ -53,7 +55,8 @@ O build não consulta PostgreSQL: CI usa placeholder em loopback, sem servidor.
 
 ## Production
 
-Configurar SITE_URL com o domínio real e DIRECT_URL no ambiente do servidor:
+Configurar SITE_URL com o domínio real e DATABASE_URL pooled no ambiente do servidor
+(inclusive na Vercel). DIRECT_URL permanece no ambiente local de CLI/administração:
 
 ```sh
 npm ci
@@ -155,9 +158,10 @@ Configurar SSL/CA conforme provedor; não desabilitar verificação TLS.
 Adapter-pg usa pool nativo pg: default máximo 10 conexões por instância, idle 10 s.
 Prisma é reutilizado por módulo no runtime e por global no desenvolvimento.
 Não abrir cliente por request nem chamar disconnect após cada página. Serverless
-multiplica pools: escolher região próxima ao banco, limitar concorrência e avaliar
-endpoint pooled antes de escalar. O nome consumido continua DIRECT_URL, mesmo
-se a conexão de runtime for pooled; operações CLI devem usar URL direta apropriada.
+multiplica pools: escolher região próxima ao banco, limitar concorrência e usar
+endpoint pooled em DATABASE_URL. Operações CLI usam DIRECT_URL direta, sem fallback
+entre as variáveis. A URL legada prisma+postgres não é compatível com adapter-pg;
+DATABASE_URL deve conter a conexão PostgreSQL TCP pooled fornecida pelo provedor.
 
 Serviços públicos possuem server-only; não importam Prisma em Client Components.
 Boundaries mostram mensagem genérica/retry, sem erro bruto, stack ou credenciais.
@@ -196,8 +200,9 @@ Referências: [Next.js](https://nextjs.org/docs/app/getting-started/deploying),
 
 ## CI
 
-Workflow sem secrets/banco: instalação, testes, TypeScript, lint e build com URL
-fictícia em loopback. Não realiza smoke com dados reais nem deploy. Uma dependência
+Workflow sem secrets/banco: instalação, testes, TypeScript, lint e build com URLs
+fictícias em loopback para DATABASE_URL e DIRECT_URL. Não realiza smoke com dados
+reais nem deploy. Uma dependência
 futura de PostgreSQL no prerender deverá quebrar o gate. Instalação ainda usa o
 registry npm; não há download de fontes no build.
 
@@ -206,6 +211,11 @@ registry npm; não há download de fontes no build.
 Syncs EA/API-Football **não são necessários para rodar o catálogo público** já
 importado. Scripts operacionais exigem leitura/autorização individual: podem escrever,
 consumir quota ou resetar progresso. Não executar em install/build/start/CI.
+
+Scripts que importam `lib/prisma.ts` também consomem DATABASE_URL; isso não lhes
+concede permissões de escrita. Revisar credencial, duração e compatibilidade com
+pooling antes de autorizar operações. O seed mantém seu cliente próprio em
+DIRECT_URL. Nenhum script operacional é migrado ou executado automaticamente.
 
 ## Assets e licenças
 
