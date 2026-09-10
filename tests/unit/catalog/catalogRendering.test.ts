@@ -30,7 +30,7 @@ function detailPage(profile: PlayerProfile | null) {
     "../../../components/PlayerQuickProfile": marker("quick-profile"),
     "../../../components/PlayerPositions": marker("outfield-positions"),
     "../../../components/ScoutAnalysis": marker("outfield-analysis"),
-    "../../../components/PlayerAttributes": marker("outfield-attributes"),
+    "../../../components/PlayerAttributes": marker("persisted-attributes"),
     "../../../components/PlayerPlayStyles": marker("playstyles"),
     "../../../components/PlayerActions": () => null,
   })
@@ -57,6 +57,7 @@ test("goalkeeper retains general sections but never enters outfield analysis", a
   assert.match(html, /data-section="quick-profile"/)
   assert.match(html, /data-section="playstyles"/)
   assert.match(html, /Análise específica para goleiros em desenvolvimento/)
+  assert.match(html, /data-section="persisted-attributes"/)
   assert.doesNotMatch(html, /outfield-/)
 })
 
@@ -64,7 +65,7 @@ test("outfield player keeps the existing analysis and attribute sections", async
   const html = renderToStaticMarkup(await detailPage(mapDatabasePlayerProfile(catalogPlayer())).render())
   assert.match(html, /outfield-positions/)
   assert.match(html, /outfield-analysis/)
-  assert.match(html, /outfield-attributes/)
+  assert.match(html, /persisted-attributes/)
 })
 
 test("card keeps market absences honest and actions outside its main link", () => {

@@ -42,7 +42,7 @@ export default function PlayerPlayStyles({ locale = "pt",
         >
           {player.playStyles.map(
             (playStyle) => {
-              const { playStyleKey, displayName, isPlus, iconSrc } = getPlayStyleVisual(playStyle)
+              const { playStyleKey, displayName, isPlus, iconSrc } = getPlayStyleVisual(playStyle, locale)
               const known = styles.some(style => style.key === playStyle.id)
 
               return (

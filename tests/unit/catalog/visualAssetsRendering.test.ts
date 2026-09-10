@@ -78,8 +78,8 @@ for (const kind of ["player", "club"] as const) {
 test("known nationality renders its local flag and readable name", () => {
   const html = renderToStaticMarkup(createElement(Flag, { country: "England" }))
   assert.match(html, /src="\/flags\/gb-eng.svg"/)
-  assert.match(html, /Bandeira: England/)
-  assert.match(html, />England<\/span>/)
+  assert.match(html, /Bandeira: Inglaterra/)
+  assert.match(html, />Inglaterra<\/span>/)
 })
 
 test("an image that failed before hydration still becomes a neutral fallback", () => {
@@ -104,7 +104,8 @@ test("unknown country or missing flag artwork shows only the country name", () =
   for (const country of ["Unknown", "Congo", "Chinese Taipei", "Northern Ireland", null]) {
     const html = renderToStaticMarkup(createElement(Flag, { country }))
     assert.doesNotMatch(html, /<img|\/flags\//)
-    assert.ok(html.includes(country ?? "Não informada"))
+    const expected = country === "Northern Ireland" ? "Irlanda do Norte" : country === "Chinese Taipei" ? "Taipei Chinesa" : country ?? "Não informada"
+    assert.ok(html.includes(expected))
   }
 })
 
@@ -120,7 +121,7 @@ test("broken flag disappears without removing the country's readable name", () =
   )
   const html = renderToStaticMarkup(createElement(FailedFlag, { country: "France" }))
   assert.doesNotMatch(html, /<img/)
-  assert.match(html, /France<\/span>/)
+  assert.match(html, /França<\/span>/)
 })
 
 test("PlayStyle cards use canonical names, neutral art fallback and explicit Plus text", () => {

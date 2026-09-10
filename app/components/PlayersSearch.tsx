@@ -1,6 +1,7 @@
 "use client"
 
 import { t, localeTags, type Locale } from "../../lib/i18n"
+import { getPlayStyleVisual } from "../../lib/playStyleAssets"
 
 
 import {
@@ -818,7 +819,7 @@ export default function PlayersSearch({ locale = "pt",
       <div
         className="activeFilters"
       >
-        {initialPlayStyle && <button type="button" onClick={() => removeFilter("playStyle")}>PlayStyle{initialPlayStyleLevel === "plus" ? "+" : ""}: {initialPlayStyle} ×</button>}
+        {initialPlayStyle && <button type="button" onClick={() => removeFilter("playStyle")}>PlayStyle{initialPlayStyleLevel === "plus" ? "+" : ""}: {getPlayStyleVisual({ id: initialPlayStyle, name: initialPlayStyle, level: initialPlayStyleLevel === "plus" ? "plus" : "normal" }, locale).displayName} ×</button>}
         {initialSearch && (
           <button
             type="button"

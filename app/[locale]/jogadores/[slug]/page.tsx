@@ -93,11 +93,11 @@ export default async function PlayerPage({
         player={player}
       />}
 
-      {!isGoalkeeper && <PlayerAttributes locale={locale}
+      <PlayerAttributes locale={locale} isGoalkeeper={isGoalkeeper}
         attributes={
           player.attributes
         }
-      />}
+      />
     </main>
   )
 }

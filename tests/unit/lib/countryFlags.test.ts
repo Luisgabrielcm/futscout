@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { readFileSync, readdirSync } from "node:fs"
 import { test } from "node:test"
 import { getCountryFlag } from "../../../lib/countryFlags"
+import { displayNationality } from "../../../lib/i18n/countries"
 
 // Nationality names from the read-only coverage audit; no DB dependency.
 const expected: [string, string][] = [
@@ -626,6 +627,10 @@ test("all 153 audited unambiguous nationalities map to the expected locally avai
     assert.equal(flag?.code, code, name)
     assert.equal(flag?.iconSrc, `/flags/${code.toLowerCase()}.svg`)
     assert.equal(getCountryFlag(code)?.iconSrc, flag?.iconSrc)
+    for (const locale of ["pt", "en"] as const) {
+      assert.ok(displayNationality(name, locale).trim())
+      assert.equal(displayNationality(name, locale), displayNationality(code, locale))
+    }
     const svg = readFileSync(`public${flag!.iconSrc}`, "utf8")
     assert.match(svg, /<svg\b/)
     assert.doesNotMatch(svg, /<script|<foreignObject|\bon\w+=|href=["']https?:/i)

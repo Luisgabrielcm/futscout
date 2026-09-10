@@ -1,6 +1,7 @@
 import { localizedHref, type Locale } from "./i18n"
 import { playerCatalogQuery, type GetPlayersParams } from "./playerCatalogParams"
 import { getCountryFlag } from "./countryFlags"
+export { displayNationality as countryName } from "./i18n/countries"
 
 export function entityHref(locale: Locale, entity: "clubes" | "ligas" | "jogadores" | "selecoes", slug?: string | null) {
   return slug?.trim() ? localizedHref(locale, `/${entity}/${encodeURIComponent(slug)}`) : null
@@ -21,14 +22,4 @@ export function nationalityKey(name: string | null) {
 
 export function nationalityHref(locale: Locale, name: string | null) {
   return entityHref(locale, "selecoes", nationalityKey(name))
-}
-
-export function countryName(name: string, locale: Locale) {
-  const code = getCountryFlag(name)?.code
-  const special: Record<string, [string, string]> = {
-    "GB-ENG": ["Inglaterra", "England"], "GB-SCT": ["Escócia", "Scotland"], "GB-WLS": ["País de Gales", "Wales"],
-  }
-  if (code && special[code]) return special[code][locale === "pt" ? 0 : 1]
-  return code && /^[A-Z]{2}$/.test(code)
-    ? new Intl.DisplayNames([locale === "pt" ? "pt-BR" : "en"], { type: "region" }).of(code) ?? name : name
 }

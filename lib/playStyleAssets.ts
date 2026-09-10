@@ -1,4 +1,5 @@
 import type { PlayerPlayStyle } from "../types/player"
+import type { Locale } from "./i18n/config"
 
 export type PlayStyleVisual = {
   playStyleKey: string
@@ -41,19 +42,37 @@ export const styles: { key: string; name: string; aliases?: string[] }[] = [
   { key: "whipped-pass", name: "Whipped Pass" },
 ]
 const registry = new Map<string, { key: string; name: string }>()
+// FutScout presentation translations, not a claim of official EA terminology.
+// Proper names (Tiki Taka) remain unchanged; unknown styles keep source text.
+export const playStyleNamesPt: Record<string, string> = {
+  anticipate: "Antecipação", block: "Bloqueio", "cross-claimer": "Domínio de cruzamentos",
+  "dead-ball": "Bola parada", deflector: "Desvio", "far-reach": "Longo alcance",
+  "far-throw": "Lançamento longo do goleiro", footwork: "Trabalho de pés",
+  "incisive-pass": "Passe incisivo", intercept: "Interceptação", jockey: "Contenção",
+  "long-throw": "Lateral longo", "pinged-pass": "Passe forte", "rush-out": "Saída rápida",
+  trickster: "Truques", "power-shot": "Chute Potente", "long-ball-pass": "Passe longo",
+  "aerial-fortress": "Fortaleza aérea", "press-proven": "Resistência à pressão",
+  bruiser: "Força no contato", "tiki-taka": "Tiki Taka", "chip-shot": "Cavadinha",
+  enforcer: "Imposição física", "precision-header": "Cabeceio preciso",
+  "low-driven-shot": "Chute rasteiro forte", acrobatic: "Acrobático",
+  gamechanger: "Decisivo", "first-touch": "Primeiro toque", inventive: "Inventivo",
+  technical: "Técnico", relentless: "Incansável", "slide-tackle": "Carrinho",
+  "finesse-shot": "Chute colocado", rapid: "Veloz", "quick-step": "Arrancada",
+  "whipped-pass": "Cruzamento com efeito",
+}
 for (const style of styles) {
   for (const alias of [style.key, style.name, ...(style.aliases ?? [])]) {
     registry.set(normalizePlayStyleKey(alias), style)
   }
 }
 
-export function getPlayStyleVisual(playStyle: PlayerPlayStyle): PlayStyleVisual {
+export function getPlayStyleVisual(playStyle: PlayerPlayStyle, locale: Locale = "en"): PlayStyleVisual {
   const key = normalizePlayStyleKey(playStyle.id)
   const entry = registry.get(key) ?? registry.get(normalizePlayStyleKey(playStyle.name))
   const hasPlus = (value: string) => /(?:\+|[\s_-]+plus)\s*$/i.test(value)
   return {
     playStyleKey: entry?.key ?? (key || normalizePlayStyleKey(playStyle.name) || "unknown"),
-    displayName: entry?.name ?? (playStyle.name.replace(/(?:\+|[\s_-]+plus)\s*$/i, "").trim() || "PlayStyle não identificado"),
+    displayName: (entry && (locale === "pt" ? playStyleNamesPt[entry.key] ?? entry.name : entry.name)) || (playStyle.name.replace(/(?:\+|[\s_-]+plus)\s*$/i, "").trim() || (locale === "pt" ? "PlayStyle não identificado" : "Unidentified PlayStyle")),
     isPlus: playStyle.level === "plus" || hasPlus(playStyle.id) || hasPlus(playStyle.name),
     iconSrc: null,
   }

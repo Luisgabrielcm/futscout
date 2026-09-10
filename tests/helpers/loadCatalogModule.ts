@@ -13,6 +13,9 @@ import * as clubExperience from "../../lib/i18n/clubExperience"
 import * as connectedNavigation from "../../lib/connectedNavigation"
 import * as clubRating from "../../lib/clubRating"
 import * as catalogParams from "../../lib/playerCatalogParams"
+import * as countries from "../../lib/i18n/countries"
+import * as profileText from "../../lib/i18n/playerProfile"
+import * as playStyleAssets from "../../lib/playStyleAssets"
 import { createElement, type ReactNode } from "react"
 
 // Compile TSX in memory using React's automatic runtime, without starting Next.
@@ -42,6 +45,9 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/connectedNavigation": connectedNavigation,
       "lib/clubRating": clubRating,
       "lib/playerCatalogParams": catalogParams,
+      "lib/i18n/countries": countries,
+      "lib/i18n/playerProfile": profileText,
+      "lib/playStyleAssets": playStyleAssets,
     }
     const pureName = name.replace(/^(?:\.\.\/)+/, "")
     if (Object.hasOwn(presentation, pureName)) return presentation[pureName]

@@ -1,5 +1,8 @@
 import { t, type Locale } from "../../lib/i18n"
 import { displayFoot } from "../../lib/i18n/presentation"
+import { displayNationality } from "../../lib/i18n/countries"
+import { entityHref, nationalityHref } from "../../lib/connectedNavigation"
+import Link from "next/link"
 
 import type {
   Player,
@@ -44,9 +47,9 @@ function renderStars(
 export default function PlayerQuickProfile({ locale = "pt",
   player,
 }: PlayerQuickProfileProps) {
-  const nationality =
-    player.nationality ??
-    t(locale, "Não informada")
+  const nationality = displayNationality(player.nationality, locale)
+  const countryHref = nationalityHref(locale, player.nationality)
+  const leagueHref = entityHref(locale, "ligas", player.leagueSlug)
 
   const league =
     player.league ??
@@ -99,7 +102,7 @@ export default function PlayerQuickProfile({ locale = "pt",
             {t(locale, "NACIONALIDADE")}</span>
 
           <strong>
-            {nationality}
+            {countryHref ? <Link href={countryHref}>{nationality}</Link> : nationality}
           </strong>
         </div>
 
@@ -110,7 +113,7 @@ export default function PlayerQuickProfile({ locale = "pt",
             {t(locale, "LIGA")}</span>
 
           <strong>
-            {league}
+            {leagueHref ? <Link href={leagueHref}>{league}</Link> : league}
           </strong>
         </div>
 

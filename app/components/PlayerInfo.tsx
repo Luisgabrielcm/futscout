@@ -1,5 +1,6 @@
 import { t, type Locale } from "../../lib/i18n"
 import { displayFoot } from "../../lib/i18n/presentation"
+import { displayNationality } from "../../lib/i18n/countries"
 
 import type { Player } from "../../types/player"
 
@@ -23,7 +24,7 @@ export default function PlayerInfo({ locale = "pt",
           <span>{t(locale, "NACIONALIDADE")}</span>
 
           <strong>
-            {player.nationality}
+            {displayNationality(player.nationality, locale)}
           </strong>
         </div>
 
