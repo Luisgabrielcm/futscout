@@ -3767,10 +3767,6 @@ code, pre, kbd, samp { font-family: var(--font-mono); }
 .clubSquadIdentity img, .clubSquadIdentity > [role="img"] { width: 56px; height: 56px; object-fit: contain; border-radius: 10px; flex-shrink: 0; }
 .clubSquadIdentity strong { overflow-wrap: anywhere; }
 .clubSquadContext { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; font-size: 13px; color: var(--gray); margin: 12px 0; }
-.clubSquadContext a:hover, .playerHeader a:hover { color: var(--green); text-decoration: underline; }
-.clubSquadContext a, .clubSquadIdentity strong, .clubPitchPlayer strong,
-.playerHeader a, .playStyleContent a { text-decoration: underline; text-underline-offset: 3px; }
-.quickProfileItem a { text-decoration: underline; text-underline-offset: 3px; }
 .goalkeeperDataNotice { margin: 20px 0; color: var(--gray); line-height: 1.6; }
 .goalkeeperDataNotice h3 { color: var(--beige-light); }
 .goalkeeperDataNotice dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 12px; }
@@ -3788,4 +3784,107 @@ code, pre, kbd, samp { font-family: var(--font-mono); }
   .clubPitchPlayers { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .clubTabs a { padding: 10px; font-size: 13px; }
   .clubSquadPlayer { padding: 14px; }
+}
+
+/* Connected navigation: semantic links, no permanent text underline. */
+a[href] { text-decoration: none; cursor: pointer; }
+.siteContent a[href] { transition: background-color .15s, border-color .15s; }
+.siteContent a[href]:hover { background-color: #22c55e14; color: var(--green); }
+a[href]:focus-visible { outline: 2px solid var(--green); outline-offset: 4px; border-radius: 4px; }
+:is(.playerHeaderMeta, .quickProfileItem, .playStyleContent, .clubInfoPanel) a,
+.playerHeaderLeague { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 1px solid #294135; border-radius: 6px; background: #102219; color: var(--beige-light); }
+.entityBreadcrumb a, .playerClubLink { border-radius: 6px; }
+
+/* Original FutScout pitch and entity identities — presentation, not a lineup. */
+.sectionEyebrow { display: block; color: var(--green); font-size: 10px; letter-spacing: 2px; font-weight: 800; text-transform: uppercase; }
+.clubProfileHero, .countryProfileHero { padding: 28px; border: 1px solid #2c4334; border-radius: 20px; background: radial-gradient(ellipse at top right, #17472e88, transparent 65%), #0b130e; gap: 24px; }
+.clubProfileHero h1, .countryProfileHero h1 { margin: 8px 0; font-size: clamp(28px, 3vw, 42px); letter-spacing: -1.1px; overflow-wrap: anywhere; }
+.clubProfileHero > .directoryBadge { width: 96px; height: 112px; flex-shrink: 0; border-radius: 18px; background: #11251a; border: 1px solid #34533d; object-fit: contain; }
+.clubProfileHero > .directoryBadgeFallback { font-size: 48px; }
+.clubProfileHero p { margin: 8px 0 0; }
+.clubProfileHero a { display: inline-flex; padding: 5px 10px; border: 1px solid var(--border); border-radius: 8px; color: var(--beige-light); }
+.clubRatingPanel { gap: 18px 32px; margin: 18px 0; padding: 18px 22px; align-items: center; }
+.clubRatingPanel > div { gap: 4px; }
+.clubRatingPanel > div > span { color: var(--gray); font-size: 11px; }
+.clubRatingPanel strong { font-size: 28px; }
+.clubRatingPanel > p { flex-basis: auto; margin-left: auto; }
+.ratingMethod { width: 100%; font-size: 12px; color: var(--gray); border-top: 1px solid var(--border); padding-top: 10px; }
+.ratingMethod summary { cursor: pointer; width: fit-content; color: var(--beige-light); }
+.ratingMethod p { padding-top: 10px; }
+.clubTabs { flex-wrap: nowrap; overflow-x: auto; padding: 5px 4px 10px; gap: 6px; margin: 20px -4px 14px; }
+.clubTabs a { white-space: nowrap; border-color: transparent; padding: 12px 14px; font-size: 13px; }
+.clubTabs a[aria-current="page"] { border-color: #287344; box-shadow: inset 0 -3px 0 var(--green); }
+.tabUpcoming { margin-left: 6px; color: var(--gray); }
+.clubOverview { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(260px, 1fr); gap: 20px; align-items: start; }
+.clubFieldPanel, .clubOverviewAside { min-width: 0; }
+.fieldHeading h2, .sectionTitleRow h2, .clubInfoPanel h2 { margin: 5px 0 12px; color: var(--beige-light); font-size: 20px; }
+.clubFieldPanel > .clubDisclosure { font-size: 12px; margin: 0 0 16px; }
+.clubPitch { position: relative; isolation: isolate; overflow: hidden; margin: 0; padding: 20px 22px; border: 1px solid #36543c; border-radius: 18px; background: repeating-linear-gradient(0deg, #0e2b1b 0, #0e2b1b 80px, #123520 80px, #123520 160px); }
+.pitchMarkings { position: absolute; pointer-events: none; inset: 12px; border: 1px solid #bcd6b33b; border-radius: 3px; z-index: -1; }
+.pitchHalf { position: absolute; top: 50%; width: 100%; border-top: 1px solid #bcd6b33b; }
+.pitchCircle { position: absolute; top: 50%; left: 50%; width: 25%; aspect-ratio: 1; border: 1px solid #bcd6b344; border-radius: 50%; transform: translate(-50%, -50%); }
+.pitchBox { position: absolute; width: 46%; height: 12%; left: 27%; border: 1px solid #bcd6b33b; }
+.pitchBoxTop { top: -1px; }.pitchBoxBottom { bottom: -1px; }
+.clubPitchRow { padding: 8px 0; border: 0; }
+.clubPitchRow h3 { margin: 0 0 5px; color: #bbd3be; font-size: 9px; letter-spacing: 1.7px; font-weight: 500; }
+.clubPitchPlayers { display: flex; align-items: start; justify-content: center; gap: 10px; min-height: 120px; }
+.clubPitchPlayer { position: relative; flex: 0 1 120px; max-width: calc((100% - 20px) / 3); gap: 3px; padding: 8px 4px 6px; border: 1px solid #52745855; border-radius: 10px; background: #07180ee6; }
+.clubPitchPlayer > .pitchPortrait { width: 60px; height: 60px; object-fit: contain; border-radius: 8px; }
+.clubPitchPlayer strong { font-size: 11px; line-height: 1.2; color: var(--white); width: 100%; overflow-wrap: anywhere; }
+.clubPitchPlayer .clubPitchPosition { color: var(--beige-light); font-size: 9px; }
+.clubPitchPlayer .pitchOverall { position: absolute; top: 6px; right: 3px; border: 1px solid #4c7049; border-radius: 5px; padding: 2px 4px; background: #07130b; color: var(--green); font-size: 12px; font-weight: 800; }
+.pitchOverall small { font-size: 7px; font-weight: 400; }
+.pitchEmpty { color: #bad1c0; font-size: 12px; padding: 20px 0; }
+.clubOverviewAside { display: grid; gap: 16px; }
+.squadOptionsPanel, .clubInfoPanel { background: #0b130e; border: 1px solid var(--border); border-radius: 18px; padding: 18px; }
+.sectionTitleRow { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.sectionTitleRow > span { background: #153321; color: var(--green); border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+.squadOptionsGrid { display: grid; gap: 8px; max-height: 430px; overflow-y: auto; padding: 5px; margin: 0 -5px; }
+.squadOption { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; align-items: center; border: 1px solid var(--border); border-radius: 10px; padding: 7px; background: #111c15; }
+.squadOption .pitchPortrait { grid-row: 1 / 3; width: 44px; height: 44px; object-fit: contain; }
+.squadOption strong { font-size: 12px; overflow-wrap: anywhere; }
+.squadOption .clubPitchPosition { grid-column: 2; grid-row: 2; font-size: 10px; color: var(--beige); }
+.squadOption .pitchOverall { grid-column: 3; grid-row: 1 / 3; font-size: 18px; color: var(--green); font-weight: 700; }
+.portraitFallback { display: inline-grid; place-items: center; background: #19281d; border: 1px solid #38523e; color: var(--beige); border-radius: 8px; font-size: 24px; }
+.fullSquadLink { display: flex; justify-content: space-between; align-items: center; padding: 13px; margin-top: 12px; border: 1px solid #31563d; border-radius: 10px; background: #122a1b; color: var(--green); font-size: 12px; }
+.clubInfoPanel dl { margin: 0; display: grid; gap: 14px; }
+.clubInfoPanel dt { font-size: 10px; color: var(--gray); text-transform: uppercase; letter-spacing: .6px; }
+.clubInfoPanel dd { margin: 4px 0 0; font-size: 13px; overflow-wrap: anywhere; }
+
+/* Shared rich cards. The expanded main link and contextual links are siblings. */
+.clubSquadList { grid-template-columns: repeat(auto-fill, minmax(min(100%, 275px), 1fr)); gap: 14px; }
+.clubSquadPlayer { position: relative; isolation: isolate; padding: 16px; background: radial-gradient(ellipse at top right, #1c392244, transparent 60%), #0b130e; border-radius: 16px; }
+.clubSquadPlayer:hover, .clubSquadPlayer:focus-within { border-color: #416b4d; }
+.clubSquadIdentity { gap: 12px; }
+.clubSquadIdentity::after { content: ""; position: absolute; inset: 0; border-radius: 16px; z-index: 1; }
+.clubSquadIdentity:focus-visible::after { outline: 2px solid var(--green); outline-offset: 3px; }
+.clubSquadIdentity > .squadPortrait { width: 60px; height: 68px; object-fit: contain; flex-shrink: 0; }
+.clubSquadIdentity strong { font-size: 17px; line-height: 1.2; flex: 1; }
+.cardDestination { color: var(--beige); font-size: 18px; }
+.clubSquadContext { gap: 8px 12px; font-size: 11px; align-items: center; margin: 14px 0; }
+.clubSquadContext a { position: relative; z-index: 2; border-radius: 5px; min-height: 28px; display: inline-flex; align-items: center; }
+.squadPositions { display: flex; flex-basis: 100%; flex-wrap: wrap; gap: 5px; }
+.positionChip { padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 10px; font-weight: 700; }
+.clubSquadPlayer dl { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.clubSquadPlayer dt { font-size: 9px; letter-spacing: .2px; }
+.clubSquadPlayer dd { font-size: 15px; }
+.clubSquadPlayer dl > div:first-child dd { color: var(--green); font-size: 20px; }
+.countryProfileHero { display: flex; align-items: center; }
+.countryHeroFlag { width: 130px; flex-shrink: 0; }
+.countryHeroFlag .playerNationality { display: flex; flex-direction: column; gap: 10px; font-size: 11px; color: var(--beige); }
+.countryHeroFlag .countryFlag { width: 108px; height: 74px; border-radius: 9px; object-fit: cover; border: 1px solid #c0cabc44; }
+.countryTotal { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 10px; color: var(--gray); font-size: 12px; margin-top: 12px; }
+.countryTotal strong { color: var(--green); font-size: 24px; }
+.countryDisclaimer { color: var(--gray); font-size: 12px; line-height: 1.6; margin: 16px 0 24px; max-width: 800px; }
+@media (max-width: 1199px) { .clubOverview { grid-template-columns: minmax(0, 1fr); }.clubOverviewAside { grid-template-columns: repeat(2, minmax(0, 1fr)); }.clubPitchPlayers { gap: 22px; }.clubPitchPlayer { flex-basis: 140px; } }
+@media (max-width: 600px) {
+  .clubProfileHero, .countryProfileHero { padding: 18px; gap: 14px; align-items: center; }
+  .clubProfileHero > .directoryBadge { width: 66px; height: 82px; }
+  .clubProfileHero h1, .countryProfileHero h1 { font-size: 27px; letter-spacing: -.5px; }
+  .clubRatingPanel { padding: 14px; gap: 14px; }.clubRatingPanel > p { margin-left: 0; }
+  .clubTabs a { font-size: 12px; padding: 11px; }.clubOverviewAside { grid-template-columns: minmax(0, 1fr); }
+  .clubPitch { padding: 15px 14px; }.clubPitchPlayers { gap: 8px; min-height: 126px; }.clubPitchPlayer { flex-basis: 100px; max-width: calc((100% - 16px) / 3); }
+  .clubPitchPlayer > .pitchPortrait { width: 52px; height: 56px; }.clubPitchPlayer strong { font-size: 10px; }
+  .clubSquadList { grid-template-columns: minmax(0, 1fr); }.countryHeroFlag { width: 74px; }.countryHeroFlag .countryFlag { width: 70px; height: 48px; }
+  .countryProfileHero p { font-size: 12px; }.countryTotal { font-size: 10px; }
 }

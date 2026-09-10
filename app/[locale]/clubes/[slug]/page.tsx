@@ -33,19 +33,27 @@ export default async function ClubPage({ params, searchParams }: Props) {
   const roster = tab === "squad" ? await getPlayers(filters, { clubId: club.id }) : null
   const overview = tab === "overview" ? await Promise.all([getClubRoster(club.id), getClubRatings([{ id: club.id, total: club._count.players }])]) : null
   const path = localizedHref(locale, `/clubes/${encodeURIComponent(club.slug)}`)
-  return <main className="playersPage directoryPage">
+  return <main className="playersPage directoryPage clubProfilePage">
     <DirectoryNav locale={locale} />
     <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}><Link href={localizedHref(locale, "/clubes")} className="backButton">{t(locale, "← Todos os clubes")}</Link><span aria-hidden="true">›</span><span aria-current="page">{club.name}</span></nav>
-    <header className="playersPageHeader directoryHeader">
+    <header className="playersPageHeader directoryHeader clubProfileHero">
       <DirectoryBadge locale={locale} name={club.name} imageUrl={club.imageUrl} />
-      <div><h1>{club.name}</h1>
+      <div><span className="sectionEyebrow">FUTSCOUT · {clubText(locale, "squad")}</span><h1>{club.name}</h1>
         <p><Link href={localizedHref(locale, `/ligas/${encodeURIComponent(club.league.slug)}`)}>{club.league.name}</Link></p>
         <p>{club._count.players} {t(locale, "jogadores cadastrados")}</p>
       </div>
     </header>
+    {overview && <ClubRatingPanel locale={locale} rating={overview[1].get(club.id)!} />}
     <nav className="clubTabs" aria-label={t(locale, "Clubes")}>{CLUB_TABS.map(value => <Link key={value}
-      prefetch={false} aria-current={tab === value ? "page" : undefined} href={`${path}?tab=${value}`}>{clubText(locale, value)}</Link>)}</nav>
-    {overview && <><ClubRatingPanel locale={locale} rating={overview[1].get(club.id)!} /><ClubPitch locale={locale} players={overview[0]} /></>}
+      prefetch={false} aria-current={tab === value ? "page" : undefined} href={`${path}?tab=${value}`}>{clubText(locale, value)}{value !== "overview" && value !== "squad" && <span className="tabUpcoming" aria-hidden="true">·</span>}</Link>)}</nav>
+    {overview && <ClubPitch locale={locale} players={overview[0]} squadHref={`${path}?tab=squad`} information={<section className="clubInfoPanel">
+      <h2>{clubText(locale, "information")}</h2><dl>
+        <div><dt>{clubText(locale, "name")}</dt><dd>{club.name}</dd></div>
+        <div><dt>{clubText(locale, "league")}</dt><dd><Link href={localizedHref(locale, `/ligas/${encodeURIComponent(club.league.slug)}`)}>{club.league.name}</Link></dd></div>
+        <div><dt>{clubText(locale, "country")}</dt><dd>—</dd></div>
+        <div><dt>{clubText(locale, "registered")}</dt><dd>{club._count.players}</dd></div>
+      </dl>
+    </section>} />}
     {roster && <section className="directorySection" aria-labelledby="roster-title">
       <h2 id="roster-title">{t(locale, "Elenco")}</h2>
       <p>{roster.total} {t(locale, "jogadores cadastrados")}</p>

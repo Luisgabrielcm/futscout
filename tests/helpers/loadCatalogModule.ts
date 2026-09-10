@@ -16,6 +16,8 @@ import * as catalogParams from "../../lib/playerCatalogParams"
 import * as countries from "../../lib/i18n/countries"
 import * as profileText from "../../lib/i18n/playerProfile"
 import * as playStyleAssets from "../../lib/playStyleAssets"
+import * as clubPitchLayout from "../../lib/clubPitchLayout"
+import * as playerProfilePositions from "../../lib/playerProfilePositions"
 import { createElement, type ReactNode } from "react"
 
 // Compile TSX in memory using React's automatic runtime, without starting Next.
@@ -48,6 +50,8 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/i18n/countries": countries,
       "lib/i18n/playerProfile": profileText,
       "lib/playStyleAssets": playStyleAssets,
+      "lib/clubPitchLayout": clubPitchLayout,
+      "lib/playerProfilePositions": playerProfilePositions,
     }
     const pureName = name.replace(/^(?:\.\.\/)+/, "")
     if (Object.hasOwn(presentation, pureName)) return presentation[pureName]

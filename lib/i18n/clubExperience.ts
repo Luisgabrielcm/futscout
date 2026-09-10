@@ -1,6 +1,15 @@
 import type { Locale } from "./config"
 
 const messages = {
+  organization: ["Organização FutScout", "FutScout squad view"],
+  organizationMethod: ["Organização visual pelas posições cadastradas. Não é uma escalação oficial nem indicação de titulares/reservas. Até 3 jogadores por setor, por OVR EA, nome e ID; os demais ficam em Opções de elenco.", "Visual organization by registered positions. This is not a lineup or a designation of starters/substitutes. Up to 3 players per sector, ordered by EA OVR, name and ID; the rest appear in Squad options."],
+  attack: ["Ataque", "Attack"], midfield: ["Meio-campo", "Midfield"], defence: ["Defesa", "Defence"], keepers: ["Goleiros", "Goalkeepers"],
+  options: ["Opções de elenco", "Squad options"], noOptions: ["Todos os jogadores disponíveis estão no campo visual.", "All available players appear on the visual pitch."],
+  noSector: ["Sem jogadores cadastrados", "No registered players"],
+  information: ["Informações do clube", "Club information"], name: ["Nome", "Name"], league: ["Liga", "League"], country: ["País", "Country"],
+  allSquad: ["Explorar elenco completo", "Explore full squad"], methodology: ["Como o rating é calculado", "How the rating is calculated"],
+  registeredFrom: ["Jogadores cadastrados: {country}", "Registered players from {country}"],
+  previewLabel: ["VISÃO DO ELENCO", "SQUAD VIEW"],
   overview: ["Visão geral", "Overview"], squad: ["Elenco", "Squad"], statistics: ["Estatísticas", "Statistics"],
   fixtures: ["Calendário", "Fixtures"], transfers: ["Transferências", "Transfers"], trophies: ["Troféus", "Trophies"], history: ["História", "History"],
   soon: ["Em breve — dados ainda não disponíveis.", "Coming soon — data not yet available."],
