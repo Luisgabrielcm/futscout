@@ -86,7 +86,7 @@ function getBirthDateForMaxAge(
 
 export async function getPlayers(
   input: GetPlayersParams = {},
-  scope?: { clubId: string },
+  scope?: { clubId?: string; nationalities?: string[] },
 ): Promise<PlayersPage> {
   const params = parsePlayerCatalogParams(input)
   const { page, pageSize } = params
@@ -96,7 +96,13 @@ export async function getPlayers(
     pageSize
 
   const where:
-    Prisma.PlayerWhereInput = scope ? { clubId: scope.clubId } : {}
+    Prisma.PlayerWhereInput = {
+      ...(scope?.clubId ? { clubId: scope.clubId } : {}),
+      ...(scope?.nationalities ? { nationality: { in: scope.nationalities } } : {}),
+    }
+  if (params.playStyle) {
+    where.playStyles = { some: { playStyle: { code: params.playStyle }, ...(params.playStyleLevel ? { level: params.playStyleLevel } : {}) } }
+  }
 
   /* ========================================
      SEARCH
@@ -150,8 +156,7 @@ export async function getPlayers(
   if (
     params.position
   ) {
-    where.position =
-      params.position
+    where.AND = [{ OR: [{ position: params.position }, { secondaryPositions: { has: params.position } }, { secondaryPosition: params.position }] }]
   }
 
   /* ========================================

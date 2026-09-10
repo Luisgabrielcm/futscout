@@ -39,11 +39,11 @@ export default async function PlayerPage({
   if (profile.status === "incomplete") {
     return (
       <main className="playerPage">
-        <Link
+        <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}><Link
           href={localizedHref(locale, "/jogadores")}
           className="backButton"
         >
-          {t(locale, "← Voltar")}</Link>
+          {t(locale, "Jogadores")}</Link><span aria-hidden="true">›</span><span aria-current="page">{profile.name}</span></nav>
 
         <div className="playersEmpty">
           <h1>
@@ -63,11 +63,11 @@ export default async function PlayerPage({
 
   return (
     <main className="playerPage">
-      <Link
+      <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}><Link
         href={localizedHref(locale, "/jogadores")}
         className="backButton"
       >
-        {t(locale, "← Voltar")}</Link>
+        {t(locale, "Jogadores")}</Link><span aria-hidden="true">›</span><span aria-current="page">{player.name}</span></nav>
 
       <PlayerHeader locale={locale}
         player={player}

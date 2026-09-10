@@ -10,8 +10,13 @@ import { mapDatabasePlayer } from "../../../mappers/mapDatabasePlayer"
 import { formatCurrency } from "../../../utils/formatCurrency"
 import type { CatalogSearchParams } from "../../../lib/playerCatalogParams"
 import * as visualAssets from "../../../lib/visualAssets"
+import { clubComponents } from "../../helpers/clubExperienceFixture"
 
-const link = ({ children, ...props }: { href: string; children: ReactNode }) => createElement("a", props, children)
+const link = ({ children, ...props }: { href: string; children: ReactNode; prefetch?: boolean }) => {
+  const attributes = { ...props }
+  delete attributes.prefetch
+  return createElement("a", attributes, children)
+}
 const { default: Image } = loadCatalogModule<typeof import("../../../app/components/PlayerImage")>(
   "app/components/PlayerImage.tsx", { react: React, "../../lib/visualAssets": visualAssets },
 )
@@ -45,6 +50,8 @@ function pageFixture(kind: "clubes" | "ligas", detail = false, missing = false, 
   const leagues = { ...pagination, leagues: filled ? [league] : [] }
   const players = { ...pagination, players: filled ? [mapDatabasePlayer(catalogPlayer())] : [] }
   const clubService = {
+    getClubRoster: async () => { record("overview", {}); return filled ? [{ ...catalogPlayer(), imageUrl: null }] : [] },
+    getClubRatings: async () => new Map([[club.id, { overall: null, goalkeeper: null, rated: 0, total: 1 }]]),
     getClubBySlug: async () => missing ? null : club,
     getClubs: async (input: unknown) => { record("clubs", input); return clubs },
     getClubPlayers: async (_id: string, input: unknown) => { record("clubPlayers", input); return players },
@@ -61,7 +68,8 @@ function pageFixture(kind: "clubes" | "ligas", detail = false, missing = false, 
     [prefix + "lib/directoryCatalogParams"]: directory,
     [prefix + "services/clubService"]: clubService,
     [prefix + "services/leagueService"]: leagueService,
-    [prefix + "services/playerService"]: { getLeagues: async () => [league] },
+    [prefix + "services/playerService"]: { getLeagues: async () => [league], getPlayers: async (input: unknown) => { record("squad", input); return players } },
+    "../../../components/ClubExperience": clubComponents,
     [detail ? "../../../components/DirectoryCatalog" : "../../components/DirectoryCatalog"]: components,
   })
   const props = (search: CatalogSearchParams = {}): Props => ({ params: Promise.resolve({ slug: "fixture" }), searchParams: Promise.resolve(search) })
@@ -92,7 +100,7 @@ for (const kind of ["clubes", "ligas"] as const) {
   test(`${kind}: detail empty roster and metadata use only actual entity fields`, async () => {
     const f = pageFixture(kind, true)
     const html = renderToStaticMarkup(await f.page.default(f.props()))
-    assert.match(html, /Nenhum jogador com atributos disponíveis/)
+    assert.match(html, kind === "clubes" ? /Nenhum jogador encontrado/ : /Nenhum jogador com atributos disponíveis/)
     if (kind === "ligas") assert.match(html, /Nenhum clube encontrado/)
     assert.doesNotMatch(html, /Não informado|apiFootballId|Estádio|Títulos/)
     const metadata = await f.page.generateMetadata(f.props())
@@ -121,6 +129,34 @@ test("league's two paginations preserve each other and provide independent page 
   Object.assign(f.clubs, { page: 999 })
   const recovery = renderToStaticMarkup(await f.page.default(f.props({ page: "3", clubsPage: "999" })))
   assert.match(recovery, /href="\/pt\/ligas\/liga-teste\?page=3#clubes"/)
+})
+
+test("club upcoming tabs do not query squad or overview, and invalid tabs fall back safely", async () => {
+  const f = pageFixture("clubes", true)
+  const html = renderToStaticMarkup(await f.page.default(f.props({ tab: "fixtures" })))
+  assert.match(html, /Em breve/)
+  assert.equal(f.calls.length, 0)
+  await f.page.default(f.props({ tab: "invalid" }))
+  assert.equal(f.calls[0].name, "overview")
+})
+
+test("club squad preserves sorting/search/page and avoids unopened overview queries", async () => {
+  const f = pageFixture("clubes", true, false, true)
+  Object.assign(f.players, { page: 2, totalPages: 3 })
+  const html = renderToStaticMarkup(await f.page.default(f.props({ tab: "squad", sort: "potential-desc", search: "Player", page: "2" })))
+  assert.equal(f.calls.length, 1)
+  assert.equal(f.calls[0].name, "squad")
+  assert.deepEqual(JSON.parse(JSON.stringify(f.calls[0].input)), { search: "Player", page: 2, sort: "potential-desc" })
+  assert.match(html, /tab=squad&amp;search=Player&amp;page=3&amp;sort=potential-desc/)
+})
+
+test("league sorting persists in BOTH independent paginations", async () => {
+  const f = pageFixture("ligas", true)
+  Object.assign(f.clubs, { page: 2, totalPages: 3 })
+  Object.assign(f.players, { page: 3, totalPages: 5 })
+  const html = renderToStaticMarkup(await f.page.default(f.props({ page: "3", clubsPage: "2", sort: "best" })))
+  assert.match(html, /page=3&amp;sort=best&amp;clubsPage=3#clubes/)
+  assert.match(html, /page=4&amp;sort=best&amp;clubsPage=2#jogadores/)
 })
 
 test("league detail sanitizes both page parameters without applying list search to rosters", async () => {

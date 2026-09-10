@@ -16,6 +16,9 @@ import {
 import PlayerImage from "./PlayerImage"
 import CountryFlag from "./CountryFlag"
 import { getPlayerProfilePositions } from "../../lib/playerProfilePositions"
+import Link from "next/link"
+import { entityHref, nationalityHref, relatedPlayersHref } from "../../lib/connectedNavigation"
+import { clubText } from "../../lib/i18n/clubExperience"
 
 type PlayerHeaderProps = {
   locale?: Locale
@@ -26,6 +29,9 @@ export default function PlayerHeader({ locale = "pt",
   player,
 }: PlayerHeaderProps) {
   const positions = getPlayerProfilePositions(player)
+  const clubHref = entityHref(locale, "clubes", player.club?.slug)
+  const leagueHref = entityHref(locale, "ligas", player.leagueSlug)
+  const countryHref = nationalityHref(locale, player.nationality)
   /* ========================================
      OVR ATUAL
   ======================================== */
@@ -68,6 +74,8 @@ export default function PlayerHeader({ locale = "pt",
   const clubImageUrl =
     player.club?.imageUrl ??
     null
+  const clubIdentity = <><PlayerImage locale={locale} key={clubImageUrl} src={clubImageUrl ?? undefined}
+    alt={clubName} kind="club" className="playerHeaderClubBadge" fallbackClassName="playerHeaderClubBadge clubBadgeFallback" /><p>{clubName}</p></>
 
   /* ========================================
      RENDER
@@ -97,11 +105,11 @@ export default function PlayerHeader({ locale = "pt",
           className="playerHeaderInfo"
         >
           <div className="playerHeaderPositions" aria-label={t(locale, "Posições do jogador")}>
-            {positions.map((position, index) => <span key={position}
+            {positions.map((position, index) => <Link key={position} href={relatedPlayersHref(locale, { position })}
               className={`playerHeaderPosition ${index === 0 ? "playerPositionPrimary" : "playerPositionSecondary"}`}
               title={index === 0 ? t(locale, "Posição principal") : t(locale, "Posição secundária")}>
               {position}
-            </span>)}
+            </Link>)}
           </div>
 
           <h1>
@@ -111,25 +119,14 @@ export default function PlayerHeader({ locale = "pt",
           <div
             className="playerHeaderClub"
           >
-            <PlayerImage locale={locale}
-              key={clubImageUrl}
-              src={clubImageUrl ?? undefined}
-              alt={clubName}
-              kind="club"
-              className="playerHeaderClubBadge"
-              fallbackClassName="playerHeaderClubBadge clubBadgeFallback"
-            />
-
-            <p>
-              {clubName}
-            </p>
-            {player.league && <span className="playerHeaderLeague">{player.league}</span>}
+            {clubHref ? <Link href={clubHref} className="playerClubLink">{clubIdentity}</Link> : <div className="playerClubLink">{clubIdentity}</div>}
+            {player.league && (leagueHref ? <Link className="playerHeaderLeague" href={leagueHref}>{player.league}</Link> : <span className="playerHeaderLeague">{player.league}</span>)}
           </div>
 
           <div
             className="playerHeaderMeta"
           >
-            <CountryFlag locale={locale} country={player.nationality} />
+            {countryHref ? <Link href={countryHref}><CountryFlag locale={locale} country={player.nationality} /></Link> : <CountryFlag locale={locale} country={player.nationality} />}
 
             <span>
               •
@@ -178,13 +175,14 @@ export default function PlayerHeader({ locale = "pt",
             OVR EA
           </span>
 
-          <strong
+          <Link href={relatedPlayersHref(locale, { minOverall: player.baseOverall })} title={clubText(locale, "minimumOverall")} aria-label={`${clubText(locale, "minimumOverall")}: ${player.baseOverall}`}><strong
             className="playerHeaderStatMain"
           >
             {
               player.baseOverall
             }
-          </strong>
+          </strong></Link>
+          <small>{clubText(locale, "exploreOverall")} {player.baseOverall}</small>
 
           {player.dynamicOverall !== null && <small>OVR FutScout: {displayedDynamicOverall}</small>}
           {overallDifference !== null && overallDifference !== 0 && (
@@ -224,7 +222,7 @@ export default function PlayerHeader({ locale = "pt",
           <strong>
             {player.potential !==
             null
-              ? player.potential
+              ? <Link href={relatedPlayersHref(locale, { minPotential: player.potential })} title={clubText(locale, "minimumPotential")}>{player.potential}</Link>
               : "—"}
           </strong>
 

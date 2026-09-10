@@ -1,9 +1,10 @@
 import type { PlayerPosition } from "../types/player"
+import { styles } from "./playStyleAssets"
 
 export const PLAYER_SORTS = [
   "overall-desc", "overall-asc", "potential-desc", "age-asc",
   "pace-desc", "passing-desc", "dribbling-desc", "value-asc",
-  "value-desc", "name-asc", "name-desc",
+  "value-desc", "name-asc", "name-desc", "position-asc",
 ] as const
 
 export type PlayerSort = (typeof PLAYER_SORTS)[number]
@@ -31,6 +32,8 @@ export type GetPlayersParams = Partial<Record<NumericFilter, number>> & {
   search?: string
   position?: PlayerPosition
   league?: string
+  playStyle?: string
+  playStyleLevel?: "plus"
   page?: number
   pageSize?: number
   sort?: PlayerSort
@@ -73,6 +76,8 @@ export function parsePlayerCatalogParams(input: CatalogInput = {}) {
     search: textValue(input.search),
     position: POSITIONS.find((item) => item === position),
     league: textValue(input.league),
+    playStyle: styles.find(style => style.key === textValue(input.playStyle))?.key,
+    playStyleLevel: styles.some(style => style.key === textValue(input.playStyle)) && textValue(input.playStyleLevel) === "plus" ? "plus" as const : undefined,
     page: integerValue(input.page, 1, 100_000) ?? 1,
     pageSize: integerValue(input.pageSize, 1, 100) ?? 24,
     sort: PLAYER_SORTS.find((item) => item === sort) ?? "overall-desc",

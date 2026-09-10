@@ -6,6 +6,7 @@ import { useRef, useState } from "react"
 import { t, localizedHref, localeTags, type LocaleProps } from "../../lib/i18n"
 import { switchLanguageHref, type Locale } from "../../lib/i18n/config"
 import { persistLocalePreference } from "../../lib/i18n/browser"
+import { clubText } from "../../lib/i18n/clubExperience"
 
 const links = [
   ["/", "Início"], ["/jogadores", "Jogadores"], ["/clubes", "Clubes"],
@@ -53,6 +54,7 @@ export default function SiteNav({ locale = "pt" }: LocaleProps = {}) {
           onClick={() => setOpenedPath(null)}>{t(locale, label)}</Link>
       })}
       <span className="siteNavUnavailable">{t(locale, "Scout IA")} <small>{t(locale, "Em breve")}</small></span>
+      <Link href={localizedHref(locale, "/selecoes")} aria-current={pathname.startsWith(localizedHref(locale, "/selecoes")) ? "page" : undefined} onClick={() => setOpenedPath(null)}>{clubText(locale, "countries")}</Link>
       <span className="siteNavUnavailable">{t(locale, "Elencos")} <small>{t(locale, "Em breve")}</small></span>
     </nav>
   </header>

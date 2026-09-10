@@ -16,7 +16,8 @@ export function normalizePlayStyleKey(value: string): string {
 
 // Central registry; no local PlayStyle artwork exists yet. Do not synthesize
 // EA URLs or substitute unrelated glyphs. Aliases are exact, never fuzzy.
-const styles: { key: string; name: string; aliases?: string[] }[] = [
+export const styles: { key: string; name: string; aliases?: string[] }[] = [
+  ...["anticipate", "block", "cross-claimer", "dead-ball", "deflector", "far-reach", "far-throw", "footwork", "incisive-pass", "intercept", "jockey", "long-throw", "pinged-pass", "rush-out", "trickster"].map(key => ({ key, name: key.split("-").map(word => word[0].toUpperCase() + word.slice(1)).join(" ") })),
   { key: "power-shot", name: "Power Shot", aliases: ["powershot"] },
   { key: "long-ball-pass", name: "Long Ball Pass", aliases: ["longballpass"] },
   { key: "aerial-fortress", name: "Aerial Fortress" },

@@ -6,13 +6,14 @@ import { PLAYER_SORTS, type PlayerSort } from "../../../lib/playerCatalogParams"
 const expectedPrimary = {
   "overall-desc": { officialOverall: "desc" },
   "overall-asc": { officialOverall: "asc" },
-  "potential-desc": { potential: "desc" },
-  "age-asc": { dateOfBirth: "desc" },
+  "potential-desc": { potential: { sort: "desc", nulls: "last" } },
+  "age-asc": { dateOfBirth: { sort: "desc", nulls: "last" } },
   "pace-desc": { attributes: { pace: "desc" } },
   "passing-desc": { attributes: { passing: "desc" } },
   "dribbling-desc": { attributes: { dribbling: "desc" } },
-  "value-asc": { marketValue: "asc" },
-  "value-desc": { marketValue: "desc" },
+  "value-asc": { marketValue: { sort: "asc", nulls: "last" } },
+  "value-desc": { marketValue: { sort: "desc", nulls: "last" } },
+  "position-asc": { position: "asc" },
   "name-asc": { name: "asc" },
   "name-desc": { name: "desc" },
 } satisfies Record<PlayerSort, object>

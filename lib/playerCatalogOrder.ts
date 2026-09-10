@@ -5,6 +5,8 @@ function getOrderBy(
   sort: PlayerSort = "overall-desc"
 ): Prisma.PlayerOrderByWithRelationInput[] {
   switch (sort) {
+    case "position-asc":
+      return [{ position: "asc" }, { officialOverall: "desc" }, { name: "asc" }]
     /* ======================================
        OVERALL MENOR → MAIOR
     ====================================== */
@@ -30,7 +32,7 @@ function getOrderBy(
       return [
         {
           potential:
-            "desc",
+            { sort: "desc", nulls: "last" },
         },
 
         {
@@ -55,7 +57,7 @@ function getOrderBy(
       return [
         {
           dateOfBirth:
-            "desc",
+            { sort: "desc", nulls: "last" },
         },
 
         {
@@ -77,7 +79,7 @@ function getOrderBy(
       return [
         {
           marketValue:
-            "asc",
+            { sort: "asc", nulls: "last" },
         },
 
         {
@@ -99,7 +101,7 @@ function getOrderBy(
       return [
         {
           marketValue:
-            "desc",
+            { sort: "desc", nulls: "last" },
         },
 
         {

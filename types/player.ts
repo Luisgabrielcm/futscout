@@ -46,6 +46,7 @@ export type PlayerPlayStyle = {
 ======================================== */
 
 export type PlayerClub = {
+  slug?: string | null
   name: string
 
   imageUrl: string | null
@@ -231,6 +232,7 @@ export type Player = {
   club: PlayerClub | null
 
   league: string | null
+  leagueSlug?: string | null
 
   /* ======================================
      OVERALL

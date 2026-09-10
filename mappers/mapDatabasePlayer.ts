@@ -70,6 +70,7 @@ export type DatabasePlayer = {
     | null
 
   club: {
+    slug?: string
     name: string
 
     imageUrl:
@@ -77,6 +78,7 @@ export type DatabasePlayer = {
       | null
 
     league: {
+      slug?: string
       name: string
     }
   } | null
@@ -451,6 +453,7 @@ export function mapDatabasePlayer(
     club:
       databasePlayer.club
         ? {
+            slug: databasePlayer.club.slug ?? null,
             name:
               databasePlayer
                 .club.name,
@@ -461,6 +464,7 @@ export function mapDatabasePlayer(
           }
         : null,
 
+    leagueSlug: databasePlayer.club?.league.slug ?? null,
     league:
       databasePlayer
         .club?.league.name ??

@@ -33,6 +33,7 @@ function fixture(missing = false) {
       findUnique: async (args: Prisma.LeagueFindUniqueArgs) => { leagueLookups.push(args); return missing ? null : league },
     },
     player: {
+      groupBy: async () => [],
       count: async (args: unknown) => { counts.push(args); return 25 },
       findMany: async (args: Prisma.PlayerFindManyArgs) => { players.push(args); return [catalogPlayer()] },
     },
@@ -59,7 +60,8 @@ test("clubs pagination uses take 24, skip and stable name/id order", async () =>
   assert.equal(f.clubs[0].skip, 24)
   assert.deepEqual(plain(f.clubs[0].orderBy), [{ name: "asc" }, { id: "asc" }])
   assert.equal(result.totalPages, 2)
-  assert.equal(result.clubs[0], club)
+  assert.equal(result.clubs[0].id, club.id)
+  assert.equal(result.clubs[0].rating.overall, null)
 })
 
 test("clubs search and league use identical count/list predicates with relation count", async () => {

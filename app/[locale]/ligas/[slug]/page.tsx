@@ -7,6 +7,8 @@ import { getLeagueBySlug, getLeagueClubs, getLeaguePlayers } from "../../../../s
 import { directoryHref, displayCountry, parseDirectoryParams } from "../../../../lib/directoryCatalogParams"
 import type { CatalogSearchParams } from "../../../../lib/playerCatalogParams"
 import { ClubCard, DirectoryBadge, DirectoryNav, DirectoryPagination, DirectoryPlayers } from "../../../components/DirectoryCatalog"
+import { CLUB_SORTS } from "../../../../lib/directoryCatalogParams"
+import { clubText } from "../../../../lib/i18n/clubExperience"
 
 type Props = { params: Promise<{ slug: string; locale?: string }>; searchParams: Promise<CatalogSearchParams> }
 
@@ -22,15 +24,15 @@ export default async function LeaguePage({ params, searchParams }: Props) {
   const league = await getLeagueBySlug((await params).slug)
   if (!league) notFound()
   const query = await searchParams
-  const { page } = parseDirectoryParams(query)
+  const { page, sort } = parseDirectoryParams(query)
   const clubsPage = parseDirectoryParams({ page: query.clubsPage }).page
   const [clubs, roster] = await Promise.all([
-    getLeagueClubs(league.slug, { page: clubsPage }), getLeaguePlayers(league.slug, { page }),
+    getLeagueClubs(league.slug, { page: clubsPage, sort }), getLeaguePlayers(league.slug, { page }),
   ])
   const country = displayCountry(league.country)
   const path = localizedHref(locale, `/ligas/${encodeURIComponent(league.slug)}`)
   function href(playerPage: number, clubPage: number, anchor: string) {
-    const base = directoryHref(path, { page: playerPage })
+    const base = directoryHref(path, { page: playerPage, sort })
     return `${base}${clubPage > 1 ? `${base.includes("?") ? "&" : "?"}clubsPage=${clubPage}` : ""}#${anchor}`
   }
   return <main className="playersPage directoryPage">
@@ -44,6 +46,10 @@ export default async function LeaguePage({ params, searchParams }: Props) {
     </header>
     <section id="clubes" className="directorySection" aria-labelledby="clubs-title">
       <h2 id="clubs-title">{t(locale, "Clubes")}</h2>
+      <form method="get" className="directoryFilters"><input type="hidden" name="page" value={page} />
+        <label>{clubText(locale, "sort")}<select name="sort" defaultValue={sort}>{CLUB_SORTS.map(value => <option key={value} value={value}>{clubText(locale, value)}</option>)}</select></label>
+        <button className="paginationButton" type="submit">{t(locale, "Buscar")}</button>
+      </form>
       {clubs.clubs.length
         ? <div className="directoryGrid">{clubs.clubs.map((club) => <ClubCard locale={locale} key={club.id} club={club} />)}</div>
         : <p className="playersEmpty">{t(locale, "Nenhum clube encontrado nesta página da liga.")}</p>}

@@ -1,19 +1,23 @@
 import { parsePlayerCatalogParams } from "./playerCatalogParams"
 
-export type DirectoryInput = { search?: unknown; league?: unknown; page?: unknown }
+export type DirectoryInput = { search?: unknown; league?: unknown; page?: unknown; sort?: unknown }
+export const CLUB_SORTS = ["name-asc", "name-desc", "best"] as const
 
 // Reuse the catalog's validation; directory page size is fixed and not public.
 export function parseDirectoryParams(input: DirectoryInput = {}) {
   const { search, league, page } = parsePlayerCatalogParams(input)
-  return { search, league, page, pageSize: 24 }
+  const rawSort = Array.isArray(input.sort) ? input.sort[0] : input.sort
+  const sort = CLUB_SORTS.find(value => value === rawSort) ?? "name-asc"
+  return { search, league, page, sort, pageSize: 24 }
 }
 
 export function directoryHref(path: string, input: DirectoryInput = {}) {
-  const { search, league, page } = parseDirectoryParams(input)
+  const { search, league, page, sort } = parseDirectoryParams(input)
   const query = new URLSearchParams()
   if (search) query.set("search", search)
   if (league) query.set("league", league)
   if (page > 1) query.set("page", String(page))
+  if (sort !== "name-asc") query.set("sort", sort)
   return query.size ? `${path}?${query}` : path
 }
 

@@ -43,6 +43,8 @@ type PlayersSearchProps = {
   initialSearch?: string
   initialPosition?: string
   initialLeague?: string
+  initialPlayStyle?: string
+  initialPlayStyleLevel?: string
 
   initialMaxAge?: string
   initialMinOverall?: string
@@ -60,6 +62,8 @@ type PlayersSearchProps = {
 }
 
 type FilterOverrides = {
+  playStyle?: string
+  playStyleLevel?: string
   search?: string
   position?: string
   league?: string
@@ -90,6 +94,8 @@ export default function PlayersSearch({ locale = "pt",
   initialSearch = "",
   initialPosition = "",
   initialLeague = "",
+  initialPlayStyle = "",
+  initialPlayStyleLevel = "",
 
   initialMaxAge = "",
   initialMinOverall = "",
@@ -252,6 +258,8 @@ export default function PlayersSearch({ locale = "pt",
     overrides: FilterOverrides = {}
   ) {
     const values = {
+      playStyle: initialPlayStyle,
+      playStyleLevel: initialPlayStyleLevel,
       search:
         overrides.search ??
         search,
@@ -399,6 +407,8 @@ export default function PlayersSearch({ locale = "pt",
       keyof FilterOverrides
   ) {
     const query = removePlayerCatalogFilter({
+      playStyle: initialPlayStyle,
+      playStyleLevel: initialPlayStyleLevel,
       search: initialSearch,
       position: initialPosition,
       league: initialLeague,
@@ -675,6 +685,7 @@ export default function PlayersSearch({ locale = "pt",
               <option value="dribbling-desc">
                 {t(locale, "Maior drible")}</option>
 
+              <option value="position-asc">{t(locale, "Posição")} A–Z</option>
               <option value="name-asc">
                 {t(locale, "Nome A-Z")}</option>
 
@@ -807,6 +818,7 @@ export default function PlayersSearch({ locale = "pt",
       <div
         className="activeFilters"
       >
+        {initialPlayStyle && <button type="button" onClick={() => removeFilter("playStyle")}>PlayStyle{initialPlayStyleLevel === "plus" ? "+" : ""}: {initialPlayStyle} ×</button>}
         {initialSearch && (
           <button
             type="button"

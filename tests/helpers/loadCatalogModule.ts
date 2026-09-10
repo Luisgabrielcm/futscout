@@ -9,6 +9,11 @@ import * as i18nMetadata from "../../lib/i18n/metadata"
 import * as i18nPresentation from "../../lib/i18n/presentation"
 import * as i18nServer from "../../lib/i18n/server"
 import * as i18nBrowser from "../../lib/i18n/browser"
+import * as clubExperience from "../../lib/i18n/clubExperience"
+import * as connectedNavigation from "../../lib/connectedNavigation"
+import * as clubRating from "../../lib/clubRating"
+import * as catalogParams from "../../lib/playerCatalogParams"
+import { createElement, type ReactNode } from "react"
 
 // Compile TSX in memory using React's automatic runtime, without starting Next.
 // Every runtime dependency must be supplied explicitly: no DB/env/network imports.
@@ -33,9 +38,18 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/i18n/metadata": i18nMetadata, "lib/i18n/presentation": i18nPresentation,
       "lib/i18n/server": i18nServer,
       "lib/i18n/browser": i18nBrowser,
+      "lib/i18n/clubExperience": clubExperience,
+      "lib/connectedNavigation": connectedNavigation,
+      "lib/clubRating": clubRating,
+      "lib/playerCatalogParams": catalogParams,
     }
     const pureName = name.replace(/^(?:\.\.\/)+/, "")
     if (Object.hasOwn(presentation, pureName)) return presentation[pureName]
+    if (name === "next/link" && !Object.hasOwn(allowed, name)) return function TestLink({ children, href, ...props }: { children: ReactNode; href: string; prefetch?: boolean }) {
+      const attributes = { ...props }
+      delete attributes.prefetch
+      return createElement("a", { ...attributes, href }, children)
+    }
     if (!Object.hasOwn(allowed, name)) throw new Error("Unmocked dependency: " + name)
     return allowed[name]
   }

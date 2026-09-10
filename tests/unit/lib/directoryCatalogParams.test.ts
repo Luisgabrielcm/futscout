@@ -11,7 +11,7 @@ test("directory rejects unsafe pages and keeps a fixed size", () => {
 
 test("directory uses first repeated value, trims search and caps text", () => {
   assert.deepEqual(parseDirectoryParams({ page: ["2", "3"], search: ["  Real  ", "Other"], league: " liga " }),
-    { page: 2, pageSize: 24, search: "Real", league: "liga" })
+    { page: 2, pageSize: 24, search: "Real", league: "liga", sort: "name-asc" })
   assert.equal(parseDirectoryParams({ search: "a".repeat(300) }).search?.length, 200)
 })
 

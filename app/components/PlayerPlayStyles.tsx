@@ -5,6 +5,9 @@ import type {
 } from "../../types/player"
 import { getPlayStyleVisual } from "../../lib/playStyleAssets"
 import PlayerImage from "./PlayerImage"
+import Link from "next/link"
+import { relatedPlayersHref } from "../../lib/connectedNavigation"
+import { styles } from "../../lib/playStyleAssets"
 
 type PlayerPlayStylesProps = {
   locale?: Locale
@@ -40,6 +43,7 @@ export default function PlayerPlayStyles({ locale = "pt",
           {player.playStyles.map(
             (playStyle) => {
               const { playStyleKey, displayName, isPlus, iconSrc } = getPlayStyleVisual(playStyle)
+              const known = styles.some(style => style.key === playStyle.id)
 
               return (
                 <div
@@ -69,7 +73,7 @@ export default function PlayerPlayStyles({ locale = "pt",
                     >
                       <strong>
                         {
-                          displayName
+                          known ? <Link href={relatedPlayersHref(locale, { playStyle: playStyle.id, ...(playStyle.level === "plus" ? { playStyleLevel: "plus" as const } : {}) })}>{displayName}</Link> : displayName
                         }
                       </strong>
 

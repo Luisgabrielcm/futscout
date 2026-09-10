@@ -29,8 +29,8 @@ export const getLeagueBySlug = cache(async (slug: string) =>
   prisma.league.findUnique({ where: { slug }, select: leagueSelect }),
 )
 
-export function getLeagueClubs(slug: string, input: Pick<DirectoryInput, "page"> = {}) {
-  return getClubs({ page: input.page, league: slug })
+export function getLeagueClubs(slug: string, input: Pick<DirectoryInput, "page" | "sort"> = {}) {
+  return getClubs({ page: input.page, sort: input.sort, league: slug })
 }
 
 export function getLeaguePlayers(slug: string, input: Pick<DirectoryInput, "page"> = {}) {

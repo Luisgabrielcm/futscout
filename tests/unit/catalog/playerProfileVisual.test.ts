@@ -44,7 +44,7 @@ test("header groups unique primary/secondary badges before the player name", () 
   const html = renderToStaticMarkup(createElement(Header, { player }))
   assert.equal((html.match(/title="Posição secundária"/g) ?? []).length, 2)
   assert.ok(html.indexOf("playerPositionPrimary") < html.indexOf("playerPositionSecondary"))
-  assert.ok(html.indexOf(">MEI</span>") < html.indexOf("<h1>"))
+  assert.ok(html.indexOf(">MEI</a>") >= 0 && html.indexOf(">MEI</a>") < html.indexOf("<h1>"))
 })
 
 test("header keeps EA overall primary and renders only supplied league text without a guessed logo", () => {

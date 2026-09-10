@@ -1,10 +1,13 @@
-import { t, localizedHref, type Locale, type LocaleProps } from "../../lib/i18n"
+import { t, localizedHref, localeTags, type Locale, type LocaleProps } from "../../lib/i18n"
 
 import Link from "next/link"
 import PlayerImage from "./PlayerImage"
 import PlayerCard from "./PlayerCard"
 import type { Player } from "../../types/player"
 import { displayCountry } from "../../lib/directoryCatalogParams"
+import { CLUB_SORTS } from "../../lib/directoryCatalogParams"
+import { clubText } from "../../lib/i18n/clubExperience"
+import type { ClubRating } from "../../lib/clubRating"
 
 export function DirectoryNav({ locale = "pt" }: LocaleProps = {}) {
   return <nav className="directoryNav" aria-label={t(locale, "Catálogo FutScout")}>
@@ -12,7 +15,8 @@ export function DirectoryNav({ locale = "pt" }: LocaleProps = {}) {
   </nav>
 }
 
-export function DirectorySearch({ locale = "pt", action, search, league, leagues }: { locale?: Locale;
+export function DirectorySearch({ locale = "pt", action, search, league, leagues, sort }: { locale?: Locale;
+  sort?: string
   action: string; search?: string; league?: string
   leagues?: { id: string; name: string; slug: string }[]
 }) {
@@ -26,6 +30,9 @@ export function DirectorySearch({ locale = "pt", action, search, league, leagues
         {leagues.map((item) => <option key={item.id} value={item.slug}>{item.name}</option>)}
       </select>
     </label>}
+    {leagues && <label>{clubText(locale, "sort")}<select name="sort" defaultValue={sort ?? "name-asc"}>
+      {CLUB_SORTS.map(value => <option key={value} value={value}>{clubText(locale, value)}</option>)}
+    </select></label>}
     <button className="paginationButton" type="submit">{t(locale, "Buscar")}</button>
     <Link href={action} className="paginationButton">{t(locale, "Limpar filtros")}</Link>
   </form>
@@ -39,12 +46,16 @@ export function DirectoryBadge({ locale = "pt", name, imageUrl }: { locale?: Loc
 export function ClubCard({ locale = "pt", club }: { locale?: Locale; club: {
   name: string; slug: string; imageUrl: string | null
   league: { name: string }; _count: { players: number }
+  rating?: ClubRating
 } }) {
   return <Link href={localizedHref(locale, `/clubes/${encodeURIComponent(club.slug)}`)} className="directoryCard">
     <DirectoryBadge locale={locale} name={club.name} imageUrl={club.imageUrl} />
     <h3>{club.name}</h3>
     <p>{club.league.name}</p>
     <span>{club._count.players} {t(locale, "jogadores cadastrados")}</span>
+    {club.rating && <p className="clubCardRating" title={clubText(locale, "method")}>{clubText(locale, "rating")}: <strong>{club.rating.overall?.toLocaleString(localeTags[locale], { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? "—"}</strong>
+      <small>{clubText(locale, "coverage")}: {club.rating.rated}/{club.rating.total}</small>
+    </p>}
   </Link>
 }
 
