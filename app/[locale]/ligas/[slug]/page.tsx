@@ -9,6 +9,7 @@ import type { CatalogSearchParams } from "../../../../lib/playerCatalogParams"
 import { ClubCard, DirectoryBadge, DirectoryNav, DirectoryPagination, DirectoryPlayers } from "../../../components/DirectoryCatalog"
 import { CLUB_SORTS } from "../../../../lib/directoryCatalogParams"
 import { clubText } from "../../../../lib/i18n/clubExperience"
+import { displayNationality } from "../../../../lib/i18n/countries"
 
 type Props = { params: Promise<{ slug: string; locale?: string }>; searchParams: Promise<CatalogSearchParams> }
 
@@ -40,7 +41,7 @@ export default async function LeaguePage({ params, searchParams }: Props) {
     <Link href={localizedHref(locale, "/ligas")} className="backButton">{t(locale, "← Todas as ligas")}</Link>
     <header className="playersPageHeader directoryHeader">
       <DirectoryBadge locale={locale} name={league.name} />
-      <div><h1>{league.name}</h1>{country && <p>{country}</p>}
+      <div><h1>{league.name}</h1>{country && <p>{displayNationality(country, locale)}</p>}
         <p>{league._count.clubs} {t(locale, "clubes cadastrados")}</p>
       </div>
     </header>

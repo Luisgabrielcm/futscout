@@ -5,6 +5,7 @@ import PlayerImage from "./PlayerImage"
 import PlayerCard from "./PlayerCard"
 import type { Player } from "../../types/player"
 import { displayCountry } from "../../lib/directoryCatalogParams"
+import { displayNationality } from "../../lib/i18n/countries"
 import { CLUB_SORTS } from "../../lib/directoryCatalogParams"
 import { clubText } from "../../lib/i18n/clubExperience"
 import type { ClubRating } from "../../lib/clubRating"
@@ -66,7 +67,7 @@ export function LeagueCard({ locale = "pt", league }: { locale?: Locale; league:
   return <Link href={localizedHref(locale, `/ligas/${encodeURIComponent(league.slug)}`)} className="directoryCard">
     <DirectoryBadge locale={locale} name={league.name} />
     <h3>{league.name}</h3>
-    {country && <p>{country}</p>}
+    {country && <p>{displayNationality(country, locale)}</p>}
     <span>{league._count.clubs} {t(locale, "clubes cadastrados")}</span>
   </Link>
 }

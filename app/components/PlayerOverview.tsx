@@ -1,4 +1,5 @@
 import { t, type Locale } from "../../lib/i18n"
+import { displayForm } from "../../lib/i18n/presentation"
 
 import type { Player } from "../../types/player"
 import { getOverallDifference } from "../../utils/getOverallDifference"
@@ -67,7 +68,7 @@ export default function PlayerOverview({ locale = "pt",
           <span>{t(locale, "FORMA")}</span>
 
           <strong className="overviewForm">
-            {player.form ??
+            {displayForm(player.form, locale) ??
               t(locale, "Não informada")}
           </strong>
         </div>

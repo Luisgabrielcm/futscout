@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { t, localeTags, type Locale } from "../../lib/i18n"
 import { clubText, SQUAD_SORTS } from "../../lib/i18n/clubExperience"
+import { displayForm } from "../../lib/i18n/presentation"
 import { entityHref, nationalityHref, relatedPlayersHref } from "../../lib/connectedNavigation"
 import type { ClubRating } from "../../lib/clubRating"
 import type { Player } from "../../types/player"
@@ -67,7 +68,7 @@ export function SquadList({ locale, players }: { locale: Locale; players: Player
         <div><dt>{clubText(locale, "potential")}</dt><dd>{player.potential ?? "—"}</dd></div>
         <div><dt>{clubText(locale, "age")}</dt><dd>{player.age ?? "—"}</dd></div>
         <div><dt>{clubText(locale, "value")}</dt><dd>{player.marketValue === null ? "—" : formatCurrency(player.marketValue, locale)}</dd></div>
-        <div><dt>{clubText(locale, "form")}</dt><dd>{player.form ? clubText(locale, player.form) : "—"}</dd></div>
+        <div><dt>{clubText(locale, "form")}</dt><dd>{displayForm(player.form, locale) ?? "—"}</dd></div>
       </dl>
     </article>
   })}</div>

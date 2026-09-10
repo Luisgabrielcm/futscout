@@ -630,12 +630,24 @@ test("all 153 audited unambiguous nationalities map to the expected locally avai
     for (const locale of ["pt", "en"] as const) {
       assert.ok(displayNationality(name, locale).trim())
       assert.equal(displayNationality(name, locale), displayNationality(code, locale))
+      assert.equal(displayNationality(name, locale), displayNationality(name, locale), `${name}: deterministic ${locale}`)
     }
     const svg = readFileSync(`public${flag!.iconSrc}`, "utf8")
     assert.match(svg, /<svg\b/)
     assert.doesNotMatch(svg, /<script|<foreignObject|\bon\w+=|href=["']https?:/i)
   }
   assert.equal(readdirSync("public/flags").filter((name) => name.endsWith(".svg")).length, 153)
+})
+test("153 recognized identities include 117 different labels and 36 deliberate shared PT/EN spellings", () => {
+  const shared = expected.filter(([name]) => displayNationality(name, "pt") === displayNationality(name, "en")).map(([name]) => name)
+  // Same CLDR spelling in both locales is not an untranslated fallback.
+  assert.deepEqual(shared, [
+    "Argentina", "China PR", "Portugal", "Chile", "Senegal", "Peru", "Venezuela", "Mali", "Kosovo", "Congo DR",
+    "Jamaica", "Suriname", "Angola", "Montenegro", "Israel", "Togo", "Costa Rica", "Curaçao", "Haiti", "Honduras",
+    "Benin", "Malta", "Uganda", "Madagascar", "El Salvador", "Montserrat", "Burundi", "Guatemala", "Cuba", "Barbados",
+    "Sri Lanka", "Gibraltar", "Vanuatu", "Bangladesh", "Andorra", "Liechtenstein",
+  ])
+  assert.equal(expected.length - shared.length, 117)
 })
 test("ambiguous nationalities retain text fallback rather than unrelated national flags", () => {
   for (const value of ["Congo", "Northern Ireland", "Chinese Taipei", "Unknown", "GB", "France / Norway", null]) {

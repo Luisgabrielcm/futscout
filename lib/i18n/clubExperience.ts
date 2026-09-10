@@ -1,7 +1,6 @@
 import type { Locale } from "./config"
 
 const messages = {
-  "Péssima": ["Péssima", "Very poor"], "Ruim": ["Ruim", "Poor"], "Normal": ["Normal", "Normal"], "Boa": ["Boa", "Good"], "Excelente": ["Excelente", "Excellent"],
   overview: ["Visão geral", "Overview"], squad: ["Elenco", "Squad"], statistics: ["Estatísticas", "Statistics"],
   fixtures: ["Calendário", "Fixtures"], transfers: ["Transferências", "Transfers"], trophies: ["Troféus", "Trophies"], history: ["História", "History"],
   soon: ["Em breve — dados ainda não disponíveis.", "Coming soon — data not yet available."],

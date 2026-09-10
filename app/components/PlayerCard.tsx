@@ -1,4 +1,5 @@
 import { t, localizedHref, type Locale } from "../../lib/i18n"
+import { displayForm } from "../../lib/i18n/presentation"
 
 import Link from "next/link"
 
@@ -126,7 +127,7 @@ export default function PlayerCard({ locale = "pt",
       : "—"
 
   const playerForm =
-    form ??
+    displayForm(form, locale) ??
     "—"
 
   /* ======================================
