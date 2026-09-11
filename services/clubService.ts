@@ -46,6 +46,7 @@ export async function getClubRatings(clubs: { id: string; total: number }[]) {
 export function getClubRoster(clubId: string) {
   return prisma.player.findMany({ where: { clubId }, select: {
     id: true, slug: true, name: true, imageUrl: true, position: true, officialOverall: true,
+    secondaryPosition: true, secondaryPositions: true, potential: true, marketValue: true,
   }, orderBy: [{ officialOverall: "desc" }, { name: "asc" }, { id: "asc" }] })
 }
 

@@ -3835,6 +3835,37 @@ a[href]:focus-visible { outline: 2px solid var(--green); outline-offset: 4px; bo
 .clubPitchPlayer .pitchOverall { position: absolute; top: 6px; right: 3px; border: 1px solid #4c7049; border-radius: 5px; padding: 2px 4px; background: #07130b; color: var(--green); font-size: 12px; font-weight: 800; }
 .pitchOverall small { font-size: 7px; font-weight: 400; }
 .pitchEmpty { color: #bad1c0; font-size: 12px; padding: 20px 0; }
+.clubXiPitch .clubPitchPlayers { gap: 8px; min-height: 130px; }
+.clubXiPitch .clubPitchPlayer { flex: 1 1 0; max-width: 110px; }
+.xiFormation { display: inline-block; margin-left: 8px; padding: 5px 8px; border: 1px solid #3a6947; border-radius: 8px; font-size: 15px; color: var(--green); }
+.xiUnavailable { padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: #0d1c13; }
+.xiUnavailable h3 { color: var(--beige); }.xiUnavailable p { font-size: 13px; line-height: 1.6; color: var(--gray); }
+.xiMethod { margin-top: 16px; line-height: 1.7; }
+.squadPositionPanel { padding: 16px; border: 1px solid var(--border); border-radius: 18px; background: #0b130e; }
+.squadPositionPanel > .clubDisclosure { font-size: 11px; margin: 0 0 14px; }
+.squadPositionGroups { max-height: 760px; overflow-y: auto; padding: 4px; margin: -4px; }
+.squadPositionGroup + .squadPositionGroup { margin-top: 20px; }
+.squadPositionGroup h3 { display: flex; justify-content: space-between; font-size: 12px; color: var(--beige); margin: 0 0 10px; }
+.squadPositionGroup h3 > span { color: var(--gray); }
+.squadPositionCard { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 8px 10px; padding: 10px; margin-top: 8px; border: 1px solid #263b2e; border-radius: 12px; background: #111c15; }
+.squadPanelPortrait { width: 44px; height: 52px; object-fit: contain; }
+.squadPanelIdentity { min-width: 0; }.squadPanelIdentity > strong { display: block; font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.squadPanelPositions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.squadPanelPositions > span { padding: 3px 5px; border-radius: 4px; font-size: 9px; }
+.xiMarker { display: inline-block; font-size: 9px; color: var(--green); border: 1px solid #355d41; padding: 2px 5px; border-radius: 4px; margin-top: 6px; }
+.squadPanelStats { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 2px 0 0; padding-top: 8px; border-top: 1px solid #263b2e; }
+.squadPanelStats dt { font-size: 9px; color: var(--gray); }.squadPanelStats dd { margin: 4px 0 0; font-size: 14px; font-weight: 700; color: var(--beige); overflow-wrap: anywhere; }
+.squadPanelStats > div:first-child dd { color: var(--green); }
+@media (max-width: 1199px) { .clubOverview > .clubOverviewAside { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) {
+  .clubXiPitch .clubPitchPlayers { gap: 5px; min-height: 130px; }
+  .clubXiPitch .clubPitchPlayer { padding: 6px 2px; }
+  .clubXiPitch .clubPitchPlayer > .pitchPortrait { width: 42px; height: 50px; }
+  .clubXiPitch .xiRowWide .pitchPortrait { width: 35px; }
+  .clubXiPitch .clubPitchPlayer strong { font-size: 10px; }
+  .clubXiPitch .pitchOverall { position: static; font-size: 11px; padding: 1px 4px; }
+  .squadPositionGroups { max-height: none; }
+}
 .clubOverviewAside { display: grid; gap: 16px; }
 .squadOptionsPanel, .clubInfoPanel { background: #0b130e; border: 1px solid var(--border); border-radius: 18px; padding: 18px; }
 .sectionTitleRow { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }

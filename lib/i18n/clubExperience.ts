@@ -1,8 +1,16 @@
 import type { Locale } from "./config"
 
 const messages = {
-  organization: ["Organização FutScout", "FutScout squad view"],
-  organizationMethod: ["Organização visual pelas posições cadastradas. Não é uma escalação oficial nem indicação de titulares/reservas. Até 3 jogadores por setor, por OVR EA, nome e ID; os demais ficam em Opções de elenco.", "Visual organization by registered positions. This is not a lineup or a designation of starters/substitutes. Up to 3 players per sector, ordered by EA OVR, name and ID; the rest appear in Squad options."],
+  organization: ["Escalação FutScout", "FutScout XI"],
+  organizationMethod: ["Seleção visual baseada em posição e OVR dos jogadores cadastrados. Não representa escalação oficial.", "Visual selection based on registered player positions and OVR. This is not an official lineup."],
+  xiMarker: ["XI FutScout", "FutScout XI"],
+  xiUnavailable: ["XI completo indisponível", "Full XI unavailable"],
+  xiPartial: ["Cobertura compatível: {count}/11. Não deslocamos jogadores para posições incompatíveis. Consulte o elenco completo ao lado ou abaixo.", "Compatible coverage: {count}/11. Players are never assigned incompatible positions. See the full squad beside or below the pitch."],
+  xiMethodTitle: ["Como escolhemos este XI", "How this XI is selected"],
+  xiMethod: ["Comparamos 4-3-3, 4-2-3-1, 4-4-2, 3-4-3 e 3-5-2: primeiro exigimos 11 encaixes válidos e um goleiro; depois priorizamos posições principais e a soma do OVR EA. Secundárias cadastradas são aceitas. Empates seguem nome/ID e a ordem das formações. Só exibimos um XI completo. Potencial e valor não influenciam a seleção.", "We compare 4-3-3, 4-2-3-1, 4-4-2, 3-4-3 and 3-5-2: first require 11 compatible assignments and one goalkeeper, then maximize primary-position matches and total EA OVR. Registered secondary positions are accepted. Ties follow name/ID and formation order. Only a complete XI is shown. Potential and value do not influence selection."],
+  panelMethod: ["Todo o elenco, incluindo o XI FutScout. Agrupado pela posição principal.", "The entire squad, including the FutScout XI. Grouped by primary position."],
+  fullbacks: ["Laterais", "Fullbacks"], centrebacks: ["Zagueiros", "Centre-backs"], holding: ["Volantes", "Defensive midfielders"],
+  wingers: ["Pontas", "Wingers"], forwards: ["Atacantes", "Forwards"], otherPositions: ["Outras posições", "Other positions"],
   attack: ["Ataque", "Attack"], midfield: ["Meio-campo", "Midfield"], defence: ["Defesa", "Defence"], keepers: ["Goleiros", "Goalkeepers"],
   options: ["Opções de elenco", "Squad options"], noOptions: ["Todos os jogadores disponíveis estão no campo visual.", "All available players appear on the visual pitch."],
   noSector: ["Sem jogadores cadastrados", "No registered players"],

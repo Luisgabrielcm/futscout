@@ -9,7 +9,7 @@ The approved FutScout outfield mean, goalkeeper mean and coverage are preserved.
 No attack/midfield/defence ratings are invented. Fixtures and other unsupported
 tabs retain their localized coming-soon state, without fetching operational APIs.
 
-## Pitch decision
+## Pitch decision (Lote 7.2, superseded by Lote 7.3)
 
 This is a sector preview, NOT an XI or a formation. Registered primary positions
 map to attack (ATA/PE/PD), midfield (MEI/MC/VOL), defence (LE/ZAG/LD) and goalkeepers
@@ -19,6 +19,9 @@ valid zero. Every remaining player, including unknown positions, appears in
 Squad options with the same portrait component and player destination.
 No player is designated a starter or substitute. The bounded layout can display
 up to twelve people, not a fixed eleven. This rule is explained on the page.
+
+The current XI and full position panel replace that sector preview. See
+[FutScout XI methodology](futscout-xi.md) for the current contract.
 
 All field lines/markings are original CSS; no external artwork or SoFIFA code.
 PlayerImage owns all portrait/crest validation and fallback. No new image pipeline.

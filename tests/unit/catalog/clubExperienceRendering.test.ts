@@ -35,13 +35,13 @@ for (const locale of ["pt", "en"] as const) {
     player.playStyles[0].level = "plus"
     assert.match(renderToStaticMarkup(createElement(PlayStyles, { locale, player })), /playStyle=tiki-taka&amp;playStyleLevel=plus/)
   })
-  test(`${locale}: position field renders every registered player once with correct portrait contract`, () => {
-    const players = ["MC", "GOL", "ATA"].map((position, i) => ({ id: String(i), slug: "fixture-" + i, name: "Fixture " + i, position, officialOverall: 80, imageUrl: i ? null : "https://example.test/player-portraits/1.png" }))
+  test(`${locale}: partial roster stays visible in panel without fabricating an XI`, () => {
+    const players = ["MC", "GOL", "ATA"].map((position, i) => ({ id: String(i), slug: "fixture-" + i, name: "Fixture " + i, position, officialOverall: 80, secondaryPosition: null, secondaryPositions: [], potential: null, marketValue: null, imageUrl: i ? null : "https://example.test/player-portraits/1.png" }))
     const html = renderToStaticMarkup(createElement(clubComponents.ClubPitch, { locale, players }))
     for (const p of players) assert.equal((html.match(new RegExp(`href="/${locale}/jogadores/${p.slug}"`, "g")) ?? []).length, 1)
     assert.match(html, /player-portraits\/1.png/)
-    assert.match(html, locale === "pt" ? /Não é uma escalação/ : /not a lineup/)
-    assert.doesNotMatch(html, /player-shields|4-3-3/)
+    assert.match(html, locale === "pt" ? /Não representa escalação oficial/ : /not an official lineup/)
+    assert.doesNotMatch(html, /player-shields|class="clubPitchPlayer"/)
     let anchorDepth = 0
     for (const tag of html.matchAll(/<\/?a(?:\s[^>]*|)>/g)) {
       anchorDepth += tag[0].startsWith("</") ? -1 : 1
