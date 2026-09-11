@@ -26,7 +26,7 @@ injetado e UMA transação Prisma Serializable por jogador:
 
 1. Valida escopo, evidência, scores aprovados e validade antes de abrir transação.
 2. Relê Player e owner global do provider ID na mesma transação.
-3. Relê attempt e compara externalId EA, nome, nascimento, nacionalidade, posições,
+3. Relê attempt e compara externalId EA, slug, nome, nascimento, nacionalidade, posições,
    clube e updatedAt com a identidade aprovada. Nunca escreve externalId.
 4. Reconfere pins do cache/snapshot e prazo, inclusive após eventual espera.
 5. `updateMany` exige id, apiFootballId=null, clubId e updatedAt; count deve ser 1.
@@ -86,12 +86,37 @@ pesos 40/35/10/15, limiares 75/90, nameScore>=80, margem>=10 e demais gates.
 Uma associação já existente segue apenas para checagem idempotente/conflito na
 transação; não se fabrica AUTO_MATCH removendo IDs/attempts do catálogo.
 
-`identityPreWriteSummary` fornece player, provider ID, decisão, confidence, margem,
-cache hash/validade e snapshot hash. `identityWriteAuthorization` vincula um
-argumento explícito a esse resumo; não é segredo nem substitui autorização humana.
-`runPreparedBarcelonaIdentityWrites` rejeita confirmação ausente/divergente antes
-de acessar dependências. O futuro CLI deverá imprimir o resumo e validar esse
-argumento, sem prompt interativo.
+### Fase F: autorização versionada vinculada ao estado revisado
+
+O resumo anterior omitia slug e updatedAt: mudar a versão do Player em 1 ms não
+invalidava a confirmação. O formato anterior foi descontinuado, sem fallback.
+
+`identityPreWriteSummary` retorna `{ authorizationSummaryVersion: 2, players }`.
+Cada elemento tem exatamente estas chaves, nesta ordem:
+`playerId`, `slug`, `providerId`, `confidence`, `margin`, `cacheRowHash`,
+`snapshotHash`, `expectedUpdatedAt`. A ordem dos cinco jogadores é preservada.
+`expectedUpdatedAt` vem de `identity.updatedAt.toISOString()` (UTC, milissegundos).
+Objetos são construídos explicitamente; não dependem da ordem das propriedades
+recebidas, locale ou timezone local. Serialização: JSON.stringify → UTF-8 → SHA-256.
+Nome, decisão e validade não são campos adicionais do resumo; a validade continua
+verificada pela política e transação, e a linha completa do cache está no seu hash.
+
+`identityWriteAuthorization` usa o prefixo `AUTHORIZE_BARCELONA_IDENTITY_V2:`.
+Não é segredo nem substitui autorização humana. O formato antigo nunca é aceito.
+`requireIdentityWriteAuthorization` compara a confirmação ao resumo atual e lança
+`AUTHORIZATION_MISMATCH`. O orquestrador verifica antes de qualquer dependência
+(inclusive transação de auditoria) e novamente após a releitura READ ONLY, antes
+da transação de escrita do alvo. Divergência nessa releitura retorna o mesmo status
+e para o lote sem persistir o alvo. Comparações integrais de identidade e pins
+permanecem como defesas adicionais. Inclusive para associação já existente, slug
+ou updatedAt divergente invalida a autorização antes da transação no-op/conflito.
+Como o próprio commit altera updatedAt, repetir o lote exige nova revisão das
+versões e nova autorização explícita. A operação atômica continua idempotente;
+não há reautorização automática nem bypass do hash para uma segunda execução.
+
+Testes determinísticos cobrem os oito campos, ordem dos jogadores/propriedades,
+timezone equivalente, token legado e gate com fakes sem escrita. O futuro CLI
+deverá imprimir o resumo e validar o argumento, sem prompt interativo.
 
 **O runner atual rejeita --write INCONDICIONALMENTE antes de dotenv/Prisma.**
 Nenhum token ou variável de ambiente pode habilitá-lo. O adapter de escrita e

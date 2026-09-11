@@ -35,7 +35,7 @@ function load<T>(file: string, dependencies: Record<string, unknown>): T {
 }
 
 function fixture() {
-  const players: Player[] = targets.map((t, i) => ({ id: t.playerId, externalId: `synthetic-ea-${i}`, name: `Synthetic Person${i}`,
+  const players: Player[] = targets.map((t, i) => ({ id: t.playerId, slug: `synthetic-person-${i}`, externalId: `synthetic-ea-${i}`, name: `Synthetic Person${i}`,
     apiFootballId: null, dateOfBirth: new Date(`200${i}-01-01T00:00:00Z`), nationality: "Spain", position: "MC",
     secondaryPositions: [], clubId: pins.clubId, club: { name: "FC Barcelona", apiFootballId: 529 },
     updatedAt: new Date("2026-09-10T00:00:00Z"), attempt: null }))
@@ -282,12 +282,17 @@ for (const [label, change] of invalidEvidence) test(`${label} stops before any t
   const r = await f.batch()
   assert.equal(r.stopped, true); assert.equal(r.results[0].status, "VALIDATION_FAILURE"); assert.equal(f.db.transactions, 0)
 })
-test("five fake writes succeed; second execution returns five idempotent results without duplicate attempts", async () => {
+test("five fake writes succeed; newly reviewed versions allow five idempotent results without duplicate attempts", async () => {
   const f = setup()
   const first = await f.batch()
   assert.equal(first.stopped, false); assert.equal(first.auditFailure, false)
   assert.equal(first.results.filter(r => r.status === "MATCHED").length, 5)
   const before = structuredClone(f.db.state)
+  const stale = await f.batch()
+  assert.equal(stale.results[0].status, "AUTHORIZATION_MISMATCH")
+  assert.equal(f.db.transactions, 5)
+  // The writes changed updatedAt; a new explicit confirmation is required even for a no-op.
+  for (const m of f.prepared) m.identity.updatedAt = f.db.state.players.find(p => p.id === m.identity.id)!.updatedAt
   const second = await f.batch()
   assert.equal(second.stopped, false); assert.equal(second.auditFailure, false)
   assert.equal(second.results.filter(r => r.status === "ALREADY_MATCHED_SAME_ID").length, 5)
@@ -320,11 +325,86 @@ test("audit rejects changed unrelated player, old attempt or unauthorized metada
 test("explicit authorization is bound to the exact summary before any DB dependency", async () => {
   const f = setup(); let calls = 0; f.deps.audit = async () => { calls++; return f.db.audit() }
   const token = f.pilot.identityWriteAuthorization(f.prepared)
-  await assert.rejects(f.pilot.runPreparedBarcelonaIdentityWrites(f.prepared, f.deps, ""), /AUTHORIZATION_REQUIRED/)
+  await assert.rejects(f.pilot.runPreparedBarcelonaIdentityWrites(f.prepared, f.deps, ""), /AUTHORIZATION_MISMATCH/)
   f.prepared[0].confidence--
-  await assert.rejects(f.pilot.runPreparedBarcelonaIdentityWrites(f.prepared, f.deps, token), /AUTHORIZATION_REQUIRED/)
+  await assert.rejects(f.pilot.runPreparedBarcelonaIdentityWrites(f.prepared, f.deps, token), /AUTHORIZATION_MISMATCH/)
   assert.equal(calls, 0); assert.equal(f.db.transactions, 0)
 })
+test("authorization v2 has exactly the ordered reviewed fields and deterministic UTF-8 SHA-256", () => {
+  const { prepared } = fixture()
+  const summary = pilotModule.identityPreWriteSummary(prepared)
+  assert.equal(summary.authorizationSummaryVersion, 2)
+  assert.deepEqual(Object.keys(summary.players[0]), ["playerId", "slug", "providerId", "confidence", "margin",
+    "cacheRowHash", "snapshotHash", "expectedUpdatedAt"])
+  assert.equal(summary.players[0].expectedUpdatedAt, "2026-09-10T00:00:00.000Z")
+  assert.equal(pilotModule.identityWriteAuthorization(prepared), "AUTHORIZE_BARCELONA_IDENTITY_V2:" + hash(summary))
+  assert.equal(pilotModule.identityWriteAuthorization(prepared), pilotModule.identityWriteAuthorization(structuredClone(prepared)))
+  const reorderedProperties = prepared.map(m => ({ ...m, identity: Object.fromEntries(Object.entries(m.identity).reverse()) as typeof m.identity }))
+  assert.equal(pilotModule.identityWriteAuthorization(prepared), pilotModule.identityWriteAuthorization(reorderedProperties))
+})
+
+const authorizationChanges: [string, (matches: policyModule.PreparedIdentityMatch[]) => void][] = [
+  ["slug", m => { m[0].identity.slug += "-changed" }],
+  ["updatedAt +1ms", m => { m[0].identity.updatedAt = new Date(m[0].identity.updatedAt.getTime() + 1) }],
+  ["providerId", m => { m[0].providerId++ }],
+  ["confidence", m => { m[0].confidence-- }],
+  ["margin", m => { m[0].margin-- }],
+  ["cache hash", m => { m[0].cacheRowHash += "changed" }],
+  ["snapshot hash", m => { m[0].snapshotHash += "changed" }],
+  ["player order", m => { m.reverse() }],
+  ["playerId", m => { m[0].identity.id += "changed" }],
+]
+for (const [label, change] of authorizationChanges) test(`authorization changes with ${label} and rejects before any dependency`, async () => {
+  const f = setup(), token = f.pilot.identityWriteAuthorization(f.prepared)
+  change(f.prepared)
+  assert.notEqual(f.pilot.identityWriteAuthorization(f.prepared), token)
+  let calls = 0
+  const loadEvidence = f.deps.loadEvidence
+  f.deps.audit = async () => { calls++; return f.db.audit() }
+  f.deps.loadEvidence = async () => { calls++; return loadEvidence() }
+  await assert.rejects(f.pilot.runPreparedBarcelonaIdentityWrites(f.prepared, f.deps, token), /AUTHORIZATION_MISMATCH/)
+  assert.equal(calls, 0); assert.equal(f.db.transactions, 0)
+})
+
+test("equivalent timezone offsets serialize to identical UTC authorization", () => {
+  const { prepared } = fixture(), equivalent = structuredClone(prepared)
+  equivalent[0].identity.updatedAt = new Date("2026-09-09T20:00:00.000-04:00")
+  assert.equal(pilotModule.identityWriteAuthorization(prepared), pilotModule.identityWriteAuthorization(equivalent))
+})
+
+test("legacy authorization format has no fallback, even for the same reviewed evidence", async () => {
+  const f = setup()
+  const oldSummary = f.prepared.map(m => ({ player: m.identity.name, playerId: m.identity.id, providerId: m.providerId,
+    decision: m.decision, confidence: m.confidence, margin: m.margin, cacheRowHash: m.cacheRowHash,
+    cacheExpiresAt: m.cacheExpiresAt.toISOString(), snapshotHash: m.snapshotHash }))
+  let audits = 0; f.deps.audit = async () => { audits++; return f.db.audit() }
+  await assert.rejects(f.pilot.runPreparedBarcelonaIdentityWrites(f.prepared, f.deps,
+    "AUTHORIZE_BARCELONA_IDENTITY:" + hash(oldSummary)), /AUTHORIZATION_MISMATCH/)
+  assert.equal(audits, 0); assert.equal(f.db.transactions, 0)
+})
+
+test("correct v2 authorization reaches the pre-write boundary using a non-writing fake", async () => {
+  const f = setup(), before = structuredClone(f.db.state), reached: string[] = []
+  f.deps.persist = async m => {
+    reached.push(m.identity.id)
+    return { status: "VALIDATION_FAILURE", playerId: m.identity.id, providerId: m.providerId }
+  }
+  const result = await f.batch()
+  assert.deepEqual(reached, [targets[0].playerId]); assert.equal(result.stopped, true)
+  assert.equal(f.db.transactions, 0); assert.deepEqual(f.db.state, before)
+})
+
+for (const field of ["slug", "updatedAt"] as const) test(`refreshed ${field} drift aborts with AUTHORIZATION_MISMATCH before the write transaction`, async () => {
+  const f = setup()
+  if (field === "slug") f.db.state.players[0].slug += "-changed"
+  else f.db.state.players[0].updatedAt = new Date(f.db.state.players[0].updatedAt.getTime() + 1)
+  const before = structuredClone(f.db.state), result = await f.batch()
+  assert.equal(result.results[0].status, "AUTHORIZATION_MISMATCH")
+  assert.equal(result.stopped, true); assert.equal(result.auditFailure, false)
+  assert.equal(result.results.length, 1); assert.equal(f.db.transactions, 0)
+  assert.deepEqual(f.db.state, before)
+})
+
 test("real snapshot decoder rejects forged payload even with the expected declared content hash", () => {
   const f = setup()
   assert.throws(() => policyModule.requireCurrentBarcelonaEvidence(f.evidence, now), /INVALID_SNAPSHOT/)

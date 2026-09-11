@@ -42,7 +42,7 @@ export function createPrismaIdentityWriteDependencies(db: PrismaClient, clock: (
         'SELECT md5(to_jsonb(t)::text) AS hash FROM "ApiFootballTeamRosterCache" t WHERE id = $1', pin.cacheId)
       const snapshot = await tx.clubOfficialLineupSnapshot.findUnique({ where: { id: pin.snapshotId } })
       const catalog = await tx.player.findMany({ select: {
-        id: true, externalId: true, name: true, apiFootballId: true, dateOfBirth: true, nationality: true,
+        id: true, slug: true, externalId: true, name: true, apiFootballId: true, dateOfBirth: true, nationality: true,
         position: true, secondaryPositions: true, clubId: true, updatedAt: true,
         club: { select: { name: true, apiFootballId: true } }, apiFootballMatchAttempt: { select: { status: true, nextRetryAt: true } },
       } })
@@ -89,15 +89,27 @@ export function assertIdentityWriteAudit(before: IdentityWriteAudit, after: Iden
 }
 
 export function identityPreWriteSummary(matches: readonly PreparedIdentityMatch[]) {
-  requireBarcelonaWriteAllowlist(matches.map(m => m.identity.id))
-  return matches.map(m => ({ player: m.identity.name, playerId: m.identity.id, providerId: m.providerId,
-    decision: m.decision, confidence: m.confidence, margin: m.margin, cacheRowHash: m.cacheRowHash,
-    cacheExpiresAt: m.cacheExpiresAt.toISOString(), snapshotHash: m.snapshotHash }))
+  // Serialization is deliberately independent of input property insertion order and local timezone.
+  // Scope validation belongs to the gate; hashing must also distinguish reordered/changed IDs.
+  return { authorizationSummaryVersion: 2, players: matches.map(m => ({
+    playerId: m.identity.id, slug: m.identity.slug, providerId: m.providerId,
+    confidence: m.confidence, margin: m.margin, cacheRowHash: m.cacheRowHash,
+    snapshotHash: m.snapshotHash, expectedUpdatedAt: m.identity.updatedAt.toISOString(),
+  })) }
 }
 
 // Confirmation of one exact summary, not a secret and NOT a way to enable the CLI.
 export function identityWriteAuthorization(matches: readonly PreparedIdentityMatch[]) {
-  return "AUTHORIZE_BARCELONA_IDENTITY:" + createHash("sha256").update(JSON.stringify(identityPreWriteSummary(matches))).digest("hex")
+  return "AUTHORIZE_BARCELONA_IDENTITY_V2:" + createHash("sha256")
+    .update(JSON.stringify(identityPreWriteSummary(matches)), "utf8").digest("hex")
+}
+
+class AuthorizationMismatch extends Error {
+  constructor() { super("AUTHORIZATION_MISMATCH") }
+}
+
+export function requireIdentityWriteAuthorization(matches: readonly PreparedIdentityMatch[], authorization: string) {
+  if (authorization !== identityWriteAuthorization(matches)) throw new AuthorizationMismatch()
 }
 
 type Dependencies = {
@@ -111,9 +123,9 @@ type Dependencies = {
 // A future runner must print identityPreWriteSummary and require explicit authorization before calling this.
 export async function runPreparedBarcelonaIdentityWrites(prepared: readonly PreparedIdentityMatch[], deps: Dependencies, authorization: string) {
   const matches = structuredClone([...prepared])
+  requireIdentityWriteAuthorization(matches, authorization)
   requireBarcelonaWriteAllowlist(matches.map(m => m.identity.id))
   if (matches.some((m, i) => m.providerId !== BARCELONA_WRITE_TARGETS[i].providerId)) throw new Error("PROVIDER_ALLOWLIST_MISMATCH")
-  if (authorization !== identityWriteAuthorization(matches)) throw new Error("EXPLICIT_SUMMARY_AUTHORIZATION_REQUIRED")
   const before = await deps.audit(), results: AtomicMatchResult[] = []
   let stopped = false, auditFailure = false, after: IdentityWriteAudit | null = null
   for (const original of matches) {
@@ -125,11 +137,15 @@ export async function runPreparedBarcelonaIdentityWrites(prepared: readonly Prep
       const player = evidence.players.find(p => p.id === original.identity.id)
       // For an existing association the transaction decides no-op/conflict; never manufacture AUTO_MATCH.
       const current = player?.apiFootballId === null ? prepareBarcelonaIdentityMatch(evidence, original.identity.id, now) : original
+      // Even a no-op/conflict path must not reuse authorization for a stale slug or version.
+      const reviewed = { ...current, identity: { ...current.identity,
+        slug: player?.slug ?? current.identity.slug, updatedAt: player?.updatedAt ?? current.identity.updatedAt } }
+      requireIdentityWriteAuthorization(matches.map(m => m.identity.id === original.identity.id ? reviewed : m), authorization)
       if (player?.apiFootballId === null && !isDeepStrictEqual(current, original)) throw new Error("AUTHORIZED_IDENTITY_CHANGED")
       persistenceStarted = true
       result = await deps.persist(current)
-    } catch {
-      result = { status: persistenceStarted ? "INDETERMINATE_COMMIT" : "VALIDATION_FAILURE",
+    } catch (error) {
+      result = { status: error instanceof AuthorizationMismatch ? "AUTHORIZATION_MISMATCH" : persistenceStarted ? "INDETERMINATE_COMMIT" : "VALIDATION_FAILURE",
         playerId: original.identity.id, providerId: original.providerId }
     }
     results.push(result)

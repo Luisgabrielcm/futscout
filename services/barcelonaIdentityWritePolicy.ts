@@ -36,6 +36,7 @@ export function guardBarcelonaIdentityRunnerArgs(args: string[]) {
 export type AtomicPlayerIdentity = Pick<IdentityPlayer,
   "id" | "name" | "dateOfBirth" | "nationality" | "position" | "secondaryPositions"> & {
   externalId: string | null
+  slug: string
   clubId: string | null
   updatedAt: Date
   club: { name: string; apiFootballId: number | null } | null
@@ -86,8 +87,8 @@ export function prepareBarcelonaIdentityMatch(evidence: IdentityWriteEvidence, p
   if (result.failedFast || r?.decision !== "AUTO_MATCH" || r.sourcePlayerId !== target.providerId || r.margin === null) {
     throw new Error("CURRENT_MATCHER_NOT_AUTO_MATCH")
   }
-  const { id, externalId, name, dateOfBirth, nationality, position, secondaryPositions, clubId, club, updatedAt } = p
-  return structuredClone({ identity: { id, externalId, name, dateOfBirth, nationality, position, secondaryPositions, clubId, club, updatedAt },
+  const { id, slug, externalId, name, dateOfBirth, nationality, position, secondaryPositions, clubId, club, updatedAt } = p
+  return structuredClone({ identity: { id, slug, externalId, name, dateOfBirth, nationality, position, secondaryPositions, clubId, club, updatedAt },
     providerId: target.providerId, decision: "AUTO_MATCH", confidence: r.score!, nameScore: r.nameScore!,
     birthMatches: r.birthMatches, nationalityMatches: r.nationalityMatches, clubMatches: r.clubMatches,
     margin: r.margin, cacheExpiresAt: evidence.cache!.expiresAt, cacheRowHash: evidence.cacheRowHash!, snapshotHash: evidence.snapshot!.contentHash })

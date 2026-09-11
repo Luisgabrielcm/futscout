@@ -6,7 +6,7 @@ import { BARCELONA_WRITE_EVIDENCE, BARCELONA_WRITE_TARGETS, type PreparedIdentit
 
 export type AtomicMatchStatus = "MATCHED" | "ALREADY_MATCHED_SAME_ID" |
   "CONFLICT_PLAYER_ALREADY_HAS_OTHER_ID" | "CONFLICT_PROVIDER_ID_TAKEN" |
-  "CONCURRENT_MODIFICATION" | "ATTEMPT_FAILURE" | "VALIDATION_FAILURE" | "INDETERMINATE_COMMIT"
+  "CONCURRENT_MODIFICATION" | "ATTEMPT_FAILURE" | "VALIDATION_FAILURE" | "INDETERMINATE_COMMIT" | "AUTHORIZATION_MISMATCH"
 export type AtomicMatchResult = { status: AtomicMatchStatus; playerId: string; providerId: number }
 class AtomicAbort extends Error {
   constructor(readonly status: AtomicMatchStatus) { super(status) }
@@ -41,7 +41,7 @@ export async function persistPlayerApiFootballMatchAtomically(
     validate(m, clock())
     return await db.$transaction(async tx => {
       const p = await tx.player.findUnique({ where: { id: m.identity.id }, select: {
-        id: true, externalId: true, name: true, dateOfBirth: true, nationality: true, position: true, secondaryPositions: true,
+        id: true, slug: true, externalId: true, name: true, dateOfBirth: true, nationality: true, position: true, secondaryPositions: true,
         clubId: true, updatedAt: true, apiFootballId: true, club: { select: { name: true, apiFootballId: true } },
       } })
       if (!p) return result("VALIDATION_FAILURE")
