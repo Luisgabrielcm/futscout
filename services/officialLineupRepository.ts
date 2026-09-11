@@ -3,12 +3,14 @@ import { officialLineupContentHash, validateLineupForSnapshot } from "../lib/off
 import type { OfficialLineup } from "../types/officialLineup"
 
 // Operational write module: NEVER imported by public read/UI modules.
-export function createOfficialLineupRepository(db: PrismaClient) {
+export function createOfficialLineupRepository(db: PrismaClient, options: { requireEmptyClub?: boolean } = {}) {
   return {
     async saveOfficialLineupSnapshot(clubId: string, input: OfficialLineup, now = new Date()) {
       const lineup = validateLineupForSnapshot(input, now)
       const contentHash = officialLineupContentHash(lineup)
       return db.$transaction(async tx => {
+        // First-snapshot pilots enforce 0 -> 1 inside the same serializable write transaction.
+        if (options.requireEmptyClub && await tx.clubOfficialLineupSnapshot.count({ where: { clubId } }) !== 0) throw new Error("Official lineup pilot target already has a snapshot")
         const club = await tx.club.findUnique({ where: { id: clubId }, select: { apiFootballId: true } })
         if (!club || club.apiFootballId !== lineup.apiTeamId) throw new Error("Official lineup club identity mismatch")
         const identity = { provider: lineup.provider, fixtureExternalId: lineup.fixture.id, teamExternalId: lineup.apiTeamId }
