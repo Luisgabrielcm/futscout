@@ -3,8 +3,10 @@
 import { execFileSync } from "node:child_process"
 import { parseIdentityPilotArgs, planBarcelonaIdentityCoverage } from "../services/playerIdentityCoverage"
 import { decodeLineupSnapshot } from "../lib/officialLineupSnapshot"
+import { guardBarcelonaIdentityRunnerArgs } from "../services/barcelonaIdentityWritePolicy"
 
 async function main() {
+  guardBarcelonaIdentityRunnerArgs(process.argv.slice(2)) // Phase D: hard-stop --write BEFORE env/DB.
   const args = parseIdentityPilotArgs(process.argv.slice(2)) // BEFORE env/DB imports
   const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" }).trim()
   if (git("branch", "--show-current") !== "beta-next" || git("status", "--porcelain")) throw new Error("CLEAN_BETA_NEXT_REQUIRED")
