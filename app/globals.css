@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* Official source lineup: source order, never rated/reselected on the client. */
+.officialLineupPanel { min-width: 0; overflow-wrap: anywhere; }
+.officialLineupPanel h3, .officialLineupPanel p { margin-bottom: 12px; }
+.officialUnplaced, .officialBenchGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; }
+.officialUnplaced .clubPitchPlayer { width: auto; }
+.officialBench { margin-top: 24px; }
+.officialBenchPlayer { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; text-align: center; background: #141b18; border-radius: 12px; }
+.officialBenchPlayer dl { font-size: 12px; }
+.officialStarter small { font-size: 9px; overflow-wrap: anywhere; }
+
 :root {
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;

@@ -57,6 +57,8 @@ model Club {
 
   players Player[]
 
+  officialLineupSnapshots ClubOfficialLineupSnapshot[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -69,6 +71,27 @@ model Club {
  * PLAYER
  * ========================================
  */
+
+model ClubOfficialLineupSnapshot {
+  id                String   @id @default(cuid())
+  clubId            String
+  club              Club     @relation(fields: [clubId], references: [id], onDelete: Restrict)
+  provider          String
+  fixtureExternalId Int
+  teamExternalId    Int
+  fixtureDate       DateTime
+  formation         String?
+  revision          Int
+  payloadVersion    Int      @default(1)
+  payload           Json
+  contentHash       String
+  fetchedAt         DateTime
+  createdAt         DateTime @default(now())
+
+  @@unique([provider, fixtureExternalId, teamExternalId, revision], map: "official_lineup_revision_key")
+  @@index([clubId, fixtureDate(sort: Desc), fetchedAt(sort: Desc)], map: "official_lineup_club_latest_idx")
+  @@index([provider, fixtureExternalId, teamExternalId, contentHash], map: "official_lineup_hash_idx")
+}
 
 model Player {
   id         String  @id @default(cuid())

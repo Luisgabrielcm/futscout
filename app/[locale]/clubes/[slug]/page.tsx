@@ -4,6 +4,7 @@ import { localizedMetadata } from "../../../../lib/i18n/metadata"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { getClubBySlug, getClubRatings, getClubRoster } from "../../../../services/clubService"
+import { getLatestOfficialClubLineup } from "../../../../services/officialLineupService"
 import { getPlayers } from "../../../../services/playerService"
 import { parsePlayerCatalogParams, playerCatalogQuery } from "../../../../lib/playerCatalogParams"
 import { clubText, CLUB_TABS, SQUAD_SORTS } from "../../../../lib/i18n/clubExperience"
@@ -33,6 +34,7 @@ export default async function ClubPage({ params, searchParams }: Props) {
   const roster = tab === "squad" ? await getPlayers(filters, { clubId: club.id }) : null
   const overview = tab === "overview" ? await Promise.all([getClubRoster(club.id), getClubRatings([{ id: club.id, total: club._count.players }])]) : null
   const path = localizedHref(locale, `/clubes/${encodeURIComponent(club.slug)}`)
+  const officialLineup = overview ? await getLatestOfficialClubLineup(club.id) : null
   return <main className="playersPage directoryPage clubProfilePage">
     <DirectoryNav locale={locale} />
     <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}><Link href={localizedHref(locale, "/clubes")} className="backButton">{t(locale, "← Todos os clubes")}</Link><span aria-hidden="true">›</span><span aria-current="page">{club.name}</span></nav>
@@ -46,7 +48,7 @@ export default async function ClubPage({ params, searchParams }: Props) {
     {overview && <ClubRatingPanel locale={locale} rating={overview[1].get(club.id)!} />}
     <nav className="clubTabs" aria-label={t(locale, "Clubes")}>{CLUB_TABS.map(value => <Link key={value}
       prefetch={false} aria-current={tab === value ? "page" : undefined} href={`${path}?tab=${value}`}>{clubText(locale, value)}{value !== "overview" && value !== "squad" && <span className="tabUpcoming" aria-hidden="true">·</span>}</Link>)}</nav>
-    {overview && <ClubPitch locale={locale} players={overview[0]} squadHref={`${path}?tab=squad`} information={<section className="clubInfoPanel">
+    {overview && <ClubPitch locale={locale} players={overview[0]} officialLineup={officialLineup} squadHref={`${path}?tab=squad`} information={<section className="clubInfoPanel">
       <h2>{clubText(locale, "information")}</h2><dl>
         <div><dt>{clubText(locale, "name")}</dt><dd>{club.name}</dd></div>
         <div><dt>{clubText(locale, "league")}</dt><dd><Link href={localizedHref(locale, `/ligas/${encodeURIComponent(club.league.slug)}`)}>{club.league.name}</Link></dd></div>

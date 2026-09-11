@@ -11,6 +11,8 @@ import CountryFlag from "./CountryFlag"
 import type { ReactNode } from "react"
 import { organizeClubPitch, groupClubSquad, pitchPositions, validPitchOverall, type PitchPlayer } from "../../lib/clubPitchLayout"
 import { getPlayerProfilePositions } from "../../lib/playerProfilePositions"
+import { OfficialLineupPanel } from "./OfficialLineupPanel"
+import type { OfficialLineupView } from "../../types/officialLineup"
 
 export function ClubRatingPanel({ locale, rating }: { locale: Locale; rating: ClubRating }) {
   const number = (value: number | null) => value === null ? "—" : value.toLocaleString(localeTags[locale], { maximumFractionDigits: 1, minimumFractionDigits: 1 })
@@ -30,11 +32,11 @@ function PitchPortrait({ locale, player, position }: { locale: Locale; player: P
   </Link>
 }
 
-export function SquadPositionPanel({ locale, players, selectedIds }: { locale: Locale; players: PitchPlayer[]; selectedIds: ReadonlySet<string> }) {
+export function SquadPositionPanel({ locale, players, selectedIds, official = false }: { locale: Locale; players: PitchPlayer[]; selectedIds: ReadonlySet<string>; official?: boolean }) {
   const groups = groupClubSquad(players)
   return <section className="squadPositionPanel" aria-label={clubText(locale, "positions")}>
     <div className="sectionTitleRow"><h2>{clubText(locale, "positions")}</h2><span>{players.length}</span></div>
-    <p className="clubDisclosure">{clubText(locale, "panelMethod")}</p>
+    <p className="clubDisclosure">{clubText(locale, official ? "notLineup" : "panelMethod")}</p>
     <div className="squadPositionGroups">{groups.map(group => <section key={group.key} className="squadPositionGroup" aria-label={clubText(locale, group.key)}>
       <h3>{clubText(locale, group.key)} <span>{group.players.length}</span></h3>
       {group.players.map(player => <Link key={player.id} prefetch={false} className="squadPositionCard" href={entityHref(locale, "jogadores", player.slug)!}>
@@ -54,7 +56,13 @@ export function SquadPositionPanel({ locale, players, selectedIds }: { locale: L
   </section>
 }
 
-export function ClubPitch({ locale, players, information, squadHref }: { locale: Locale; players: PitchPlayer[]; information?: ReactNode; squadHref?: string }) {
+export function ClubPitch({ locale, players, information, squadHref, officialLineup }: { locale: Locale; players: PitchPlayer[]; information?: ReactNode; squadHref?: string; officialLineup?: OfficialLineupView | null }) {
+  if (officialLineup) return <section className="clubOverview">
+    <OfficialLineupPanel locale={locale} lineup={officialLineup} />
+    <aside className="clubOverviewAside"><div><SquadPositionPanel locale={locale} players={players} selectedIds={new Set()} official />
+      {squadHref && <Link className="fullSquadLink" href={squadHref}>{clubText(locale, "allSquad")} <span aria-hidden="true">↗</span></Link>}
+    </div>{information}</aside>
+  </section>
   const xi = organizeClubPitch(players)
   const selectedIds = new Set(xi.selected.map(slot => slot.player.id))
   return <section className="clubOverview">
