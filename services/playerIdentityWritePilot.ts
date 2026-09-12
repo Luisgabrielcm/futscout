@@ -29,8 +29,7 @@ async function readAudit(tx: Prisma.TransactionClient): Promise<IdentityWriteAud
   return { tables, players, attempts }
 }
 
-// Prepared adapter only: constructing it does not open a connection or execute a query.
-// NOT wired to the executable runner while its write gate is closed.
+// Constructing the adapter does not open a connection or execute a query.
 export function createPrismaIdentityWriteDependencies(db: PrismaClient, clock: () => Date = () => new Date()) {
   return {
     clock,
@@ -88,7 +87,11 @@ export function assertIdentityWriteAudit(before: IdentityWriteAudit, after: Iden
   }
 }
 
-export function identityPreWriteSummary(matches: readonly PreparedIdentityMatch[]) {
+export type IdentityAuthorizationMatch = Pick<PreparedIdentityMatch, "providerId" | "confidence" | "margin" | "cacheRowHash" | "snapshotHash"> & {
+  identity: Pick<PreparedIdentityMatch["identity"], "id" | "slug" | "updatedAt">
+}
+
+export function identityPreWriteSummary(matches: readonly IdentityAuthorizationMatch[]) {
   // Serialization is deliberately independent of input property insertion order and local timezone.
   // Scope validation belongs to the gate; hashing must also distinguish reordered/changed IDs.
   return { authorizationSummaryVersion: 2, players: matches.map(m => ({
@@ -99,7 +102,7 @@ export function identityPreWriteSummary(matches: readonly PreparedIdentityMatch[
 }
 
 // Confirmation of one exact summary, not a secret and NOT a way to enable the CLI.
-export function identityWriteAuthorization(matches: readonly PreparedIdentityMatch[]) {
+export function identityWriteAuthorization(matches: readonly IdentityAuthorizationMatch[]) {
   return "AUTHORIZE_BARCELONA_IDENTITY_V2:" + createHash("sha256")
     .update(JSON.stringify(identityPreWriteSummary(matches)), "utf8").digest("hex")
 }
@@ -108,25 +111,31 @@ class AuthorizationMismatch extends Error {
   constructor() { super("AUTHORIZATION_MISMATCH") }
 }
 
-export function requireIdentityWriteAuthorization(matches: readonly PreparedIdentityMatch[], authorization: string) {
+export function requireIdentityWriteAuthorization(matches: readonly IdentityAuthorizationMatch[], authorization: string) {
   if (authorization !== identityWriteAuthorization(matches)) throw new AuthorizationMismatch()
 }
 
-type Dependencies = {
+export class IdentityWritePreconditionError extends Error {
+  constructor(readonly status: AtomicMatchResult["status"]) { super(status) }
+}
+
+export type IdentityWriteDependencies = {
   clock: () => Date
   loadEvidence: () => Promise<IdentityWriteEvidence>
   audit: () => Promise<IdentityWriteAudit>
   persist: (match: PreparedIdentityMatch) => Promise<AtomicMatchResult>
+  requirePristine?: boolean
+  onAudit?: (phase: "BEFORE" | "AFTER", audit: IdentityWriteAudit, result?: AtomicMatchResult) => void
 }
 
-// Future orchestration, exercised ONLY with fakes in Phase D. It cannot enable the CLI gate.
-// A future runner must print identityPreWriteSummary and require explicit authorization before calling this.
-export async function runPreparedBarcelonaIdentityWrites(prepared: readonly PreparedIdentityMatch[], deps: Dependencies, authorization: string) {
+// CLI guards and explicit summary confirmation must pass before invoking this orchestration.
+export async function runPreparedBarcelonaIdentityWrites(prepared: readonly PreparedIdentityMatch[], deps: IdentityWriteDependencies, authorization: string) {
   const matches = structuredClone([...prepared])
   requireIdentityWriteAuthorization(matches, authorization)
   requireBarcelonaWriteAllowlist(matches.map(m => m.identity.id))
   if (matches.some((m, i) => m.providerId !== BARCELONA_WRITE_TARGETS[i].providerId)) throw new Error("PROVIDER_ALLOWLIST_MISMATCH")
   const before = await deps.audit(), results: AtomicMatchResult[] = []
+  deps.onAudit?.("BEFORE", before)
   let stopped = false, auditFailure = false, after: IdentityWriteAudit | null = null
   for (const original of matches) {
     let result: AtomicMatchResult
@@ -135,6 +144,12 @@ export async function runPreparedBarcelonaIdentityWrites(prepared: readonly Prep
       const evidence = await deps.loadEvidence(), now = deps.clock()
       requireCurrentBarcelonaEvidence(evidence, now)
       const player = evidence.players.find(p => p.id === original.identity.id)
+      if (evidence.players.some(p => p.apiFootballId === original.providerId && p.id !== original.identity.id)) {
+        throw new IdentityWritePreconditionError("CONFLICT_PROVIDER_ID_TAKEN")
+      }
+      if (deps.requirePristine && (!player || player.apiFootballId !== null || player.attempt)) {
+        throw new IdentityWritePreconditionError("VALIDATION_FAILURE")
+      }
       // For an existing association the transaction decides no-op/conflict; never manufacture AUTO_MATCH.
       const current = player?.apiFootballId === null ? prepareBarcelonaIdentityMatch(evidence, original.identity.id, now) : original
       // Even a no-op/conflict path must not reuse authorization for a stale slug or version.
@@ -145,13 +160,14 @@ export async function runPreparedBarcelonaIdentityWrites(prepared: readonly Prep
       persistenceStarted = true
       result = await deps.persist(current)
     } catch (error) {
-      result = { status: error instanceof AuthorizationMismatch ? "AUTHORIZATION_MISMATCH" : persistenceStarted ? "INDETERMINATE_COMMIT" : "VALIDATION_FAILURE",
+      result = { status: error instanceof AuthorizationMismatch ? "AUTHORIZATION_MISMATCH" : error instanceof IdentityWritePreconditionError ? error.status : persistenceStarted ? "INDETERMINATE_COMMIT" : "VALIDATION_FAILURE",
         playerId: original.identity.id, providerId: original.providerId }
     }
     results.push(result)
     try {
       after = await deps.audit()
       assertIdentityWriteAudit(before, after, matches, results)
+      deps.onAudit?.("AFTER", after, result)
     } catch { auditFailure = true }
     if (auditFailure || !["MATCHED", "ALREADY_MATCHED_SAME_ID"].includes(result.status)) { stopped = true; break }
   }

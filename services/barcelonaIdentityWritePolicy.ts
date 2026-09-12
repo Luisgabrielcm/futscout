@@ -25,12 +25,37 @@ export function requireBarcelonaWriteAllowlist(ids: readonly string[]) {
   }
 }
 
-// No environment variable or command-line token can enable writes in Phase D.
-// Kept separate from the legacy dry-run parser to preserve its existing contract.
+// Strict CLI grammar; the legacy dry-run parser retains its read-only contract.
 export function guardBarcelonaIdentityRunnerArgs(args: string[]) {
-  if (args.includes("--write")) throw new Error("IDENTITY_WRITE_DISABLED_PHASE_D")
+  if (args[0] === "--write") {
+    if (args.length !== 7 || args[5] !== "--confirmation" ||
+        !/^AUTHORIZE_BARCELONA_IDENTITY_V2:[a-f0-9]{64}$/.test(args[6])) throw new Error("EXPLICIT_V2_CONFIRMATION_REQUIRED")
+    const parsed = parseIdentityPilotArgs(["--dry-run", ...args.slice(1, 5)])
+    requireBarcelonaWriteAllowlist(parsed.playerIds)
+    return { ...parsed, mode: "write" as const, confirmation: args[6] }
+  }
   const parsed = parseIdentityPilotArgs(args)
   requireBarcelonaWriteAllowlist(parsed.playerIds)
+  return { ...parsed, mode: "dry-run" as const }
+}
+
+type RunnerArgs = ReturnType<typeof guardBarcelonaIdentityRunnerArgs>
+
+// No write-flow import, env or client construction before CLI/Git guards pass.
+export async function dispatchBarcelonaIdentityRunner(argv: string[], runtime: {
+  git: (...args: string[]) => string
+  blockHttp: () => void
+  runDryRun: (args: RunnerArgs, head: string) => Promise<void>
+  loadWriteFlow: () => Promise<(args: Extract<RunnerArgs, { mode: "write" }>, head: string) => Promise<void>>
+}) {
+  const args = guardBarcelonaIdentityRunnerArgs(argv)
+  if (runtime.git("branch", "--show-current") !== "beta-next") throw new Error("BETA_NEXT_REQUIRED")
+  if (runtime.git("status", "--porcelain", "--untracked-files=all")) throw new Error("CLEAN_WORKING_TREE_REQUIRED")
+  const head = runtime.git("rev-parse", "HEAD")
+  runtime.blockHttp()
+  if (args.mode === "dry-run") return runtime.runDryRun(args, head)
+  const write = await runtime.loadWriteFlow()
+  await write(args, head)
 }
 
 export type AtomicPlayerIdentity = Pick<IdentityPlayer,

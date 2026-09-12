@@ -1,6 +1,6 @@
-# Lote 8 — Fase D: persistência atômica preparada, WRITE desabilitado
+# Lote 8 — persistência atômica e runner protegido (Fases D–G)
 
-Esta fase altera somente código/testes/documentação. Nenhum runner operacional,
+Estas fases de preparação alteram somente código/testes/documentação. Nenhum runner operacional,
 consulta ao banco real, escrita real, refresh ou API é necessário para validá-la.
 O baseline de dados informado pela Fase C é 16.228 Players, 74 associados e 73
 Attempts. Esses números NÃO são uma nova auditoria de banco nesta fase.
@@ -83,8 +83,9 @@ O adapter preparado lê evidência em RepeatableRead READ ONLY, sem APIs. O core
 existente é reexecutado antes de cada novo write: AUTO_MATCH, provider esperado,
 roster e lineup corroborados, identidade global, ausência de attempt. Mantém
 pesos 40/35/10/15, limiares 75/90, nameScore>=80, margem>=10 e demais gates.
-Uma associação já existente segue apenas para checagem idempotente/conflito na
-transação; não se fabrica AUTO_MATCH removendo IDs/attempts do catálogo.
+O helper atômico preserva sua checagem idempotente/conflito. No runner da Fase G,
+um lote inteiramente já associado é verificado sem transações de escrita;
+não se fabrica AUTO_MATCH removendo IDs/attempts do catálogo.
 
 ### Fase F: autorização versionada vinculada ao estado revisado
 
@@ -115,14 +116,50 @@ versões e nova autorização explícita. A operação atômica continua idempot
 não há reautorização automática nem bypass do hash para uma segunda execução.
 
 Testes determinísticos cobrem os oito campos, ordem dos jogadores/propriedades,
-timezone equivalente, token legado e gate com fakes sem escrita. O futuro CLI
-deverá imprimir o resumo e validar o argumento, sem prompt interativo.
+timezone equivalente, token legado e gate com fakes sem escrita. O CLI
+imprime o resumo e valida o argumento, sem prompt interativo.
 
-**O runner atual rejeita --write INCONDICIONALMENTE antes de dotenv/Prisma.**
-Nenhum token ou variável de ambiente pode habilitá-lo. O adapter de escrita e
-o orquestrador não estão importados pelo runner. Sua conexão a um modo write
-real e a abertura do guard exigem outra mudança revisada/autorização separada.
-Não executar --write nem o dry-run operacional na Fase D.
+### Fase G: habilitação técnica, sem execução real autorizada
+
+O hard-block das Fases D/F foi substituído por gates. Antes de carregar o fluxo
+de escrita, dotenv ou Prisma: gramática exata, cinco IDs na ordem fixa, token v2
+explícito, branch beta-next e árvore totalmente limpa (incluindo untracked).
+`fetch` é bloqueado antes de carregar o fluxo. PostgreSQL é o único acesso remoto
+previsto; não existem imports de resolver, API, sync ou refresh nesse caminho.
+
+Antes de escrever: releitura READ ONLY do cache 529/2026 com exatamente 27
+jogadores, TTL original, hash fixado; snapshot Barcelona/fixture 1635628,
+payloadVersion 1, decoder e hash aprovados. Slugs dos cinco e clube são conferidos.
+O resumo completo v2 e sua confirmação são impressos sem segredos. O token precisa
+ser igual ao resumo atual. Essa construção necessariamente usa leituras READ ONLY;
+nenhuma transação **de escrita** começa antes da confirmação.
+
+Para cada nova associação: estado null/sem attempt, updatedAt revisado, provider
+livre globalmente e core real AUTO_MATCH. As verificações são repetidas imediatamente
+antes da operação atômica, que mantém Serializable, predicado condicional e UNIQUE.
+Uma transação por jogador, sequencial, STOP ON FIRST FAILURE, sem retry.
+INDETERMINATE_COMMIT exige auditoria READ ONLY antes de qualquer decisão.
+
+Se os cinco já possuem os mesmos IDs e attempts matched coerentes, uma confirmação
+**nova**, calculada com updatedAt atual, permite apenas cinco resultados
+ALREADY_MATCHED_SAME_ID. Esse caminho somente lê e compara hashes: nunca chama
+persistência nem limpa IDs para obter AUTO_MATCH. Estado misto/parcial não é
+retomado automaticamente e exige auditoria/autorização própria.
+
+O modo --dry-run original permanece separado, RepeatableRead READ ONLY, com
+checagem before/after; não carrega o fluxo de escrita. Ele não substitui o novo
+preflight de autorização v2.
+
+Formato futuro (PowerShell, **NÃO executar sem autorização final**):
+
+```powershell
+npx tsx scripts/runBarcelonaPlayerIdentityPilot.ts --write --season 2026 --player-ids cmt9b643t00eiukuchqi60m1e,cmt9bpzg701l3ukuc1tm32vwa,cmt99mm7z002buguc11z8p9vy,cmt9g7t3d03ki1suchanfvlu5,cmt9aoojk003t2kucp8ajoj6f --confirmation "AUTHORIZE_BARCELONA_IDENTITY_V2:<SHA256_DO_NOVO_PREFLIGHT>"
+```
+
+O placeholder é deliberadamente inválido. Não reutilizar automaticamente o token
+da Fase F. Sequência: commit → push beta-next → novo preflight READ ONLY no commit
+final → novo summary/hash → autorização final → execução única. Esta documentação
+não autoriza execução real. Não executar sequer dry-run real na Fase G.
 
 ## Lote futuro e auditoria
 
@@ -152,7 +189,7 @@ O decoder de snapshot é isolado nos cenários de orquestração, com teste sepa
 confirmando rejeição de payload forjado pelo decoder REAL; scoring não é mockado.
 O adapter de leitura é testado com client fake, sem banco/driver/rede.
 
-Próximo passo: revisão desta preparação + preflight READ ONLY autorizado de índices,
-cinco identidades, hashes e TTL; somente depois autorizar a conexão/habilitação do
-runner de escrita e uma execução operacional específica. Nenhum write autorizado
+Próximo passo: preflight READ ONLY autorizado de índices, cinco identidades,
+hashes e TTL no commit final; somente depois autorizar uma execução operacional
+específica. Nenhum write autorizado
 por este documento. Nunca expandir a lista para contornar falha.

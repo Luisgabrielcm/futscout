@@ -1,17 +1,41 @@
-// PREPARATION ONLY: do not execute without separate READ ONLY dry-run authorization.
-// No HTTP, resolver, sync, cache refresh, attempt recorder or write implementation.
+// Operational runner: executing either mode requires its own explicit authorization.
+// No HTTP, resolver, sync or cache refresh. Write mode uses ONLY the approved atomic adapter.
 import { execFileSync } from "node:child_process"
 import { parseIdentityPilotArgs, planBarcelonaIdentityCoverage } from "../services/playerIdentityCoverage"
 import { decodeLineupSnapshot } from "../lib/officialLineupSnapshot"
-import { guardBarcelonaIdentityRunnerArgs } from "../services/barcelonaIdentityWritePolicy"
+import { dispatchBarcelonaIdentityRunner } from "../services/barcelonaIdentityWritePolicy"
 
 async function main() {
-  guardBarcelonaIdentityRunnerArgs(process.argv.slice(2)) // Phase D: hard-stop --write BEFORE env/DB.
-  const args = parseIdentityPilotArgs(process.argv.slice(2)) // BEFORE env/DB imports
   const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" }).trim()
-  if (git("branch", "--show-current") !== "beta-next" || git("status", "--porcelain")) throw new Error("CLEAN_BETA_NEXT_REQUIRED")
-  const head = git("rev-parse", "HEAD")
-  globalThis.fetch = async () => { throw new Error("HTTP_FORBIDDEN_IN_IDENTITY_DRY_RUN") }
+  await dispatchBarcelonaIdentityRunner(process.argv.slice(2), {
+    git,
+    blockHttp: () => { globalThis.fetch = async () => { throw new Error("HTTP_FORBIDDEN_IN_IDENTITY_PILOT") } },
+    runDryRun: async (args, head) => dryRun(args, head),
+    loadWriteFlow: async () => {
+      const { executeBarcelonaIdentityWrite } = await import("../services/barcelonaIdentityWriteRunner")
+      const { createPrismaIdentityWriteDependencies } = await import("../services/playerIdentityWritePilot")
+      return async (args, head) => {
+        await import("dotenv/config")
+        if (!process.env.DIRECT_URL) throw new Error("DIRECT_URL_REQUIRED")
+        const [{ PrismaClient }, { PrismaPg }] = await Promise.all([
+          import("../app/generated/prisma/client"), import("@prisma/adapter-pg"),
+        ])
+        const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DIRECT_URL }) })
+        try {
+          const report = await executeBarcelonaIdentityWrite(args.confirmation, createPrismaIdentityWriteDependencies(db),
+            value => console.log(JSON.stringify({ head, report: value })))
+          console.log(JSON.stringify({ head, phase: "FINAL", results: report.results,
+            stopped: report.stopped, auditFailure: report.auditFailure,
+            committedPlayerIds: report.committedPlayerIds, untouchedPlayerIds: report.untouchedPlayerIds,
+            apiCalls: 0, requiresReadOnlyAudit: report.results.some(r => r.status === "INDETERMINATE_COMMIT") }))
+          if (report.stopped || report.auditFailure) process.exitCode = 2
+        } finally { await db.$disconnect() }
+      }
+    },
+  })
+}
+
+async function dryRun(args: ReturnType<typeof parseIdentityPilotArgs>, head: string) {
   await import("dotenv/config")
   if (!process.env.DIRECT_URL) throw new Error("DIRECT_URL_REQUIRED")
   const [{ PrismaClient, Prisma }, { PrismaPg }] = await Promise.all([
@@ -54,14 +78,18 @@ async function main() {
       if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error("READ_ONLY_INVARIANT_FAILED")
       return { head, club: clubs[0], season: args.season, snapshotHash: snapshots.find(s => s.clubId === clubs[0].id)!.contentHash,
         roster: { fetchedAt: cache!.fetchedAt, expiresAt: cache!.expiresAt, playerCount: cache!.playerCount },
-        before, after, ...result, writeGate: "DISABLED_REQUIRES_SEPARATE_REVIEW_AND_AUTHORIZATION" }
+        before, after, ...result, writeGate: "NOT_ENTERED_DRY_RUN_READ_ONLY" }
     }, { isolationLevel: "RepeatableRead", maxWait: 5000, timeout: 60000 })
     console.log(JSON.stringify(report))
     if (report.failedFast) process.exitCode = 2
   } finally { await db.$disconnect() }
 }
-main().catch(() => {
+main().catch((error: unknown) => {
   // Never echo provider bodies, raw database errors, URLs or credentials.
-  console.error("BARCELONA_IDENTITY_DRY_RUN_STOPPED: check arguments, clean beta-next, identity, snapshots and fresh 2026 roster; no writes supported")
+  const safeCodes = new Set(["AUTHORIZATION_MISMATCH", "EXPLICIT_V2_CONFIRMATION_REQUIRED", "BETA_NEXT_REQUIRED",
+    "CLEAN_WORKING_TREE_REQUIRED", "CONFLICT_PROVIDER_ID_TAKEN", "PLAYER_BASELINE_CHANGED",
+    "CURRENT_MATCHER_NOT_AUTO_MATCH", "PARTIAL_OR_INCONSISTENT_ASSOCIATION", "IDENTITY_WRITE_AUDIT_FAILED"])
+  if (error instanceof Error && safeCodes.has(error.message)) console.error(error.message)
+  console.error("BARCELONA_IDENTITY_PILOT_STOPPED: validate arguments, clean beta-next and current evidence; do not retry writes without READ ONLY audit")
   process.exitCode = 1
 })

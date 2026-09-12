@@ -9,6 +9,7 @@ import * as coverage from "../../../services/playerIdentityCoverage"
 import * as policyModule from "../../../services/barcelonaIdentityWritePolicy"
 import * as atomic from "../../../services/playerIdentityAtomicPersistence"
 import * as pilotModule from "../../../services/playerIdentityWritePilot"
+import * as runnerModule from "../../../services/barcelonaIdentityWriteRunner"
 import * as util from "node:util"
 import type { OfficialLineup } from "../../../types/officialLineup"
 import type { ApiFootballTeamPlayer } from "../../../services/getApiFootballTeamPlayers"
@@ -434,7 +435,7 @@ test("Prisma dependency factory is lazy, and read paths explicitly use read-only
   const audit = await deps.audit()
   assert.equal(Object.keys(audit.tables).length, 9); assert.equal(calls.filter(c => c === "READ ONLY").length, 2)
 })
-test("runner rejects --write, missing/extra/reordered/non-allowlisted IDs without env or DB", () => {
+test("runner rejects unconfirmed write and missing/extra/reordered/non-allowlisted IDs without env or DB", () => {
   const args = ["--dry-run", "--season", "2026", "--player-ids", targets.map(t => t.playerId).join(",")]
   policyModule.guardBarcelonaIdentityRunnerArgs(args)
   for (const ids of [targets.slice(1).map(t => t.playerId), [...targets.map(t => t.playerId), "sixth"],
@@ -443,11 +444,145 @@ test("runner rejects --write, missing/extra/reordered/non-allowlisted IDs withou
     [...targets].reverse().map(t => t.playerId)]) {
     assert.throws(() => policyModule.guardBarcelonaIdentityRunnerArgs([...args.slice(0, 4), ids.join(",")]))
   }
-  assert.throws(() => policyModule.guardBarcelonaIdentityRunnerArgs(["--write", ...args.slice(1)]), /WRITE_DISABLED_PHASE_D/)
+  assert.throws(() => policyModule.guardBarcelonaIdentityRunnerArgs(["--write", ...args.slice(1)]), /EXPLICIT_V2_CONFIRMATION_REQUIRED/)
   const source = readFileSync("scripts/runBarcelonaPlayerIdentityPilot.ts", "utf8")
-  assert.ok(source.indexOf("guardBarcelonaIdentityRunnerArgs(process.argv") < source.indexOf('import("dotenv/config")'))
-  assert.doesNotMatch(source, /persistPlayerApiFootballMatchAtomically|runPreparedBarcelonaIdentityWrites|createPrismaIdentityWriteDependencies/)
+  assert.ok(source.indexOf("dispatchBarcelonaIdentityRunner(process.argv") < source.indexOf('import("dotenv/config")'))
+  assert.match(source, /loadWriteFlow: async/)
+  assert.doesNotMatch(source, /\.(?:create|update|upsert|delete|updateMany|deleteMany)\s*\(/)
 })
+function runnerSetup() {
+  const f = setup()
+  const approvedSlugs = ["pau-cubarsi", "andreas-christensen", "wojciech-szczesny", "gerard-martin", "gavi"]
+  for (let i = 0; i < 5; i++) { f.evidence.players[i].slug = approvedSlugs[i]; f.db.state.players[i].slug = approvedSlugs[i] }
+  const roster = f.evidence.cache!.players as ApiFootballTeamPlayer[]
+  for (let i = 0; i < 22; i++) {
+    const extra = structuredClone(roster[0])
+    extra.player.id = 900000 + i; extra.player.name = `Unrelated Reserve${i}`
+    extra.player.firstname = "Unrelated"; extra.player.lastname = `Reserve${i}`; extra.player.birth.date = "1990-05-05"
+    roster.push(extra)
+  }
+  f.evidence.cache!.playerCount = 27
+  f.evidence.snapshot!.fixtureExternalId = 1635628; f.lineup.fixture.id = 1635628
+  const runner = load<typeof runnerModule>("services/barcelonaIdentityWriteRunner.ts", {
+    "node:util": util, "./barcelonaIdentityWritePolicy": f.policy, "./playerIdentityCoverage": coverage,
+    "./playerIdentityWritePilot": f.pilot,
+  })
+  const prepared = targets.map(t => f.policy.prepareBarcelonaIdentityMatch(f.evidence, t.playerId, now))
+  const token = f.pilot.identityWriteAuthorization(prepared), reports: unknown[] = []
+  const execute = (confirmation = token) => runner.executeBarcelonaIdentityWrite(confirmation, f.deps, r => reports.push(r))
+  return { ...f, runner, token, reports, execute }
+}
+
+const writeArgs = (token: string) => ["--write", "--season", "2026", "--player-ids", targets.map(t => t.playerId).join(","), "--confirmation", token]
+const syntaxToken = "AUTHORIZE_BARCELONA_IDENTITY_V2:" + "a".repeat(64)
+
+for (const [label, args, branch, status] of [
+  ["missing confirmation", writeArgs(syntaxToken).slice(0, 5), "beta-next", ""],
+  ["old token", writeArgs("AUTHORIZE_BARCELONA_IDENTITY:" + "a".repeat(64)), "beta-next", ""],
+  ["master", writeArgs(syntaxToken), "master", ""],
+  ["another branch", writeArgs(syntaxToken), "feature", ""],
+  ["dirty tracked file", writeArgs(syntaxToken), "beta-next", " M service.ts"],
+  ["untracked file", writeArgs(syntaxToken), "beta-next", "?? temporary.ts"],
+  ["sixth player", [...writeArgs(syntaxToken).slice(0, 4), targets.map(t => t.playerId).join(",") + ",sixth", "--confirmation", syntaxToken], "beta-next", ""],
+  ["reordered players", [...writeArgs(syntaxToken).slice(0, 4), [...targets].reverse().map(t => t.playerId).join(","), "--confirmation", syntaxToken], "beta-next", ""],
+  ["Joan Garcia", [...writeArgs(syntaxToken).slice(0, 4), ["cmt9an38y000m2kucc9izxn4h", ...targets.slice(1).map(t => t.playerId)].join(","), "--confirmation", syntaxToken], "beta-next", ""],
+] as const) test(`write dispatch blocks ${label} before loading flow/env/DB`, async () => {
+  let loads = 0, dryRuns = 0
+  await assert.rejects(policyModule.dispatchBarcelonaIdentityRunner([...args], {
+    git: command => command === "branch" ? branch : command === "status" ? status : "fake-head",
+    blockHttp: () => {}, runDryRun: async () => { dryRuns++ },
+    loadWriteFlow: async () => { loads++; return async () => {} },
+  }))
+  assert.equal(loads, 0); assert.equal(dryRuns, 0)
+})
+
+test("valid dispatch blocks HTTP before loading write flow; dry-run never loads write flow", async () => {
+  const events: string[] = []
+  const runtime = { git: (c: string) => c === "branch" ? "beta-next" : c === "status" ? "" : "fake-head",
+    blockHttp: () => { events.push("HTTP_BLOCKED") }, runDryRun: async () => { events.push("DRY_RUN") },
+    loadWriteFlow: async () => { events.push("LOAD_WRITE"); return async () => { events.push("WRITE_FAKE") } } }
+  await policyModule.dispatchBarcelonaIdentityRunner(writeArgs(syntaxToken), runtime)
+  assert.deepEqual(events, ["HTTP_BLOCKED", "LOAD_WRITE", "WRITE_FAKE"])
+  events.length = 0
+  await policyModule.dispatchBarcelonaIdentityRunner(["--dry-run", ...writeArgs(syntaxToken).slice(1, 5)], runtime)
+  assert.deepEqual(events, ["HTTP_BLOCKED", "DRY_RUN"])
+})
+
+const runnerFailures: [string, (f: ReturnType<typeof runnerSetup>) => void][] = [
+  ["cache expired", f => { f.evidence.cache!.expiresAt = now }],
+  ["cache hash changed", f => { f.evidence.cacheRowHash = "changed" }],
+  ["cache missing", f => { f.evidence.cache = null }],
+  ["cache wrong count", f => { f.evidence.cache!.playerCount = 26 }],
+  ["snapshot hash changed", f => { f.evidence.snapshot!.contentHash = "changed" }],
+  ["snapshot fixture changed", f => { f.evidence.snapshot!.fixtureExternalId = 9 }],
+  ["snapshot version changed", f => { f.evidence.snapshot!.payloadVersion = 2 }],
+  ["updatedAt changed", f => { f.db.state.players[0].updatedAt = new Date(f.db.state.players[0].updatedAt.getTime() + 1) }],
+  ["slug changed", f => { f.db.state.players[0].slug += "-changed" }],
+  ["provider occupied", f => { f.db.state.players[1].apiFootballId = targets[0].providerId }],
+  ["matcher REVIEW", f => { f.db.state.players[0].dateOfBirth = null }],
+  ["matcher CONFLICT", f => { f.db.state.players[0].apiFootballId = targets[1].providerId }],
+]
+for (const [label, change] of runnerFailures) test(`write runner blocks ${label} with zero fake write transactions`, async () => {
+  const f = runnerSetup(); change(f)
+  const before = structuredClone(f.db.state)
+  await assert.rejects(f.execute())
+  assert.equal(f.db.transactions, 0); assert.deepEqual(f.db.state, before)
+})
+
+test("wrong well-formed confirmation prints the summary then blocks before persistence", async () => {
+  const f = runnerSetup()
+  await assert.rejects(f.execute(syntaxToken), /AUTHORIZATION_MISMATCH/)
+  assert.equal((f.reports[0] as { phase: string }).phase, "PRE_WRITE_SUMMARY")
+  assert.equal(f.db.transactions, 0)
+})
+
+test("runner fake success: five sequential atomic matches and before/after reports", async () => {
+  const f = runnerSetup(), result = await f.execute()
+  assert.deepEqual([...result.results.map(r => r.status)], Array(5).fill("MATCHED"))
+  assert.equal(result.stopped, false); assert.equal(result.auditFailure, false)
+  assert.equal(f.db.transactions, 5); assert.equal(f.db.state.attempts.length, 5)
+  const phases = f.reports.map(r => (r as { phase: string }).phase)
+  assert.deepEqual(phases, ["PRE_WRITE_SUMMARY", "BEFORE", ...Array(5).fill("AFTER")])
+})
+
+test("runner fake failure at player three preserves 1/2, rolls back 3, never writes 4/5", async () => {
+  const f = runnerSetup(); f.db.failAttemptFor = targets[2].playerId
+  const result = await f.execute()
+  assert.deepEqual([...result.results.map(r => r.status)], ["MATCHED", "MATCHED", "ATTEMPT_FAILURE"])
+  assert.equal(result.stopped, true); assert.equal(f.db.transactions, 3); assert.equal(f.db.state.attempts.length, 2)
+  assert.ok(f.db.state.players.slice(2).every(p => p.apiFootballId === null))
+})
+
+test("runner fake second execution requires current confirmation, returns five no-ops without transactions or attempts", async () => {
+  const f = runnerSetup(); await f.execute(); const before = structuredClone(f.db.state)
+  f.reports.length = 0
+  await assert.rejects(f.execute(), /AUTHORIZATION_MISMATCH/)
+  const currentToken = (f.reports[0] as { confirmation: string }).confirmation
+  assert.notEqual(currentToken, f.token)
+  const result = await f.execute(currentToken)
+  assert.deepEqual([...result.results.map(r => r.status)], Array(5).fill("ALREADY_MATCHED_SAME_ID"))
+  assert.deepEqual(f.db.state, before); assert.equal(f.db.transactions, 5); assert.equal(f.db.state.attempts.length, 5)
+})
+
+test("runner indeterminate commit stops immediately without retry or next player", async () => {
+  const f = runnerSetup(); f.db.commitError = "ECONNRESET"
+  const result = await f.execute()
+  assert.equal(result.results[0].status, "INDETERMINATE_COMMIT"); assert.equal(result.stopped, true)
+  assert.equal(result.results.length, 1); assert.equal(f.db.transactions, 1)
+})
+
+test("runner rechecks provider ownership immediately before the next transaction", async () => {
+  const f = runnerSetup(), originalLoad = f.deps.loadEvidence; let reads = 0
+  f.deps.loadEvidence = async () => {
+    const evidence = await originalLoad()
+    if (++reads > 1) evidence.players[1].apiFootballId = targets[0].providerId
+    return evidence
+  }
+  const result = await f.execute()
+  assert.equal(result.results[0].status, "CONFLICT_PROVIDER_ID_TAKEN")
+  assert.equal(result.stopped, true); assert.equal(f.db.transactions, 0)
+})
+
 test("schema and checked-in migrations retain both required UNIQUE defenses", () => {
   const schema = readFileSync("prisma/schema.prisma", "utf8")
   assert.match(schema.slice(schema.indexOf("model Player {")), /apiFootballId Int\? @unique/)

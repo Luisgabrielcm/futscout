@@ -161,8 +161,8 @@ test("CLI requires exact dry-run, explicit 2026 season and bounded IDs; write ne
 test("runner source enforces READ ONLY and no operational imports/writes; it is not executed by tests", () => {
   const source = readFileSync("scripts/runBarcelonaPlayerIdentityPilot.ts", "utf8")
   assert.match(source, /SET TRANSACTION READ ONLY/); assert.match(source, /isolationLevel: "RepeatableRead"/)
-  assert.ok(source.indexOf("parseIdentityPilotArgs(process.argv") < source.indexOf('import("dotenv/config")'))
-  assert.match(source, /HTTP_FORBIDDEN_IN_IDENTITY_DRY_RUN/)
+  assert.ok(source.indexOf("dispatchBarcelonaIdentityRunner(process.argv") < source.indexOf('import("dotenv/config")'))
+  assert.match(source, /HTTP_FORBIDDEN_IN_IDENTITY_PILOT/)
   assert.doesNotMatch(source, /\.(?:create|update|upsert|delete|updateMany|deleteMany)\s*\(/)
   assert.doesNotMatch(source, /import\([^)]*(?:resolveApiFootball|syncApiFootball|getApiFootballTeamPlayers)/)
 })
