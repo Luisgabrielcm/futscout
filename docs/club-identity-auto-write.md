@@ -43,8 +43,9 @@ margem numérica. Para Eric a margem é 43, não null.
 
 ## Limite, conjunto e ordem
 
-Limite padrão configurável: 10; política operacional deste piloto: **1**.
-Um conjunto de 2 para limite 1, ou 11 para limite 10, é rejeitado por inteiro.
+Fase D: limite configurável de **1 a 5**, com máximo rígido **5**; a política
+operacional do piloto Eric continua **1**. Configuração 6+ é inválida.
+Um conjunto de 2 para limite 1, ou 6 para limite 5, é rejeitado por inteiro.
 Não se selecionam silenciosamente os primeiros N. O plano da Fase A foi ajustado
 para rejeitar excesso; não é truncado nem usado para autorizar execução parcial.
 
@@ -83,11 +84,13 @@ e arquivo de preflight cujo head corresponde ao atual. HEAD é gate separado,
 não novo campo do summary v1. Os gates são repetidos antes de cada transação e
 na revalidação transacional. Não há merge/push de master nem deploy Production.
 
-O dispatcher operacional só aceita FC Barcelona/2026. Sua política permite
+Para escrita/preflight, o dispatcher operacional só aceita FC Barcelona/2026. Sua política permite
 unicamente Eric García/619 como novo candidato, mantendo Joan em REVIEW.
 Um preflight posterior com Eric já ALREADY_MATCHED e zero AUTO_MATCH pode
-autorizar uma execução no-op, sem duplicar Attempts. City/Real são somente fakes;
-seus IDs não estão no adapter/persistência genéricos.
+autorizar uma execução no-op, sem duplicar Attempts. Testes de escrita City/Real usam somente fakes;
+seus IDs não estão no adapter/persistência genéricos. A Fase D adiciona City/Real
+somente ao modo `--dry-run`, sem habilitar `--write` ou `--preflight` desses clubes.
+Veja `club-identity-multi-write.md` para o estado real dos caches e os bloqueios.
 
 Preflight autorizado em leitura, depois de commit/push e com árvore limpa:
 

@@ -161,7 +161,7 @@ test("candidate/summary hashes are deterministic and policy property insertion o
   assert.equal(a.summary.candidateListHash, clubIdentityHash(a.summary.orderedAutoMatchCandidates))
   assert.equal(a.summaryHash, clubIdentityHash(a.summary))
   r.config.writePolicy = { zeroRetry: true, stopOnIndeterminateCommit: true, stopOnAuditMismatch: true,
-    stopOnConflict: true, maxAutoWrites: 10 }
+    stopOnConflict: true, maxAutoWrites: 5 }
   assert.equal(createClubIdentityAuthorizationSummary(r).summaryHash, a.summaryHash)
 })
 for (const key of ["order", "updatedAt", "provider", "confidence", "margin", "cache", "snapshot", "club", "season", "budget"] as const) {
@@ -180,10 +180,10 @@ for (const key of ["order", "updatedAt", "provider", "confidence", "margin", "ca
     assert.notEqual(createClubIdentityAuthorizationSummary(r).summaryHash, old.summaryHash)
   })
 }
-test("future plan rejects excess candidates instead of silently selecting the first ten", () => {
-  assert.throws(() => planClubIdentityAutoWrite(run(clubIdentityFixture(529, "fc-barcelona", 12))), /BUDGET_EXCEEDED/)
-  const plan = planClubIdentityAutoWrite(run(clubIdentityFixture(529, "fc-barcelona", 10)))
-  assert.equal(plan.writeEnabled, false); assert.equal(plan.selectedAutoMatches, 10)
+test("future plan rejects excess candidates instead of silently selecting the first five", () => {
+  assert.throws(() => planClubIdentityAutoWrite(run(clubIdentityFixture(529, "fc-barcelona", 6))), /BUDGET_EXCEEDED/)
+  const plan = planClubIdentityAutoWrite(run(clubIdentityFixture(529, "fc-barcelona", 5)))
+  assert.equal(plan.writeEnabled, false); assert.equal(plan.selectedAutoMatches, 5)
 })
 test("CLI is exact Barcelona READ ONLY; no write or other real club can be selected", () => {
   const args = ["--dry-run", "--club", "fc-barcelona", "--season", "2026"]

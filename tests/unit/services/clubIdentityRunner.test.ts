@@ -3,6 +3,7 @@ import test from "node:test"
 import { readFileSync } from "node:fs"
 import { dispatchClubIdentityRunner, parseClubIdentityRunnerArgs } from "../../../services/clubIdentityRunner"
 import { barcelonaClubIdentityDryRunConfig } from "../../../services/clubIdentityPilotConfig"
+import type { ClubIdentityConfig } from "../../../services/clubPlayerIdentityPipeline"
 import { clubIdentityWriteToken, createClubIdentityAuthorizationSummary } from "../../../services/clubIdentityAuthorization"
 import { clubWriteFixture } from "../../fixtures/clubIdentityWrite"
 
@@ -62,4 +63,29 @@ test("only explicit future command enables mode; parser never has a default writ
   const readOnly = source.slice(source.indexOf("readOnly: async"), source.indexOf("loadWrite: async"))
   assert.doesNotMatch(readOnly, /executeClubIdentityAutoWrite|createPrismaClubIdentityWriteDependencies/)
   assert.match(source, /HTTP_FORBIDDEN/)
+})
+
+for (const [slug, team] of [["manchester-city", 50], ["real-madrid", 541]] as const) {
+  test(`${slug} expansion forwards only READ ONLY config with limit five and pinned snapshot`, async () => {
+    const f = dispatchFixture(), configs: ClubIdentityConfig[] = []
+    const args = ["--dry-run", "--club", slug, "--season", "2026"]
+    await dispatchClubIdentityRunner(args, { ...f.deps,
+      readOnly: async (_mode, _head, _tree, config) => { configs.push(config); f.events.push("read-only") } })
+    assert.deepEqual(f.events, ["block-http", "read-only"])
+    assert.equal(configs.length, 1); assert.equal(configs[0].apiFootballTeamId, team)
+    assert.equal(configs[0].clubSlug, slug); assert.equal(configs[0].season, 2026)
+    assert.equal(configs[0].mode, "DRY_RUN"); assert.equal(configs[0].writePolicy.maxAutoWrites, 5)
+    assert.equal(configs[0].snapshot.required, true); assert.equal(configs[0].snapshot.requireParticipation, false)
+    assert.match(configs[0].snapshot.expectedHash!, /^[a-f0-9]{64}$/)
+    assert.throws(() => parseClubIdentityRunnerArgs(["--preflight", ...args.slice(1)]))
+    assert.throws(() => parseClubIdentityRunnerArgs([...args.slice(0, 4), "2024"]))
+    f.args[2] = slug
+    await assert.rejects(dispatchClubIdentityRunner(f.args, f.deps))
+    assert.equal(f.events.includes("load-write"), false)
+  })
+}
+
+test("expansion parser rejects unknown clubs and extra flags", () => {
+  assert.throws(() => parseClubIdentityRunnerArgs(["--dry-run", "--club", "another", "--season", "2026"]))
+  assert.throws(() => parseClubIdentityRunnerArgs(["--dry-run", "--club", "real-madrid", "--season", "2026", "--max-auto-writes", "6"]))
 })

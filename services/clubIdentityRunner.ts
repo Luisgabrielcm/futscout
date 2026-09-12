@@ -1,9 +1,12 @@
 import { isDeepStrictEqual } from "node:util"
-import { barcelonaClubIdentityDryRunConfig, parseClubIdentityPilotArgs } from "./clubIdentityPilotConfig"
+import { barcelonaClubIdentityDryRunConfig, parseClubIdentityPilotArgs, parseClubIdentityExpansionReadArgs } from "./clubIdentityPilotConfig"
 import { requireClubIdentityAuthorization } from "./clubIdentityAuthorization"
-import type { ClubIdentityReport } from "./clubPlayerIdentityPipeline"
+import type { ClubIdentityConfig, ClubIdentityReport } from "./clubPlayerIdentityPipeline"
 
 export function parseClubIdentityRunnerArgs(args: string[]) {
+  if (args[0] === "--dry-run" && args[2] !== "fc-barcelona") {
+    return { mode: "DRY_RUN" as const, config: parseClubIdentityExpansionReadArgs(args) }
+  }
   if (args[0] === "--dry-run" || args[0] === "--preflight") {
     return { mode: args[0] === "--preflight" ? "PREFLIGHT" as const : "DRY_RUN" as const,
       config: parseClubIdentityPilotArgs(["--dry-run", ...args.slice(1)]) }
@@ -33,14 +36,14 @@ export function requireEricClubIdentityPilot(report: ClubIdentityReport) {
 export async function dispatchClubIdentityRunner(args: string[], deps: {
   git: (...args: string[]) => string; clock: () => Date; blockHttp: () => void
   readSummary: (path: string) => unknown
-  readOnly: (mode: "DRY_RUN" | "PREFLIGHT", head: string, workingTree: string) => Promise<void>
+  readOnly: (mode: "DRY_RUN" | "PREFLIGHT", head: string, workingTree: string, config: ClubIdentityConfig) => Promise<void>
   loadWrite: () => Promise<(input: { report: ClubIdentityReport; summary: unknown; confirmation: string; expectedHead: string }) => Promise<void>>
 }) {
   const parsed = parseClubIdentityRunnerArgs(args)
   if (deps.git("branch", "--show-current") !== "beta-next") throw new Error("BETA_NEXT_REQUIRED")
   const head = deps.git("rev-parse", "HEAD"), workingTree = deps.git("status", "--porcelain", "--untracked-files=all")
   if (parsed.mode !== "DRY_RUN" && workingTree) throw new Error("CLEAN_WORKING_TREE_REQUIRED")
-  if (parsed.mode !== "AUTO_WRITE") { deps.blockHttp(); return deps.readOnly(parsed.mode, head, workingTree) }
+  if (parsed.mode !== "AUTO_WRITE") { deps.blockHttp(); return deps.readOnly(parsed.mode, head, workingTree, parsed.config) }
   if (head !== parsed.expectedHead) throw new Error("HEAD_MISMATCH")
   const envelope = deps.readSummary(parsed.summaryFile) as { head: string; report: ClubIdentityReport; authorization: { summary: unknown } }
   if (!envelope || envelope.head !== head) throw new Error("SUMMARY_HEAD_MISMATCH")

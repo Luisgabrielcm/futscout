@@ -5,6 +5,7 @@ import { decodeLineupSnapshot, type SnapshotData } from "../lib/officialLineupSn
 import type { ApiFootballTeamPlayer } from "./getApiFootballTeamPlayers"
 
 export type ClubIdentityMode = "DRY_RUN" | "AUTO_WRITE"
+export const CLUB_IDENTITY_MAX_AUTO_WRITES = 5
 export type ClubIdentityDecision = "ALREADY_MATCHED" | "AUTO_MATCH" | "REVIEW" | "UNRESOLVED" | "CONFLICT"
 export type ClubIdentityConfig = {
   clubId: string; clubSlug: string; apiFootballTeamId: number; season: number; mode: ClubIdentityMode
@@ -40,7 +41,7 @@ export function requireClubIdentityConfig(config: ClubIdentityConfig) {
       !positive(config.cache.maxAgeDays) || config.cache.maxAgeDays > 7 ||
       !positive(config.budget.maxProviderPlayers) || !positive(config.budget.maxRelevantPlayers) ||
       !positive(config.budget.maxDryRunAgeMs) || !Number.isSafeInteger(config.writePolicy.maxAutoWrites) ||
-      config.writePolicy.maxAutoWrites < 0 ||
+      config.writePolicy.maxAutoWrites < 1 || config.writePolicy.maxAutoWrites > CLUB_IDENTITY_MAX_AUTO_WRITES ||
       [config.writePolicy.stopOnConflict, config.writePolicy.stopOnAuditMismatch, config.writePolicy.stopOnIndeterminateCommit,
         config.writePolicy.zeroRetry].some(v => v !== true)) throw new Error("INVALID_CLUB_IDENTITY_CONFIG")
 }

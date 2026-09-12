@@ -17,3 +17,23 @@ export function parseClubIdentityPilotArgs(args: string[]) {
       args[3] !== "--season" || args[4] !== "2026") throw new Error("ONLY_BARCELONA_DRY_RUN_AUTHORIZED")
   return barcelonaClubIdentityDryRunConfig()
 }
+
+// Phase D: observed club/snapshot identities, READ ONLY preparation. No API fallback.
+// Do not reuse the expired 2024 caches. A valid 2026 row must be loaded and hashed.
+export function parseClubIdentityExpansionReadArgs(args: string[]): ClubIdentityConfig {
+  const targets = {
+    "manchester-city": { clubId: "cmt94sibe001a5guc60z2rphl", apiFootballTeamId: 50,
+      snapshotHash: "c2ff883579915265a7338de7073a019b5e8dcc91212d95eff62459f54977acd0" },
+    "real-madrid": { clubId: "cmt7hnsah0004z0ucqy6yoeqz", apiFootballTeamId: 541,
+      snapshotHash: "dc266789f05d7a96eb27d87e192862abbece5cc0503a2423a5a2e2d52d9a0562" },
+  } as const
+  const slug = args[2]
+  if (args.length !== 5 || args[0] !== "--dry-run" || args[1] !== "--club" ||
+      args[3] !== "--season" || args[4] !== "2026" ||
+      (slug !== "manchester-city" && slug !== "real-madrid")) throw new Error("ONLY_EXPANSION_DRY_RUN_AUTHORIZED")
+  const target = targets[slug]
+  return { clubId: target.clubId, clubSlug: slug, apiFootballTeamId: target.apiFootballTeamId, season: 2026, mode: "DRY_RUN",
+    cache: { maxAgeDays: 7 }, snapshot: { required: true, requireParticipation: false, expectedHash: target.snapshotHash },
+    writePolicy: { maxAutoWrites: 5, stopOnConflict: true, stopOnAuditMismatch: true, stopOnIndeterminateCommit: true, zeroRetry: true },
+    budget: { maxProviderPlayers: 200, maxRelevantPlayers: 2000, maxDryRunAgeMs: 15 * 60 * 1000 } }
+}

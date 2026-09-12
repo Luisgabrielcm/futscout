@@ -1,4 +1,4 @@
-// Explicit modes. This phase runs ONLY --dry-run/--preflight, never --write.
+// Explicit modes. City/Real expansion is DRY_RUN only; write remains the closed Eric pilot.
 import { execFileSync } from "node:child_process"
 import { readFileSync, statSync } from "node:fs"
 import { dispatchClubIdentityRunner, requireEricClubIdentityPilot } from "../services/clubIdentityRunner"
@@ -16,11 +16,11 @@ async function main() {
   await dispatchClubIdentityRunner(process.argv.slice(2), { git, clock: () => new Date(),
     blockHttp: () => { globalThis.fetch = async () => { throw new Error("HTTP_FORBIDDEN_IN_CLUB_IDENTITY") } },
     readSummary: path => { if (statSync(path).size > 2_000_000) throw new Error("SUMMARY_TOO_LARGE"); return JSON.parse(readFileSync(path, "utf8")) },
-    readOnly: async (mode, head, workingTree) => {
+    readOnly: async (mode, head, workingTree, config) => {
       const db = await client()
       try {
         const { runClubIdentityReadOnly } = await import("../services/clubPlayerIdentityReadRepository")
-        const result = await runClubIdentityReadOnly(db, barcelonaClubIdentityDryRunConfig())
+        const result = await runClubIdentityReadOnly(db, config)
         if (mode === "PREFLIGHT") requireEricClubIdentityPilot(result.report)
         console.log(JSON.stringify({ head, workingTree, ...result,
           ...(mode === "PREFLIGHT" ? { confirmation: clubIdentityWriteToken(result.report) } : {}) }))

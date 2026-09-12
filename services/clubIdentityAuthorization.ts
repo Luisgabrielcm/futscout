@@ -1,12 +1,14 @@
-import { clubIdentityHash, type ClubIdentityReport } from "./clubPlayerIdentityPipeline"
+import { clubIdentityHash, requireClubIdentityConfig, CLUB_IDENTITY_MAX_AUTO_WRITES, type ClubIdentityReport } from "./clubPlayerIdentityPipeline"
 import { isDeepStrictEqual } from "node:util"
 
 export function createClubIdentityAuthorizationSummary(report: ClubIdentityReport) {
+  requireClubIdentityConfig(report.config)
   // Explicit order and field allowlist. A hash is evidence, never permission to write.
   const orderedAutoMatchCandidates = report.rows.filter(r => r.decision === "AUTO_MATCH").map(r => ({
     playerId: r.localCandidate!.playerId, slug: r.localCandidate!.slug, providerId: r.providerPlayerId,
     confidence: r.confidence!, margin: r.margin, expectedUpdatedAt: r.localCandidate!.expectedUpdatedAt,
   }))
+  if (orderedAutoMatchCandidates.length > report.config.writePolicy.maxAutoWrites) throw new Error("AUTO_WRITE_BUDGET_EXCEEDED")
   const candidateListHash = clubIdentityHash(orderedAutoMatchCandidates)
   const summary = {
     authorizationSummaryVersion: 1 as const, scope: "CLUB_PLAYER_IDENTITY" as const,
@@ -37,7 +39,7 @@ export function requireClubIdentityAuthorization(report: ClubIdentityReport, sum
       !Number.isFinite(Date.parse(expected.validUntil)) || Date.parse(expected.generatedAt) > now.getTime() ||
       Date.parse(expected.validUntil) <= now.getTime()) throw new Error("AUTHORIZATION_EXPIRED")
   const max = expected.policy.maxAutoWrites, candidates = expected.orderedAutoMatchCandidates
-  if (!Number.isInteger(max) || max < 1 || max > 10 || candidates.length > max) throw new Error("AUTO_WRITE_BUDGET_EXCEEDED")
+  if (!Number.isInteger(max) || max < 1 || max > CLUB_IDENTITY_MAX_AUTO_WRITES || candidates.length > max) throw new Error("AUTO_WRITE_BUDGET_EXCEEDED")
   if (new Set(candidates.map(c => c.playerId)).size !== candidates.length || new Set(candidates.map(c => c.providerId)).size !== candidates.length) {
     throw new Error("DUPLICATE_AUTHORIZED_CANDIDATE")
   }

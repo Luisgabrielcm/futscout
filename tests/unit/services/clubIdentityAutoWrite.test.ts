@@ -41,9 +41,9 @@ test("REVIEW, stale club and UNRESOLVED skip while ALREADY_MATCHED no-ops", asyn
   assert.deepEqual(r.skipped.map(s => s.decision), ["ALREADY_MATCHED", "REVIEW", "REVIEW", "UNRESOLVED"])
 })
 
-for (const [n, max] of [[2, 1], [11, 10]]) test(`${n} candidates with maxAutoWrites=${max} rejects without truncation`, async () => {
+for (const [n, max] of [[2, 1], [6, 5]]) test(`${n} candidates with maxAutoWrites=${max} rejects without truncation`, async () => {
   const f = clubWriteFixture(n); f.config.writePolicy.maxAutoWrites = max
-  await assert.rejects(f.run(), /BUDGET_EXCEEDED/); assert.equal(f.db.readTransactions, 0); assert.equal(f.db.writeTransactions, 0)
+  assert.throws(() => f.run(), /BUDGET_EXCEEDED/); assert.equal(f.db.readTransactions, 0); assert.equal(f.db.writeTransactions, 0)
 })
 
 for (const key of ["clubId", "clubSlug", "apiFootballTeamId", "season", "cacheRowHash", "snapshotHash", "order", "playerId", "slug", "providerId", "confidence", "margin", "expectedUpdatedAt", "maxAutoWrites"] as const) {

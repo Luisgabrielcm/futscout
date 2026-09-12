@@ -8,7 +8,7 @@ export function clubIdentityFixture(teamId = 529, clubSlug = "fc-barcelona", siz
   const clubId = `club-${teamId}`
   const config: ClubIdentityConfig = { clubId, clubSlug, apiFootballTeamId: teamId, season: 2026, mode: "DRY_RUN",
     cache: { maxAgeDays: 7, expectedRowHash: "cache-row-pin" }, snapshot: { required: false, requireParticipation: false },
-    writePolicy: { maxAutoWrites: 10, stopOnConflict: true, stopOnAuditMismatch: true, stopOnIndeterminateCommit: true, zeroRetry: true },
+    writePolicy: { maxAutoWrites: 5, stopOnConflict: true, stopOnAuditMismatch: true, stopOnIndeterminateCommit: true, zeroRetry: true },
     budget: { maxProviderPlayers: 200, maxRelevantPlayers: 2000, maxDryRunAgeMs: 900000 } }
   const players: ClubIdentityPlayer[] = Array.from({ length: size }, (_, i) => ({ id: `local-${i}`, slug: `person-${i}`,
     name: `Example Person${i}`, externalId: `ea-${i}`, apiFootballId: null, dateOfBirth: new Date(`2000-01-${String(i + 1).padStart(2, "0")}T04:00:00Z`),
