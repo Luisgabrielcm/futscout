@@ -45,6 +45,5 @@ test("future fake preflight rejects a conflict before any transaction", () => {
 })
 test("fake write budget never exceeds maxAutoWrites", () => {
   const f = clubIdentityFixture(529, "fc-barcelona", 12)
-  const s = simulate(runClubPlayerIdentityPipeline(f.config, f.evidence, identityNow))
-  assert.equal(s.state.size, 10); assert.equal(s.events.filter(e => e === "DEFER_BUDGET").length, 2)
+  assert.throws(() => simulate(runClubPlayerIdentityPipeline(f.config, f.evidence, identityNow)), /BUDGET_EXCEEDED/)
 })

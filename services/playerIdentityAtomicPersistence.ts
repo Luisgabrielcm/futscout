@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../app/generated/prisma/client"
+import type { PrismaClient, Prisma } from "../app/generated/prisma/client"
 import { isDeepStrictEqual } from "node:util"
 import { calculateMatchConfidence, canAutomaticallySave, classifyMatchConfidence,
   API_FOOTBALL_PLAYER_MIN_AUTO_SAVE_MARGIN } from "./apiFootballPlayerMatcherCore"
@@ -14,18 +14,27 @@ class AtomicAbort extends Error {
 const abort = (status: AtomicMatchStatus): never => { throw new AtomicAbort(status) }
 const codeOf = (e: unknown) => typeof e === "object" && e !== null && "code" in e ? e.code : undefined
 
-function validate(m: PreparedIdentityMatch, now: Date, batchId: BarcelonaIdentityBatchId) {
-  const batch = getBarcelonaIdentityBatch(batchId)
-  const target = batch.targets.find(t => t.playerId === m.identity.id)
-  const pin = batch.evidence
+export type AtomicIdentityMatch = Omit<PreparedIdentityMatch, "margin" | "snapshotHash"> & { margin: number | null; snapshotHash: string | null }
+export type AtomicIdentityPolicy = {
+  clubId: string; apiTeamId: number; cacheId: string; cacheRowHash: string
+  snapshotId: string | null; snapshotHash: string | null
+  targets: readonly { playerId: string; providerId: number }[]
+  validUntil?: Date
+  allowSingleCandidate?: boolean
+  revalidate?: (tx: Prisma.TransactionClient, match: AtomicIdentityMatch, now: Date) => Promise<void>
+}
+
+function validate(m: AtomicIdentityMatch, now: Date, pin: AtomicIdentityPolicy) {
+  const target = pin.targets.find(t => t.playerId === m.identity.id)
   if (!target || target.providerId !== m.providerId || m.identity.clubId !== pin.clubId ||
-      m.identity.club?.apiFootballId !== 529 || m.decision !== "AUTO_MATCH" ||
+      m.identity.club?.apiFootballId !== pin.apiTeamId || m.decision !== "AUTO_MATCH" ||
       m.cacheRowHash !== pin.cacheRowHash || m.snapshotHash !== pin.snapshotHash ||
       !Number.isFinite(now.getTime()) || !Number.isFinite(m.cacheExpiresAt.getTime()) || m.cacheExpiresAt <= now ||
       !Number.isFinite(m.identity.updatedAt.getTime()) || !Number.isFinite(m.identity.dateOfBirth?.getTime()) ||
       !Number.isInteger(m.nameScore) || m.nameScore > 100 ||
       m.birthMatches !== true || m.clubMatches !== true || typeof m.nationalityMatches !== "boolean" ||
-      !Number.isFinite(m.margin) || m.margin > 100 || m.margin < API_FOOTBALL_PLAYER_MIN_AUTO_SAVE_MARGIN ||
+      (m.margin === null ? !pin.allowSingleCandidate || !pin.revalidate : !Number.isFinite(m.margin) || m.margin > 100 || m.margin < API_FOOTBALL_PLAYER_MIN_AUTO_SAVE_MARGIN) ||
+      (pin.validUntil !== undefined && (!Number.isFinite(pin.validUntil.getTime()) || pin.validUntil <= now)) ||
       m.confidence !== calculateMatchConfidence(m) ||
       !canAutomaticallySave({ ...m, classification: classifyMatchConfidence(m.confidence) })) abort("VALIDATION_FAILURE")
 }
@@ -36,12 +45,24 @@ export async function persistPlayerApiFootballMatchAtomically(
   db: Pick<PrismaClient, "$transaction">, prepared: PreparedIdentityMatch, clock: () => Date = () => new Date(),
   batchId: BarcelonaIdentityBatchId = "first-five",
 ): Promise<AtomicMatchResult> {
+  // Existing callers keep their closed policy and stricter numeric-margin contract.
+  try {
+    const batch = getBarcelonaIdentityBatch(batchId)
+    return await persistPlayerIdentityWithPolicy(db, prepared, { ...batch.evidence, apiTeamId: 529, targets: batch.targets }, clock)
+  } catch { return { status: "VALIDATION_FAILURE", playerId: prepared.identity.id, providerId: prepared.providerId } }
+}
+
+// ONE transaction implementation shared by the legacy pilots and guarded club adapter.
+export async function persistPlayerIdentityWithPolicy(
+  db: Pick<PrismaClient, "$transaction">, prepared: AtomicIdentityMatch, policy: AtomicIdentityPolicy,
+  clock: () => Date = () => new Date(),
+): Promise<AtomicMatchResult> {
   const m = structuredClone(prepared)
+  const pin = { ...policy, targets: structuredClone(policy.targets), validUntil: policy.validUntil && new Date(policy.validUntil) }
   const progress: { stage: "read" | "update" | "attempt" | "commit" } = { stage: "read" }
   const result = (status: AtomicMatchStatus): AtomicMatchResult => ({ status, playerId: m.identity.id, providerId: m.providerId })
   try {
-    validate(m, clock(), batchId)
-    const pin = getBarcelonaIdentityBatch(batchId).evidence
+    validate(m, clock(), pin)
     return await db.$transaction(async tx => {
       const p = await tx.player.findUnique({ where: { id: m.identity.id }, select: {
         id: true, slug: true, externalId: true, name: true, dateOfBirth: true, nationality: true, position: true, secondaryPositions: true,
@@ -66,11 +87,13 @@ export async function persistPlayerApiFootballMatchAtomically(
       // Recheck the small immutable evidence pins inside the transaction as defense against TOCTOU.
       const cache = await tx.$queryRawUnsafe<{ hash: string; expiresAt: Date }[]>(
         'SELECT md5(to_jsonb(t)::text) AS hash, "expiresAt" FROM "ApiFootballTeamRosterCache" t WHERE id = $1', pin.cacheId)
-      const snapshot = await tx.clubOfficialLineupSnapshot.findUnique({ where: { id: pin.snapshotId },
-        select: { contentHash: true, clubId: true, teamExternalId: true } })
-      if (cache[0]?.hash !== m.cacheRowHash || cache[0]?.expiresAt.getTime() !== m.cacheExpiresAt.getTime() || snapshot?.contentHash !== m.snapshotHash ||
-          snapshot.clubId !== m.identity.clubId || snapshot.teamExternalId !== 529) abort("VALIDATION_FAILURE")
-      validate(m, clock(), batchId) // Waiting for a transaction must not extend cache validity.
+      const snapshot = pin.snapshotId ? await tx.clubOfficialLineupSnapshot.findUnique({ where: { id: pin.snapshotId },
+        select: { contentHash: true, clubId: true, teamExternalId: true } }) : null
+      if (cache[0]?.hash !== m.cacheRowHash || cache[0]?.expiresAt.getTime() !== m.cacheExpiresAt.getTime() ||
+          (pin.snapshotId ? !snapshot || snapshot.contentHash !== m.snapshotHash || snapshot.clubId !== m.identity.clubId ||
+            snapshot.teamExternalId !== pin.apiTeamId : m.snapshotHash !== null)) abort("VALIDATION_FAILURE")
+      await pin.revalidate?.(tx, m, clock())
+      validate(m, clock(), pin) // Waiting for a transaction must not extend cache validity.
       progress.stage = "update"
       const changed = await tx.player.updateMany({ where: { id: p.id, apiFootballId: null, clubId: p.clubId, updatedAt },
         data: { apiFootballId: m.providerId } })
@@ -82,7 +105,7 @@ export async function persistPlayerApiFootballMatchAtomically(
         lastNationalityMatches: m.nationalityMatches, lastClubMatches: m.clubMatches,
         lastReason: "API-Football identity pilot: AUTO_MATCH; atomic association.", lastTriedAt: clock(), nextRetryAt: null,
       } })
-      validate(m, clock(), batchId) // Expiry during persistence also rolls back both records.
+      validate(m, clock(), pin) // Expiry during persistence also rolls back both records.
       progress.stage = "commit"
       return result("MATCHED")
     }, { isolationLevel: "Serializable", maxWait: 5000, timeout: 15000 })

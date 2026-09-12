@@ -62,6 +62,12 @@ export async function runClubIdentityReadOnly(db: Pick<PrismaClient, "$transacti
     const authorization = createClubIdentityAuthorizationSummary(report), futureWritePlan = planClubIdentityAutoWrite(report)
     const after = await hashes(tx)
     if (!isDeepStrictEqual(before, after)) throw new Error("READ_ONLY_AUDIT_MISMATCH")
-    return { baseline, before, after, readOnly: true as const, report, authorization, futureWritePlan }
+    const autoMatchState = report.rows.filter(r => r.decision === "AUTO_MATCH").map(r => {
+      const p = evidence.players.find(p => p.id === r.localCandidate!.playerId)!
+      return { playerId: p.id, slug: p.slug, apiFootballId: p.apiFootballId, attempt: p.attempt,
+        expectedUpdatedAt: p.updatedAt.toISOString(), providerId: r.providerPlayerId,
+        providerOwners: evidence.players.filter(p => p.apiFootballId === r.providerPlayerId).map(p => p.id) }
+    })
+    return { baseline, before, after, readOnly: true as const, report, authorization, futureWritePlan, autoMatchState }
   }, { isolationLevel: "RepeatableRead", maxWait: 5000, timeout: 60000 })
 }

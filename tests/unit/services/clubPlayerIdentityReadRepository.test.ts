@@ -37,7 +37,10 @@ test("generic read adapter executes one RepeatableRead/READ ONLY transaction and
 })
 test("bulk candidate/attempt/ownership reads stay constant for two vs twenty provider rows", async () => {
   for (const size of [2, 20]) {
-    const f = fake(size); await runClubIdentityReadOnly(f.db, f.config, identityNow)
+    const f = fake(size)
+    // Audit 20 already-associated rows without preparing a write over the 10-candidate budget.
+    if (size > 10) f.players.forEach((p, i) => { p.apiFootballId = f.roster[i].player.id })
+    await runClubIdentityReadOnly(f.db, f.config, identityNow)
     for (const name of ["players", "clubs", "cache", "snapshot", "count"]) assert.equal(f.events.filter(e => e.name === name).length, 1)
     const query = f.events.find(e => e.name === "players")!.input as { where: { OR: unknown[] }; select: Record<string, unknown>; take: number }
     assert.equal(query.where.OR.length, size + 2); assert.ok(query.select.apiFootballMatchAttempt)

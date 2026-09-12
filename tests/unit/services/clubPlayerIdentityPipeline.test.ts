@@ -180,10 +180,10 @@ for (const key of ["order", "updatedAt", "provider", "confidence", "margin", "ca
     assert.notEqual(createClubIdentityAuthorizationSummary(r).summaryHash, old.summaryHash)
   })
 }
-test("future plan caps ten candidates and skips non-auto outcomes without enabling persistence", () => {
-  const r = run(clubIdentityFixture(529, "fc-barcelona", 12)), plan = planClubIdentityAutoWrite(r)
+test("future plan rejects excess candidates instead of silently selecting the first ten", () => {
+  assert.throws(() => planClubIdentityAutoWrite(run(clubIdentityFixture(529, "fc-barcelona", 12))), /BUDGET_EXCEEDED/)
+  const plan = planClubIdentityAutoWrite(run(clubIdentityFixture(529, "fc-barcelona", 10)))
   assert.equal(plan.writeEnabled, false); assert.equal(plan.selectedAutoMatches, 10)
-  assert.equal(plan.actions.filter(a => a.action === "DEFER_BUDGET").length, 2)
 })
 test("CLI is exact Barcelona READ ONLY; no write or other real club can be selected", () => {
   const args = ["--dry-run", "--club", "fc-barcelona", "--season", "2026"]
@@ -193,8 +193,8 @@ test("CLI is exact Barcelona READ ONLY; no write or other real club can be selec
     assert.throws(() => parseClubIdentityPilotArgs(bad))
   }
   const source = readFileSync("scripts/runClubPlayerIdentityPipeline.ts", "utf8")
-  assert.ok(source.indexOf("parseClubIdentityPilotArgs(process.argv") < source.indexOf('import("dotenv/config")'))
-  assert.match(source, /HTTP_FORBIDDEN/); assert.doesNotMatch(source, /persist|\.create\(|\.update\(|--write/)
+  assert.match(source, /dispatchClubIdentityRunner/)
+  assert.match(source, /HTTP_FORBIDDEN/); assert.doesNotMatch(source, /\.create\(|\.update\(/)
   const core = readFileSync("services/clubPlayerIdentityPipeline.ts", "utf8")
   assert.doesNotMatch(core, /529|Barcelona|dotenv|process\.env|fetch\(|Prisma/)
 })

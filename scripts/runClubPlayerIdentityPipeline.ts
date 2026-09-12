@@ -1,26 +1,48 @@
-// Phase A: PostgreSQL READ ONLY, full roster classification in memory, no HTTP or writes.
+// Explicit modes. This phase runs ONLY --dry-run/--preflight, never --write.
 import { execFileSync } from "node:child_process"
-import { parseClubIdentityPilotArgs } from "../services/clubIdentityPilotConfig"
+import { readFileSync, statSync } from "node:fs"
+import { dispatchClubIdentityRunner, requireEricClubIdentityPilot } from "../services/clubIdentityRunner"
+import { barcelonaClubIdentityDryRunConfig } from "../services/clubIdentityPilotConfig"
+import { clubIdentityWriteToken } from "../services/clubIdentityAuthorization"
 
 async function main() {
-  const config = parseClubIdentityPilotArgs(process.argv.slice(2))
   const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" }).trim()
-  if (git("branch", "--show-current") !== "beta-next") throw new Error("BETA_NEXT_REQUIRED")
-  const head = git("rev-parse", "HEAD")
-  // READ ONLY can validate the implementation before commit; report the exact dirty state.
-  const workingTree = git("status", "--porcelain", "--untracked-files=all")
-  globalThis.fetch = async () => { throw new Error("HTTP_FORBIDDEN_IN_CLUB_IDENTITY_DRY_RUN") }
-  await import("dotenv/config")
-  if (!process.env.DIRECT_URL) throw new Error("DIRECT_URL_REQUIRED")
-  const [{ PrismaClient }, { PrismaPg }, { runClubIdentityReadOnly }] = await Promise.all([
-    import("../app/generated/prisma/client"), import("@prisma/adapter-pg"), import("../services/clubPlayerIdentityReadRepository"),
-  ])
-  const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DIRECT_URL }) })
-  try { console.log(JSON.stringify({ head, workingTree, ...await runClubIdentityReadOnly(db, config) })) }
-  finally { await db.$disconnect() }
+  const client = async () => {
+    await import("dotenv/config")
+    if (!process.env.DIRECT_URL) throw new Error("DIRECT_URL_REQUIRED")
+    const [{ PrismaClient }, { PrismaPg }] = await Promise.all([import("../app/generated/prisma/client"), import("@prisma/adapter-pg")])
+    return new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DIRECT_URL }) })
+  }
+  await dispatchClubIdentityRunner(process.argv.slice(2), { git, clock: () => new Date(),
+    blockHttp: () => { globalThis.fetch = async () => { throw new Error("HTTP_FORBIDDEN_IN_CLUB_IDENTITY") } },
+    readSummary: path => { if (statSync(path).size > 2_000_000) throw new Error("SUMMARY_TOO_LARGE"); return JSON.parse(readFileSync(path, "utf8")) },
+    readOnly: async (mode, head, workingTree) => {
+      const db = await client()
+      try {
+        const { runClubIdentityReadOnly } = await import("../services/clubPlayerIdentityReadRepository")
+        const result = await runClubIdentityReadOnly(db, barcelonaClubIdentityDryRunConfig())
+        if (mode === "PREFLIGHT") requireEricClubIdentityPilot(result.report)
+        console.log(JSON.stringify({ head, workingTree, ...result,
+          ...(mode === "PREFLIGHT" ? { confirmation: clubIdentityWriteToken(result.report) } : {}) }))
+      } finally { await db.$disconnect() }
+    },
+    loadWrite: async () => {
+      const { executeClubIdentityAutoWrite, createPrismaClubIdentityWriteDependencies } = await import("../services/clubIdentityAutoWrite")
+      return async input => {
+        const db = await client()
+        try {
+          const config = barcelonaClubIdentityDryRunConfig()
+          const result = await executeClubIdentityAutoWrite({ ...input, mode: "AUTO_WRITE", config },
+            createPrismaClubIdentityWriteDependencies(db, config, () => ({ branch: git("branch", "--show-current"),
+              clean: !git("status", "--porcelain", "--untracked-files=all"), head: git("rev-parse", "HEAD") })))
+          console.log(JSON.stringify(result)); if (result.stopped) process.exitCode = 2
+        } finally { await db.$disconnect() }
+      }
+    },
+  })
 }
 main().catch(() => {
   // Do not echo raw DB errors, credentials, URLs, or payloads.
-  console.error("CLUB_IDENTITY_DRY_RUN_ABORTED: verify authorized club, config, cache, snapshot and schema; no write mode exists.")
+  console.error("CLUB_IDENTITY_ABORTED: verify Git, explicit authorization, candidate set, cache, snapshot and schema. Never retry a write without auditing it.")
   process.exitCode = 2
 })

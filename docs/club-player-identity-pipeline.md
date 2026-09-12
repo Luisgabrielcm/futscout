@@ -1,5 +1,11 @@
 # Lote 9, Fase A — identidade automática por clube (DRY_RUN)
 
+> Registro da arquitetura da Fase A. A Fase B adicionou o adapter guardado e
+> substituiu a política de truncamento por rejeição de excesso. Consulte
+> [o contrato operacional vigente](club-identity-auto-write.md). O core abaixo
+> continua DRY_RUN; somente um novo dispatcher explicitamente autorizado pode
+> chamar o adapter de escrita. Nenhum write real foi executado na Fase B.
+
 Esta fase entrega classificação e planejamento, não um executor de escrita.
 `AUTO_WRITE` é rejeitado antes de abrir transação; o executável não importa o
 adapter atômico, resolver, sync ou serviço de roster HTTP. Nenhum token dos

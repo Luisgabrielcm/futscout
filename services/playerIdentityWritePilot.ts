@@ -4,7 +4,7 @@ import { createHash } from "node:crypto"
 import { getBarcelonaIdentityBatch, prepareBarcelonaIdentityMatch,
   requireBarcelonaWriteAllowlist, requireCurrentBarcelonaEvidence,
   type BarcelonaIdentityBatchId, type IdentityWriteEvidence, type PreparedIdentityMatch } from "./barcelonaIdentityWritePolicy"
-import { persistPlayerApiFootballMatchAtomically, type AtomicMatchResult } from "./playerIdentityAtomicPersistence"
+import { persistPlayerApiFootballMatchAtomically, type AtomicMatchResult, type AtomicIdentityMatch } from "./playerIdentityAtomicPersistence"
 
 export const IDENTITY_AUDIT_TABLES = ["Player", "ApiFootballPlayerMatchAttempt", "Club", "League", "PlayerAttributes",
   "ApiFootballTeamRosterCache", "SyncState", "SyncError", "ClubOfficialLineupSnapshot"] as const
@@ -14,7 +14,7 @@ export type IdentityWriteAudit = {
   attempts: { id: string; playerId: string; hash: string; data: Record<string, unknown> }[]
 }
 
-async function readAudit(tx: Prisma.TransactionClient): Promise<IdentityWriteAudit> {
+export async function readIdentityWriteAudit(tx: Prisma.TransactionClient): Promise<IdentityWriteAudit> {
   const tables = {} as IdentityWriteAudit["tables"]
   for (const table of IDENTITY_AUDIT_TABLES) {
     // Identifiers come ONLY from the closed constant above. Values use bind parameters elsewhere.
@@ -51,7 +51,7 @@ export function createPrismaIdentityWriteDependencies(db: PrismaClient, clock: (
     }, { isolationLevel: "RepeatableRead", maxWait: 5000, timeout: 60000 }),
     audit: () => db.$transaction(async tx => {
       await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY")
-      return readAudit(tx)
+      return readIdentityWriteAudit(tx)
     }, { isolationLevel: "RepeatableRead", maxWait: 5000, timeout: 60000 }),
     persist: (match: PreparedIdentityMatch) => persistPlayerApiFootballMatchAtomically(db, match, clock, batchId),
   }
@@ -59,7 +59,7 @@ export function createPrismaIdentityWriteDependencies(db: PrismaClient, clock: (
 
 // Validate the exact delta, not merely the increase in global counts.
 export function assertIdentityWriteAudit(before: IdentityWriteAudit, after: IdentityWriteAudit,
-  matches: readonly PreparedIdentityMatch[], results: readonly AtomicMatchResult[]) {
+  matches: readonly AtomicIdentityMatch[], results: readonly AtomicMatchResult[]) {
   const fail = (): never => { throw new Error("IDENTITY_WRITE_AUDIT_FAILED") }
   const committed = matches.filter(m => results.some(r => r.playerId === m.identity.id && r.providerId === m.providerId && r.status === "MATCHED"))
   for (const table of IDENTITY_AUDIT_TABLES) {
