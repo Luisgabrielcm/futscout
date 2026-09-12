@@ -19,10 +19,38 @@ export const BARCELONA_WRITE_EVIDENCE = Object.freeze({
   snapshotHash: "1d82442da572f610d2565dec8010d44afbb044737dd5b6d4c31ff80068d1dd11",
 })
 
-export function requireBarcelonaWriteAllowlist(ids: readonly string[]) {
-  if (ids.length !== 5 || ids.some((id, i) => id !== BARCELONA_WRITE_TARGETS[i].playerId)) {
-    throw new Error("EXACT_ORDERED_FIVE_BARCELONA_PLAYERS_REQUIRED")
+export const BARCELONA_SECOND_WRITE_TARGETS = Object.freeze([
+  Object.freeze({ playerId: "cmt9bm9c201daukucoh7gr0tq", providerId: 340626 }),
+  Object.freeze({ playerId: "cmt9ap3lp004c2kuc2dkon2ir", providerId: 161928 }),
+])
+
+// Closed, immutable operational batches. IDs supplied on the CLI never become a policy.
+const approvedBatches = Object.freeze({
+  "first-five": Object.freeze({ targets: BARCELONA_WRITE_TARGETS, evidence: BARCELONA_WRITE_EVIDENCE,
+    slugs: Object.freeze(["pau-cubarsi", "andreas-christensen", "wojciech-szczesny", "gerard-martin", "gavi"]) }),
+  "fermin-balde": Object.freeze({ targets: BARCELONA_SECOND_WRITE_TARGETS, evidence: BARCELONA_WRITE_EVIDENCE,
+    slugs: Object.freeze(["fermin", "balde"]) }),
+})
+export type BarcelonaIdentityBatchId = keyof typeof approvedBatches
+
+export function getBarcelonaIdentityBatch(batchId: BarcelonaIdentityBatchId = "first-five") {
+  if (batchId !== "first-five" && batchId !== "fermin-balde") throw new Error("UNKNOWN_APPROVED_BARCELONA_BATCH")
+  return approvedBatches[batchId]
+}
+
+export function requireBarcelonaWriteAllowlist(ids: readonly string[], batchId: BarcelonaIdentityBatchId = "first-five") {
+  const { targets } = getBarcelonaIdentityBatch(batchId)
+  if (ids.length !== targets.length || ids.some((id, i) => id !== targets[i].playerId)) {
+    throw new Error(batchId === "first-five" ? "EXACT_ORDERED_FIVE_BARCELONA_PLAYERS_REQUIRED" : "EXACT_ORDERED_FERMIN_BALDE_REQUIRED")
   }
+}
+
+function approvedBatchForIds(ids: readonly string[]): BarcelonaIdentityBatchId {
+  for (const batchId of ["first-five", "fermin-balde"] as const) {
+    const { targets } = getBarcelonaIdentityBatch(batchId)
+    if (ids.length === targets.length && ids.every((id, i) => id === targets[i].playerId)) return batchId
+  }
+  throw new Error("EXACT_APPROVED_BARCELONA_BATCH_REQUIRED")
 }
 
 // Strict CLI grammar; the legacy dry-run parser retains its read-only contract.
@@ -31,12 +59,12 @@ export function guardBarcelonaIdentityRunnerArgs(args: string[]) {
     if (args.length !== 7 || args[5] !== "--confirmation" ||
         !/^AUTHORIZE_BARCELONA_IDENTITY_V2:[a-f0-9]{64}$/.test(args[6])) throw new Error("EXPLICIT_V2_CONFIRMATION_REQUIRED")
     const parsed = parseIdentityPilotArgs(["--dry-run", ...args.slice(1, 5)])
-    requireBarcelonaWriteAllowlist(parsed.playerIds)
-    return { ...parsed, mode: "write" as const, confirmation: args[6] }
+    const batchId = approvedBatchForIds(parsed.playerIds)
+    return { ...parsed, batchId, mode: "write" as const, confirmation: args[6] }
   }
   const parsed = parseIdentityPilotArgs(args)
-  requireBarcelonaWriteAllowlist(parsed.playerIds)
-  return { ...parsed, mode: "dry-run" as const }
+  const batchId = approvedBatchForIds(parsed.playerIds)
+  return { ...parsed, batchId, mode: "dry-run" as const }
 }
 
 type RunnerArgs = ReturnType<typeof guardBarcelonaIdentityRunnerArgs>
@@ -87,9 +115,9 @@ export type PreparedIdentityMatch = {
   snapshotHash: string
 }
 
-export function requireCurrentBarcelonaEvidence(evidence: IdentityWriteEvidence, now: Date) {
+export function requireCurrentBarcelonaEvidence(evidence: IdentityWriteEvidence, now: Date, batchId: BarcelonaIdentityBatchId = "first-five") {
   const roster = requireIdentityRoster(evidence.cache, 2026, now)
-  const pin = BARCELONA_WRITE_EVIDENCE
+  const pin = getBarcelonaIdentityBatch(batchId).evidence
   if (evidence.cache?.id !== pin.cacheId || evidence.cacheRowHash !== pin.cacheRowHash) throw new Error("CACHE_HASH_CHANGED")
   if (!evidence.snapshot || evidence.snapshot.id !== pin.snapshotId || evidence.snapshot.clubId !== pin.clubId ||
       evidence.snapshot.contentHash !== pin.snapshotHash) throw new Error("SNAPSHOT_HASH_CHANGED")
@@ -99,13 +127,15 @@ export function requireCurrentBarcelonaEvidence(evidence: IdentityWriteEvidence,
 }
 
 // Always recompute using the approved core and the CURRENT catalog. No saved dry-run decision is trusted.
-export function prepareBarcelonaIdentityMatch(evidence: IdentityWriteEvidence, playerId: string, now: Date): PreparedIdentityMatch {
-  const target = BARCELONA_WRITE_TARGETS.find(t => t.playerId === playerId)
+export function prepareBarcelonaIdentityMatch(evidence: IdentityWriteEvidence, playerId: string, now: Date,
+  batchId: BarcelonaIdentityBatchId = "first-five"): PreparedIdentityMatch {
+  const batch = getBarcelonaIdentityBatch(batchId)
+  const target = batch.targets.find(t => t.playerId === playerId)
   if (!target) throw new Error("PLAYER_NOT_ALLOWLISTED")
-  const { roster, lineup } = requireCurrentBarcelonaEvidence(evidence, now)
+  const { roster, lineup } = requireCurrentBarcelonaEvidence(evidence, now, batchId)
   if (!roster.some(p => p.player.id === target.providerId)) throw new Error("ROSTER_PROVIDER_CHANGED")
   const p = evidence.players.find(p => p.id === playerId)
-  if (!p || p.clubId !== BARCELONA_WRITE_EVIDENCE.clubId || p.attempt || p.apiFootballId !== null) throw new Error("PLAYER_BASELINE_CHANGED")
+  if (!p || p.clubId !== batch.evidence.clubId || p.attempt || p.apiFootballId !== null) throw new Error("PLAYER_BASELINE_CHANGED")
   const result = planBarcelonaIdentityCoverage({ players: evidence.players, cache: evidence.cache,
     lineup, playerIds: [playerId], season: 2026, now })
   const r = result.rows[0]

@@ -2,7 +2,7 @@ import type { PrismaClient } from "../app/generated/prisma/client"
 import { isDeepStrictEqual } from "node:util"
 import { calculateMatchConfidence, canAutomaticallySave, classifyMatchConfidence,
   API_FOOTBALL_PLAYER_MIN_AUTO_SAVE_MARGIN } from "./apiFootballPlayerMatcherCore"
-import { BARCELONA_WRITE_EVIDENCE, BARCELONA_WRITE_TARGETS, type PreparedIdentityMatch } from "./barcelonaIdentityWritePolicy"
+import { getBarcelonaIdentityBatch, type BarcelonaIdentityBatchId, type PreparedIdentityMatch } from "./barcelonaIdentityWritePolicy"
 
 export type AtomicMatchStatus = "MATCHED" | "ALREADY_MATCHED_SAME_ID" |
   "CONFLICT_PLAYER_ALREADY_HAS_OTHER_ID" | "CONFLICT_PROVIDER_ID_TAKEN" |
@@ -14,9 +14,10 @@ class AtomicAbort extends Error {
 const abort = (status: AtomicMatchStatus): never => { throw new AtomicAbort(status) }
 const codeOf = (e: unknown) => typeof e === "object" && e !== null && "code" in e ? e.code : undefined
 
-function validate(m: PreparedIdentityMatch, now: Date) {
-  const target = BARCELONA_WRITE_TARGETS.find(t => t.playerId === m.identity.id)
-  const pin = BARCELONA_WRITE_EVIDENCE
+function validate(m: PreparedIdentityMatch, now: Date, batchId: BarcelonaIdentityBatchId) {
+  const batch = getBarcelonaIdentityBatch(batchId)
+  const target = batch.targets.find(t => t.playerId === m.identity.id)
+  const pin = batch.evidence
   if (!target || target.providerId !== m.providerId || m.identity.clubId !== pin.clubId ||
       m.identity.club?.apiFootballId !== 529 || m.decision !== "AUTO_MATCH" ||
       m.cacheRowHash !== pin.cacheRowHash || m.snapshotHash !== pin.snapshotHash ||
@@ -33,12 +34,14 @@ function validate(m: PreparedIdentityMatch, now: Date) {
 // The caller supplies a client; every model operation is scoped to ONE transaction.
 export async function persistPlayerApiFootballMatchAtomically(
   db: Pick<PrismaClient, "$transaction">, prepared: PreparedIdentityMatch, clock: () => Date = () => new Date(),
+  batchId: BarcelonaIdentityBatchId = "first-five",
 ): Promise<AtomicMatchResult> {
   const m = structuredClone(prepared)
   const progress: { stage: "read" | "update" | "attempt" | "commit" } = { stage: "read" }
   const result = (status: AtomicMatchStatus): AtomicMatchResult => ({ status, playerId: m.identity.id, providerId: m.providerId })
   try {
-    validate(m, clock())
+    validate(m, clock(), batchId)
+    const pin = getBarcelonaIdentityBatch(batchId).evidence
     return await db.$transaction(async tx => {
       const p = await tx.player.findUnique({ where: { id: m.identity.id }, select: {
         id: true, slug: true, externalId: true, name: true, dateOfBirth: true, nationality: true, position: true, secondaryPositions: true,
@@ -62,12 +65,12 @@ export async function persistPlayerApiFootballMatchAtomically(
 
       // Recheck the small immutable evidence pins inside the transaction as defense against TOCTOU.
       const cache = await tx.$queryRawUnsafe<{ hash: string; expiresAt: Date }[]>(
-        'SELECT md5(to_jsonb(t)::text) AS hash, "expiresAt" FROM "ApiFootballTeamRosterCache" t WHERE id = $1', BARCELONA_WRITE_EVIDENCE.cacheId)
-      const snapshot = await tx.clubOfficialLineupSnapshot.findUnique({ where: { id: BARCELONA_WRITE_EVIDENCE.snapshotId },
+        'SELECT md5(to_jsonb(t)::text) AS hash, "expiresAt" FROM "ApiFootballTeamRosterCache" t WHERE id = $1', pin.cacheId)
+      const snapshot = await tx.clubOfficialLineupSnapshot.findUnique({ where: { id: pin.snapshotId },
         select: { contentHash: true, clubId: true, teamExternalId: true } })
       if (cache[0]?.hash !== m.cacheRowHash || cache[0]?.expiresAt.getTime() !== m.cacheExpiresAt.getTime() || snapshot?.contentHash !== m.snapshotHash ||
           snapshot.clubId !== m.identity.clubId || snapshot.teamExternalId !== 529) abort("VALIDATION_FAILURE")
-      validate(m, clock()) // Waiting for a transaction must not extend cache validity.
+      validate(m, clock(), batchId) // Waiting for a transaction must not extend cache validity.
       progress.stage = "update"
       const changed = await tx.player.updateMany({ where: { id: p.id, apiFootballId: null, clubId: p.clubId, updatedAt },
         data: { apiFootballId: m.providerId } })
@@ -79,7 +82,7 @@ export async function persistPlayerApiFootballMatchAtomically(
         lastNationalityMatches: m.nationalityMatches, lastClubMatches: m.clubMatches,
         lastReason: "API-Football identity pilot: AUTO_MATCH; atomic association.", lastTriedAt: clock(), nextRetryAt: null,
       } })
-      validate(m, clock()) // Expiry during persistence also rolls back both records.
+      validate(m, clock(), batchId) // Expiry during persistence also rolls back both records.
       progress.stage = "commit"
       return result("MATCHED")
     }, { isolationLevel: "Serializable", maxWait: 5000, timeout: 15000 })

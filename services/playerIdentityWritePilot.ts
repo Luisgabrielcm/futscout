@@ -1,9 +1,9 @@
 import type { PrismaClient, Prisma } from "../app/generated/prisma/client"
 import { isDeepStrictEqual } from "node:util"
 import { createHash } from "node:crypto"
-import { BARCELONA_WRITE_EVIDENCE, BARCELONA_WRITE_TARGETS, prepareBarcelonaIdentityMatch,
+import { getBarcelonaIdentityBatch, prepareBarcelonaIdentityMatch,
   requireBarcelonaWriteAllowlist, requireCurrentBarcelonaEvidence,
-  type IdentityWriteEvidence, type PreparedIdentityMatch } from "./barcelonaIdentityWritePolicy"
+  type BarcelonaIdentityBatchId, type IdentityWriteEvidence, type PreparedIdentityMatch } from "./barcelonaIdentityWritePolicy"
 import { persistPlayerApiFootballMatchAtomically, type AtomicMatchResult } from "./playerIdentityAtomicPersistence"
 
 export const IDENTITY_AUDIT_TABLES = ["Player", "ApiFootballPlayerMatchAttempt", "Club", "League", "PlayerAttributes",
@@ -30,12 +30,13 @@ async function readAudit(tx: Prisma.TransactionClient): Promise<IdentityWriteAud
 }
 
 // Constructing the adapter does not open a connection or execute a query.
-export function createPrismaIdentityWriteDependencies(db: PrismaClient, clock: () => Date = () => new Date()) {
+export function createPrismaIdentityWriteDependencies(db: PrismaClient, clock: () => Date = () => new Date(),
+  batchId: BarcelonaIdentityBatchId = "first-five") {
+  const pin = getBarcelonaIdentityBatch(batchId).evidence
   return {
     clock,
     loadEvidence: () => db.$transaction(async tx => {
       await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY")
-      const pin = BARCELONA_WRITE_EVIDENCE
       const cache = await tx.apiFootballTeamRosterCache.findUnique({ where: { apiTeamId_season: { apiTeamId: 529, season: 2026 } } })
       const hash = await tx.$queryRawUnsafe<{ hash: string }[]>(
         'SELECT md5(to_jsonb(t)::text) AS hash FROM "ApiFootballTeamRosterCache" t WHERE id = $1', pin.cacheId)
@@ -52,7 +53,7 @@ export function createPrismaIdentityWriteDependencies(db: PrismaClient, clock: (
       await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY")
       return readAudit(tx)
     }, { isolationLevel: "RepeatableRead", maxWait: 5000, timeout: 60000 }),
-    persist: (match: PreparedIdentityMatch) => persistPlayerApiFootballMatchAtomically(db, match, clock),
+    persist: (match: PreparedIdentityMatch) => persistPlayerApiFootballMatchAtomically(db, match, clock, batchId),
   }
 }
 
@@ -129,11 +130,13 @@ export type IdentityWriteDependencies = {
 }
 
 // CLI guards and explicit summary confirmation must pass before invoking this orchestration.
-export async function runPreparedBarcelonaIdentityWrites(prepared: readonly PreparedIdentityMatch[], deps: IdentityWriteDependencies, authorization: string) {
+export async function runPreparedBarcelonaIdentityWrites(prepared: readonly PreparedIdentityMatch[], deps: IdentityWriteDependencies, authorization: string,
+  batchId: BarcelonaIdentityBatchId = "first-five") {
   const matches = structuredClone([...prepared])
   requireIdentityWriteAuthorization(matches, authorization)
-  requireBarcelonaWriteAllowlist(matches.map(m => m.identity.id))
-  if (matches.some((m, i) => m.providerId !== BARCELONA_WRITE_TARGETS[i].providerId)) throw new Error("PROVIDER_ALLOWLIST_MISMATCH")
+  requireBarcelonaWriteAllowlist(matches.map(m => m.identity.id), batchId)
+  const { targets } = getBarcelonaIdentityBatch(batchId)
+  if (matches.some((m, i) => m.providerId !== targets[i].providerId)) throw new Error("PROVIDER_ALLOWLIST_MISMATCH")
   const before = await deps.audit(), results: AtomicMatchResult[] = []
   deps.onAudit?.("BEFORE", before)
   let stopped = false, auditFailure = false, after: IdentityWriteAudit | null = null
@@ -142,7 +145,7 @@ export async function runPreparedBarcelonaIdentityWrites(prepared: readonly Prep
     let persistenceStarted = false
     try {
       const evidence = await deps.loadEvidence(), now = deps.clock()
-      requireCurrentBarcelonaEvidence(evidence, now)
+      requireCurrentBarcelonaEvidence(evidence, now, batchId)
       const player = evidence.players.find(p => p.id === original.identity.id)
       if (evidence.players.some(p => p.apiFootballId === original.providerId && p.id !== original.identity.id)) {
         throw new IdentityWritePreconditionError("CONFLICT_PROVIDER_ID_TAKEN")
@@ -151,7 +154,7 @@ export async function runPreparedBarcelonaIdentityWrites(prepared: readonly Prep
         throw new IdentityWritePreconditionError("VALIDATION_FAILURE")
       }
       // For an existing association the transaction decides no-op/conflict; never manufacture AUTO_MATCH.
-      const current = player?.apiFootballId === null ? prepareBarcelonaIdentityMatch(evidence, original.identity.id, now) : original
+      const current = player?.apiFootballId === null ? prepareBarcelonaIdentityMatch(evidence, original.identity.id, now, batchId) : original
       // Even a no-op/conflict path must not reuse authorization for a stale slug or version.
       const reviewed = { ...current, identity: { ...current.identity,
         slug: player?.slug ?? current.identity.slug, updatedAt: player?.updatedAt ?? current.identity.updatedAt } }

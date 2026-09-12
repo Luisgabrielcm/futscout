@@ -35,11 +35,16 @@ function load<T>(file: string, dependencies: Record<string, unknown>): T {
   return compiledModule.exports as T
 }
 
-function fixture() {
+function fixture(batchId: policyModule.BarcelonaIdentityBatchId = "first-five") {
+  const { targets } = policyModule.getBarcelonaIdentityBatch(batchId)
   const players: Player[] = targets.map((t, i) => ({ id: t.playerId, slug: `synthetic-person-${i}`, externalId: `synthetic-ea-${i}`, name: `Synthetic Person${i}`,
     apiFootballId: null, dateOfBirth: new Date(`200${i}-01-01T00:00:00Z`), nationality: "Spain", position: "MC",
     secondaryPositions: [], clubId: pins.clubId, club: { name: "FC Barcelona", apiFootballId: 529 },
     updatedAt: new Date("2026-09-10T00:00:00Z"), attempt: null }))
+  if (batchId === "fermin-balde") {
+    Object.assign(players[0], { name: "Fermín", slug: "fermin", dateOfBirth: new Date("2003-05-11T00:00:00Z"), position: "MEI" })
+    Object.assign(players[1], { name: "Balde", slug: "balde", dateOfBirth: new Date("2003-10-18T00:00:00Z"), position: "LE" })
+  }
   const roster: ApiFootballTeamPlayer[] = players.map((p, i) => ({
     player: { id: targets[i].providerId, name: p.name, firstname: "Synthetic", lastname: `Person${i}`, age: 25,
       birth: { date: p.dateOfBirth!.toISOString().slice(0, 10), country: null, place: null }, nationality: "Spain",
@@ -47,6 +52,11 @@ function fixture() {
     statistics: [{ team: { id: 529, name: "Barcelona", logo: null }, league: {
       id: 140, name: "LaLiga", country: "Spain", logo: null, flag: null, season: 2026 }, games: { position: "Midfielder" } }],
   }))
+  if (batchId === "fermin-balde") {
+    Object.assign(roster[0].player, { name: "Fermín", firstname: "Fermín", lastname: "López Martín" })
+    Object.assign(roster[1].player, { name: "Alejandro Balde", firstname: "Alejandro", lastname: "Balde Martínez" })
+    roster[1].statistics[0].games!.position = "Defender"
+  }
   const lineup: OfficialLineup = { provider: "api-football", apiTeamId: 529, formation: "4-3-3",
     fetchedAt: "2026-09-11T20:00:00Z", fixture: { id: 100, date: "2026-09-10T19:00:00Z", status: "FT",
       home: { id: 529, name: "Barcelona" }, away: { id: 999, name: "Synthetic opposition" }, competition: { id: 140, name: "LaLiga" } },
@@ -62,7 +72,7 @@ function fixture() {
   const pilot = load<typeof pilotModule>("services/playerIdentityWritePilot.ts", {
     "node:util": util, "node:crypto": { createHash }, "./barcelonaIdentityWritePolicy": policy, "./playerIdentityAtomicPersistence": atomic,
   })
-  const prepared = targets.map(t => policy.prepareBarcelonaIdentityMatch(evidence, t.playerId, now))
+  const prepared = targets.map(t => policy.prepareBarcelonaIdentityMatch(evidence, t.playerId, now, batchId))
   return { evidence, policy, pilot, prepared, lineup }
 }
 
@@ -150,14 +160,14 @@ class FakeDatabase {
     return { tables, players, attempts }
   }
 }
-function setup() {
-  const f = fixture(), db = new FakeDatabase(f.evidence.players)
-  const run = (i = 0) => atomic.persistPlayerApiFootballMatchAtomically(db.client(), f.prepared[i], () => now)
+function setup(batchId: policyModule.BarcelonaIdentityBatchId = "first-five") {
+  const f = fixture(batchId), db = new FakeDatabase(f.evidence.players)
+  const run = (i = 0) => atomic.persistPlayerApiFootballMatchAtomically(db.client(), f.prepared[i], () => now, batchId)
   const deps = { clock: () => now, audit: async () => db.audit(),
     loadEvidence: async () => ({ ...structuredClone(f.evidence), players: db.state.players.map(p => ({ ...p,
       attempt: db.state.attempts.find(a => a.playerId === p.id) ? { status: "matched", nextRetryAt: null } : null })) }),
-    persist: (m: policyModule.PreparedIdentityMatch) => atomic.persistPlayerApiFootballMatchAtomically(db.client(), m, () => now) }
-  const batch = () => f.pilot.runPreparedBarcelonaIdentityWrites(f.prepared, deps, f.pilot.identityWriteAuthorization(f.prepared))
+    persist: (m: policyModule.PreparedIdentityMatch) => atomic.persistPlayerApiFootballMatchAtomically(db.client(), m, () => now, batchId) }
+  const batch = () => f.pilot.runPreparedBarcelonaIdentityWrites(f.prepared, deps, f.pilot.identityWriteAuthorization(f.prepared), batchId)
   return { ...f, db, run, deps, batch }
 }
 
@@ -450,12 +460,12 @@ test("runner rejects unconfirmed write and missing/extra/reordered/non-allowlist
   assert.match(source, /loadWriteFlow: async/)
   assert.doesNotMatch(source, /\.(?:create|update|upsert|delete|updateMany|deleteMany)\s*\(/)
 })
-function runnerSetup() {
-  const f = setup()
-  const approvedSlugs = ["pau-cubarsi", "andreas-christensen", "wojciech-szczesny", "gerard-martin", "gavi"]
-  for (let i = 0; i < 5; i++) { f.evidence.players[i].slug = approvedSlugs[i]; f.db.state.players[i].slug = approvedSlugs[i] }
+function runnerSetup(batchId: policyModule.BarcelonaIdentityBatchId = "first-five") {
+  const f = setup(batchId)
+  const { targets, slugs: approvedSlugs } = policyModule.getBarcelonaIdentityBatch(batchId)
+  for (let i = 0; i < targets.length; i++) { f.evidence.players[i].slug = approvedSlugs[i]; f.db.state.players[i].slug = approvedSlugs[i] }
   const roster = f.evidence.cache!.players as ApiFootballTeamPlayer[]
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < 27 - targets.length; i++) {
     const extra = structuredClone(roster[0])
     extra.player.id = 900000 + i; extra.player.name = `Unrelated Reserve${i}`
     extra.player.firstname = "Unrelated"; extra.player.lastname = `Reserve${i}`; extra.player.birth.date = "1990-05-05"
@@ -467,9 +477,9 @@ function runnerSetup() {
     "node:util": util, "./barcelonaIdentityWritePolicy": f.policy, "./playerIdentityCoverage": coverage,
     "./playerIdentityWritePilot": f.pilot,
   })
-  const prepared = targets.map(t => f.policy.prepareBarcelonaIdentityMatch(f.evidence, t.playerId, now))
+  const prepared = targets.map(t => f.policy.prepareBarcelonaIdentityMatch(f.evidence, t.playerId, now, batchId))
   const token = f.pilot.identityWriteAuthorization(prepared), reports: unknown[] = []
-  const execute = (confirmation = token) => runner.executeBarcelonaIdentityWrite(confirmation, f.deps, r => reports.push(r))
+  const execute = (confirmation = token) => runner.executeBarcelonaIdentityWrite(confirmation, f.deps, r => reports.push(r), batchId)
   return { ...f, runner, token, reports, execute }
 }
 
@@ -518,9 +528,9 @@ const runnerFailures: [string, (f: ReturnType<typeof runnerSetup>) => void][] = 
   ["snapshot version changed", f => { f.evidence.snapshot!.payloadVersion = 2 }],
   ["updatedAt changed", f => { f.db.state.players[0].updatedAt = new Date(f.db.state.players[0].updatedAt.getTime() + 1) }],
   ["slug changed", f => { f.db.state.players[0].slug += "-changed" }],
-  ["provider occupied", f => { f.db.state.players[1].apiFootballId = targets[0].providerId }],
+  ["provider occupied", f => { f.db.state.players[1].apiFootballId = f.prepared[0].providerId }],
   ["matcher REVIEW", f => { f.db.state.players[0].dateOfBirth = null }],
-  ["matcher CONFLICT", f => { f.db.state.players[0].apiFootballId = targets[1].providerId }],
+  ["matcher CONFLICT", f => { f.db.state.players[0].apiFootballId = f.prepared[1].providerId }],
 ]
 for (const [label, change] of runnerFailures) test(`write runner blocks ${label} with zero fake write transactions`, async () => {
   const f = runnerSetup(); change(f)
@@ -589,4 +599,131 @@ test("schema and checked-in migrations retain both required UNIQUE defenses", ()
   assert.match(schema.slice(schema.indexOf("model ApiFootballPlayerMatchAttempt {")), /playerId String @unique/)
   assert.match(readFileSync("prisma/migrations/20260829214241_add_real_life_player_data/migration.sql", "utf8"), /CREATE UNIQUE INDEX "Player_apiFootballId_key"/)
   assert.match(readFileSync("prisma/migrations/20260831152310_add_api_football_match_attempt/migration.sql", "utf8"), /CREATE UNIQUE INDEX "ApiFootballPlayerMatchAttempt_playerId_key"/)
+})
+
+const secondTargets = policyModule.BARCELONA_SECOND_WRITE_TARGETS
+const secondArgs = (mode = "--dry-run", token = syntaxToken) => [mode, "--season", "2026", "--player-ids",
+  secondTargets.map(t => t.playerId).join(","), ...(mode === "--write" ? ["--confirmation", token] : [])]
+
+test("approved batches are immutable, disjoint, ordered and never accept arbitrary IDs", () => {
+  const second = policyModule.getBarcelonaIdentityBatch("fermin-balde")
+  assert.ok(Object.isFrozen(second)); assert.ok(Object.isFrozen(second.targets)); assert.ok(Object.isFrozen(second.slugs))
+  assert.ok(second.targets.every(Object.isFrozen))
+  assert.deepEqual(second.slugs, ["fermin", "balde"])
+  assert.equal(policyModule.guardBarcelonaIdentityRunnerArgs(secondArgs()).batchId, "fermin-balde")
+  assert.equal(policyModule.guardBarcelonaIdentityRunnerArgs(writeArgs(syntaxToken)).batchId, "first-five")
+  assert.throws(() => policyModule.requireBarcelonaWriteAllowlist(secondTargets.map(t => t.playerId)))
+  assert.throws(() => policyModule.requireBarcelonaWriteAllowlist(targets.map(t => t.playerId), "fermin-balde"))
+  assert.throws(() => policyModule.getBarcelonaIdentityBatch("arbitrary" as policyModule.BarcelonaIdentityBatchId))
+})
+
+for (const [label, ids] of [
+  ["third player", [...secondTargets.map(t => t.playerId), targets[0].playerId]],
+  ["Joan", [secondTargets[0].playerId, "cmt9an38y000m2kucc9izxn4h"]],
+  ["reversed order", [...secondTargets].reverse().map(t => t.playerId)],
+  ["missing Balde", [secondTargets[0].playerId]],
+  ["duplicate Fermín", [secondTargets[0].playerId, secondTargets[0].playerId]],
+] as const) test(`second batch rejects ${label} before loading any operational dependency`, async () => {
+  let loads = 0
+  await assert.rejects(policyModule.dispatchBarcelonaIdentityRunner([
+    "--write", "--season", "2026", "--player-ids", ids.join(","), "--confirmation", syntaxToken,
+  ], { git: c => c === "branch" ? "beta-next" : "", blockHttp: () => {},
+    runDryRun: async () => { loads++ }, loadWriteFlow: async () => { loads++; return async () => {} } }))
+  assert.equal(loads, 0)
+})
+
+test("second batch dry-run dispatch never imports write flow or invokes persistence", async () => {
+  const events: string[] = []
+  await policyModule.dispatchBarcelonaIdentityRunner(secondArgs(), {
+    git: c => c === "branch" ? "beta-next" : c === "status" ? "" : "fake-head",
+    blockHttp: () => { events.push("HTTP_BLOCKED") }, loadWriteFlow: async () => { throw new Error("WRITE_FORBIDDEN") },
+    runDryRun: async args => {
+      assert.equal(args.batchId, "fermin-balde")
+      const f = runnerSetup("fermin-balde"), before = structuredClone(f.db.state)
+      const result = coverage.planBarcelonaIdentityCoverage({ ...args, now, players: f.evidence.players,
+        cache: f.evidence.cache, lineup: f.lineup })
+      assert.equal(result.counts.AUTO_MATCH, 2); assert.equal(result.writes, 0); assert.equal(result.apiCalls, 0)
+      assert.deepEqual(f.db.state, before); assert.equal(f.db.transactions, 0); events.push("DRY_RUN")
+    },
+  })
+  assert.deepEqual(events, ["HTTP_BLOCKED", "DRY_RUN"])
+})
+
+for (const [i, name] of ["Fermín", "Balde"].entries()) test(`second batch ${name}: real atomic callback commits Player and one matched attempt`, async () => {
+  const f = setup("fermin-balde"), result = await f.run(i)
+  assert.equal(result.status, "MATCHED"); assert.equal(result.providerId, secondTargets[i].providerId)
+  assert.equal(f.db.state.players[i].apiFootballId, secondTargets[i].providerId)
+  assert.equal(f.db.state.attempts.length, 1); assert.equal(f.db.state.attempts[0].playerId, secondTargets[i].playerId)
+  assert.equal(f.db.state.players[1 - i].apiFootballId, null)
+})
+
+test("second runner commits Fermín then Balde; fresh confirmation makes the second execution two no-ops", async () => {
+  const f = runnerSetup("fermin-balde"), first = await f.execute()
+  assert.deepEqual([...first.results.map(r => r.status)], ["MATCHED", "MATCHED"])
+  assert.deepEqual([...first.committedPlayerIds], secondTargets.map(t => t.playerId))
+  assert.equal(first.stopped, false); assert.equal(first.auditFailure, false)
+  assert.equal(f.db.transactions, 2); assert.equal(f.db.state.attempts.length, 2)
+  const before = structuredClone(f.db.state); f.reports.length = 0
+  await assert.rejects(f.execute(), /AUTHORIZATION_MISMATCH/)
+  const currentToken = (f.reports[0] as { confirmation: string }).confirmation
+  assert.notEqual(currentToken, f.token)
+  const second = await f.execute(currentToken)
+  assert.deepEqual([...second.results.map(r => r.status)], ["ALREADY_MATCHED_SAME_ID", "ALREADY_MATCHED_SAME_ID"])
+  assert.deepEqual(f.db.state, before); assert.equal(f.db.transactions, 2); assert.equal(f.db.state.attempts.length, 2)
+})
+
+for (const [i, name] of ["Fermín", "Balde"].entries()) test(`second batch attempt failure for ${name} rolls back only that player and stops without retry`, async () => {
+  const f = runnerSetup("fermin-balde"); f.db.failAttemptFor = secondTargets[i].playerId
+  const result = await f.execute()
+  assert.deepEqual([...result.results.map(r => r.status)], i === 0 ? ["ATTEMPT_FAILURE"] : ["MATCHED", "ATTEMPT_FAILURE"])
+  assert.equal(result.stopped, true); assert.equal(result.auditFailure, false)
+  assert.equal(f.db.transactions, i + 1); assert.equal(f.db.state.attempts.length, i)
+  assert.equal(f.db.state.players[i].apiFootballId, null); assert.equal(f.db.events.at(-1), "ROLLBACK")
+  if (i === 0) {
+    assert.deepEqual([...result.untouchedPlayerIds], [secondTargets[1].playerId])
+    assert.equal(f.db.state.players[1].apiFootballId, null)
+  } else assert.equal(f.db.state.players[0].apiFootballId, secondTargets[0].providerId)
+})
+
+for (const [label, change] of runnerFailures) test(`second batch blocks ${label} with zero fake write transactions`, async () => {
+  const f = runnerSetup("fermin-balde"); change(f)
+  const before = structuredClone(f.db.state)
+  await assert.rejects(f.execute())
+  assert.equal(f.db.transactions, 0); assert.deepEqual(f.db.state, before)
+})
+
+for (const label of ["previous batch token", "wrong token"] as const) test(`second batch rejects ${label} before persistence`, async () => {
+  const f = runnerSetup("fermin-balde"), token = label === "previous batch token" ? runnerSetup().token : syntaxToken
+  await assert.rejects(f.execute(token), /AUTHORIZATION_MISMATCH/)
+  assert.equal(f.db.transactions, 0); assert.equal(f.db.state.attempts.length, 0)
+})
+
+for (const [label, change] of authorizationChanges) test(`second batch v2 token is sensitive to ${label}`, () => {
+  const f = runnerSetup("fermin-balde")
+  const prepared = f.runner.prepareBarcelonaIdentityBatch(f.evidence, now, "fermin-balde")
+  const summary = pilotModule.identityPreWriteSummary(prepared)
+  assert.equal(summary.authorizationSummaryVersion, 2)
+  assert.deepEqual([...summary.players.map(p => p.slug)], ["fermin", "balde"])
+  change(prepared)
+  assert.notEqual(pilotModule.identityWriteAuthorization(prepared), f.token)
+  assert.throws(() => pilotModule.requireIdentityWriteAuthorization(prepared, f.token), /AUTHORIZATION_MISMATCH/)
+})
+
+test("second batch indeterminate commit stops before Balde with no retry", async () => {
+  const f = runnerSetup("fermin-balde"); f.db.commitError = "ECONNRESET"
+  const result = await f.execute()
+  assert.deepEqual([...result.results.map(r => r.status)], ["INDETERMINATE_COMMIT"])
+  assert.equal(result.stopped, true); assert.equal(f.db.transactions, 1)
+  assert.deepEqual([...result.untouchedPlayerIds], [secondTargets[1].playerId])
+})
+
+test("Prisma dependency factory forwards the selected closed batch to the existing atomic implementation", async () => {
+  const f = setup("fermin-balde")
+  const defaults = pilotModule.createPrismaIdentityWriteDependencies(f.db.client(), () => now)
+  assert.equal((await defaults.persist(f.prepared[0])).status, "VALIDATION_FAILURE")
+  assert.equal(f.db.transactions, 0)
+  const second = pilotModule.createPrismaIdentityWriteDependencies(f.db.client(), () => now, "fermin-balde")
+  assert.equal((await second.persist(f.prepared[0])).status, "MATCHED")
+  assert.equal((await second.persist(f.prepared[1])).status, "MATCHED")
+  assert.equal(f.db.transactions, 2); assert.equal(f.db.state.attempts.length, 2)
 })

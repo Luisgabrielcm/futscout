@@ -22,8 +22,8 @@ async function main() {
         ])
         const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DIRECT_URL }) })
         try {
-          const report = await executeBarcelonaIdentityWrite(args.confirmation, createPrismaIdentityWriteDependencies(db),
-            value => console.log(JSON.stringify({ head, report: value })))
+          const report = await executeBarcelonaIdentityWrite(args.confirmation, createPrismaIdentityWriteDependencies(db, undefined, args.batchId),
+            value => console.log(JSON.stringify({ head, batchId: args.batchId, report: value })), args.batchId)
           console.log(JSON.stringify({ head, phase: "FINAL", results: report.results,
             stopped: report.stopped, auditFailure: report.auditFailure,
             committedPlayerIds: report.committedPlayerIds, untouchedPlayerIds: report.untouchedPlayerIds,
