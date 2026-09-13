@@ -1,10 +1,11 @@
 import { clubIdentityHash, requireClubIdentityConfig, CLUB_IDENTITY_MAX_AUTO_WRITES, type ClubIdentityReport } from "./clubPlayerIdentityPipeline"
 import { isDeepStrictEqual } from "node:util"
+import { selectedClubIdentityAutoMatches } from "./clubIdentityBatchSelection"
 
 export function createClubIdentityAuthorizationSummary(report: ClubIdentityReport) {
   requireClubIdentityConfig(report.config)
   // Explicit order and field allowlist. A hash is evidence, never permission to write.
-  const orderedAutoMatchCandidates = report.rows.filter(r => r.decision === "AUTO_MATCH").map(r => ({
+  const orderedAutoMatchCandidates = selectedClubIdentityAutoMatches(report).map(r => ({
     playerId: r.localCandidate!.playerId, slug: r.localCandidate!.slug, providerId: r.providerPlayerId,
     confidence: r.confidence!, margin: r.margin, expectedUpdatedAt: r.localCandidate!.expectedUpdatedAt,
   }))
@@ -51,12 +52,15 @@ export function requireClubIdentityAuthorization(report: ClubIdentityReport, sum
 // This function only describes actions; there is no callable persistence dependency.
 export function planClubIdentityAutoWrite(report: ClubIdentityReport) {
   const blockers = [...report.rows, ...report.localAssociations].filter(r => r.decision === "CONFLICT").map(r => r.reason)
-  if (report.rows.filter(r => r.decision === "AUTO_MATCH").length > report.config.writePolicy.maxAutoWrites) {
+  const selected = selectedClubIdentityAutoMatches(report)
+  if (selected.length > report.config.writePolicy.maxAutoWrites) {
     throw new Error("AUTO_WRITE_BUDGET_EXCEEDED")
   }
-  const actions = report.rows.map(r => {
+  const orderedRows = report.config.orderedBatchCandidates
+    ? [...selected, ...report.rows.filter(r => !selected.includes(r))] : report.rows
+  const actions = orderedRows.map(r => {
     const action = r.decision === "ALREADY_MATCHED" ? "NO_OP" : r.decision === "CONFLICT" ? "STOP" :
-      r.decision !== "AUTO_MATCH" ? "SKIP" : "ATOMIC_CANDIDATE"
+      r.decision !== "AUTO_MATCH" ? "SKIP" : selected.includes(r) ? "ATOMIC_CANDIDATE" : "DEFER"
     return { providerId: r.providerPlayerId, playerId: r.localCandidate?.playerId ?? null, action }
   })
   return { blockers, actions,

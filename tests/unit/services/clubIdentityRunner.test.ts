@@ -77,7 +77,8 @@ for (const [slug, team] of [["manchester-city", 50], ["real-madrid", 541]] as co
     assert.equal(configs[0].mode, "DRY_RUN"); assert.equal(configs[0].writePolicy.maxAutoWrites, 5)
     assert.equal(configs[0].snapshot.required, true); assert.equal(configs[0].snapshot.requireParticipation, false)
     assert.match(configs[0].snapshot.expectedHash!, /^[a-f0-9]{64}$/)
-    assert.throws(() => parseClubIdentityRunnerArgs(["--preflight", ...args.slice(1)]))
+    if (slug === "real-madrid") assert.throws(() => parseClubIdentityRunnerArgs(["--preflight", ...args.slice(1)]))
+    else assert.equal(parseClubIdentityRunnerArgs(["--preflight", ...args.slice(1)]).config.orderedBatchCandidates?.length, 5)
     assert.throws(() => parseClubIdentityRunnerArgs([...args.slice(0, 4), "2024"]))
     f.args[2] = slug
     await assert.rejects(dispatchClubIdentityRunner(f.args, f.deps))

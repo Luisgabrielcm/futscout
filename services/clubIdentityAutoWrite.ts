@@ -5,6 +5,7 @@ import { createClubIdentityAuthorizationSummary, requireClubIdentityAuthorizatio
 import { loadClubIdentityEvidence } from "./clubPlayerIdentityReadRepository"
 import { persistPlayerIdentityWithPolicy, type AtomicIdentityMatch, type AtomicIdentityPolicy, type AtomicMatchResult } from "./playerIdentityAtomicPersistence"
 import { assertIdentityWriteAudit, readIdentityWriteAudit, type IdentityWriteAudit } from "./playerIdentityWritePilot"
+import { selectedClubIdentityAutoMatches } from "./clubIdentityBatchSelection"
 
 export type ClubIdentityWriteState = { evidence: ClubIdentityEvidence; audit: IdentityWriteAudit }
 export type ClubIdentityGitState = { branch: string; clean: boolean; head: string }
@@ -40,8 +41,9 @@ export async function executeClubIdentityAutoWrite(input: ClubIdentityAutoWriteI
   const summary = requireClubIdentityAuthorization(request.report, request.summary, request.confirmation, now)
   requireClubIdentityGit(deps.git(), request.expectedHead)
   const completed: number[] = [], results: AtomicMatchResult[] = [], matches: AtomicIdentityMatch[] = []
-  const skipped = request.report.rows.filter(r => r.decision !== "AUTO_MATCH").map(r => ({ providerId: r.providerPlayerId,
-    decision: r.decision, action: r.decision === "ALREADY_MATCHED" ? "NO_OP" : "SKIP" }))
+  const selected = selectedClubIdentityAutoMatches(request.report)
+  const skipped = request.report.rows.filter(r => !selected.includes(r)).map(r => ({ providerId: r.providerPlayerId,
+    decision: r.decision, action: r.decision === "ALREADY_MATCHED" ? "NO_OP" : r.decision === "AUTO_MATCH" ? "DEFER" : "SKIP" }))
   const assertCurrent = (evidence: ClubIdentityEvidence, at: Date) => {
     requireClubIdentityAuthorization(request.report, request.summary, request.confirmation, at)
     const current = runClubPlayerIdentityPipeline(request.config, evidence, at)

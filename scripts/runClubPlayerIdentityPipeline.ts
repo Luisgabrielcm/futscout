@@ -1,8 +1,7 @@
-// Explicit modes. City/Real expansion is DRY_RUN only; write remains the closed Eric pilot.
+// Explicit modes. Writes are restricted to the reviewed Eric and first City batches.
 import { execFileSync } from "node:child_process"
 import { readFileSync, statSync } from "node:fs"
-import { dispatchClubIdentityRunner, requireEricClubIdentityPilot } from "../services/clubIdentityRunner"
-import { barcelonaClubIdentityDryRunConfig } from "../services/clubIdentityPilotConfig"
+import { dispatchClubIdentityRunner, requireOperationalClubIdentityPilot } from "../services/clubIdentityRunner"
 import { clubIdentityWriteToken } from "../services/clubIdentityAuthorization"
 
 async function main() {
@@ -21,7 +20,7 @@ async function main() {
       try {
         const { runClubIdentityReadOnly } = await import("../services/clubPlayerIdentityReadRepository")
         const result = await runClubIdentityReadOnly(db, config)
-        if (mode === "PREFLIGHT") requireEricClubIdentityPilot(result.report)
+        if (mode === "PREFLIGHT") requireOperationalClubIdentityPilot(result.report)
         console.log(JSON.stringify({ head, workingTree, ...result,
           ...(mode === "PREFLIGHT" ? { confirmation: clubIdentityWriteToken(result.report) } : {}) }))
       } finally { await db.$disconnect() }
@@ -31,7 +30,7 @@ async function main() {
       return async input => {
         const db = await client()
         try {
-          const config = barcelonaClubIdentityDryRunConfig()
+          const config = input.report.config
           const result = await executeClubIdentityAutoWrite({ ...input, mode: "AUTO_WRITE", config },
             createPrismaClubIdentityWriteDependencies(db, config, () => ({ branch: git("branch", "--show-current"),
               clean: !git("status", "--porcelain", "--untracked-files=all"), head: git("rev-parse", "HEAD") })))

@@ -13,6 +13,8 @@ export type ClubIdentityConfig = {
   snapshot: { required: boolean; requireParticipation: boolean; expectedHash?: string }
   writePolicy: { maxAutoWrites: number; stopOnConflict: true; stopOnAuditMismatch: true; stopOnIndeterminateCommit: true; zeroRetry: true }
   budget: { maxProviderPlayers: number; maxRelevantPlayers: number; maxDryRunAgeMs: number }
+  // Operational batch only: never filters the roster or changes matcher decisions.
+  orderedBatchCandidates?: readonly { playerId: string; slug: string; providerId: number }[]
 }
 export type ClubIdentityPlayer = {
   id: string; slug: string; name: string; externalId: string | null; apiFootballId: number | null

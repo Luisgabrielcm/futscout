@@ -1,9 +1,15 @@
 import { isDeepStrictEqual } from "node:util"
-import { barcelonaClubIdentityDryRunConfig, parseClubIdentityPilotArgs, parseClubIdentityExpansionReadArgs } from "./clubIdentityPilotConfig"
+import { barcelonaClubIdentityDryRunConfig, parseClubIdentityPilotArgs, parseClubIdentityExpansionReadArgs,
+  cityFirstIdentityBatchConfig, CITY_FIRST_IDENTITY_BATCH } from "./clubIdentityPilotConfig"
 import { requireClubIdentityAuthorization } from "./clubIdentityAuthorization"
+import { rankClubIdentityAutoMatches, selectedClubIdentityAutoMatches } from "./clubIdentityBatchSelection"
 import type { ClubIdentityConfig, ClubIdentityReport } from "./clubPlayerIdentityPipeline"
 
 export function parseClubIdentityRunnerArgs(args: string[]) {
+  if (args[0] === "--preflight" && args[2] === "manchester-city") {
+    parseClubIdentityExpansionReadArgs(["--dry-run", ...args.slice(1)])
+    return { mode: "PREFLIGHT" as const, config: cityFirstIdentityBatchConfig() }
+  }
   if (args[0] === "--dry-run" && args[2] !== "fc-barcelona") {
     return { mode: "DRY_RUN" as const, config: parseClubIdentityExpansionReadArgs(args) }
   }
@@ -16,8 +22,31 @@ export function parseClubIdentityRunnerArgs(args: string[]) {
       !/^AUTHORIZE_CLUB_IDENTITY_V1:[a-f0-9]{64}$/.test(args[8]) || !/^[a-f0-9]{40}$/.test(args[10])) {
     throw new Error("EXPLICIT_CLUB_AUTHORIZATION_REQUIRED")
   }
-  return { mode: "AUTO_WRITE" as const, config: parseClubIdentityPilotArgs(["--dry-run", ...args.slice(1, 5)]),
+  const pilotArgs = ["--dry-run", ...args.slice(1, 5)]
+  const config = args[2] === "manchester-city"
+    ? (parseClubIdentityExpansionReadArgs(pilotArgs), cityFirstIdentityBatchConfig()) : parseClubIdentityPilotArgs(pilotArgs)
+  return { mode: "AUTO_WRITE" as const, config,
     summaryFile: args[6], confirmation: args[8], expectedHead: args[10] }
+}
+
+export function requireCityFirstIdentityBatch(report: ClubIdentityReport) {
+  if (!isDeepStrictEqual(report.config, cityFirstIdentityBatchConfig()) || report.totalProviderPlayers !== 30 ||
+      report.rows.length !== 30 || new Set(report.rows.map(r => r.providerPlayerId)).size !== 30 || report.cache.count !== 30 ||
+      report.cache.rowHash !== report.config.cache.expectedRowHash || report.snapshotHash !== report.config.snapshot.expectedHash) {
+    throw new Error("CITY_BATCH_SCOPE_MISMATCH")
+  }
+  const candidates = selectedClubIdentityAutoMatches(report)
+  if (candidates.some(r => r.confidence !== 100 || r.margin === null || r.margin < 65 ||
+      !r.lineupEvidence.present || !r.birth.matches || !r.nationality.matches || !r.position.matches || !r.rosterEvidence.teamMatches)) {
+    throw new Error("CITY_BATCH_EVIDENCE_CHANGED")
+  }
+  if (candidates.length === 5 && !isDeepStrictEqual(rankClubIdentityAutoMatches(report).slice(0, 5).map(r => r.providerPlayerId),
+      CITY_FIRST_IDENTITY_BATCH.map(c => c.providerId))) throw new Error("CITY_BATCH_RANKING_CHANGED")
+}
+
+export function requireOperationalClubIdentityPilot(report: ClubIdentityReport) {
+  if (report.config.clubSlug === "manchester-city") requireCityFirstIdentityBatch(report)
+  else requireEricClubIdentityPilot(report)
 }
 
 // Operational policy only, not a matcher rule. The generic adapter has no Eric/Barcelona IDs.
@@ -47,7 +76,8 @@ export async function dispatchClubIdentityRunner(args: string[], deps: {
   if (head !== parsed.expectedHead) throw new Error("HEAD_MISMATCH")
   const envelope = deps.readSummary(parsed.summaryFile) as { head: string; report: ClubIdentityReport; authorization: { summary: unknown } }
   if (!envelope || envelope.head !== head) throw new Error("SUMMARY_HEAD_MISMATCH")
-  requireEricClubIdentityPilot(envelope.report)
+  if (!isDeepStrictEqual(parsed.config, envelope.report?.config)) throw new Error("PILOT_CONFIG_MISMATCH")
+  requireOperationalClubIdentityPilot(envelope.report)
   requireClubIdentityAuthorization(envelope.report, envelope.authorization.summary, parsed.confirmation, deps.clock())
   deps.blockHttp()
   const write = await deps.loadWrite()
