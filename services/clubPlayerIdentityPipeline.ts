@@ -15,6 +15,8 @@ export type ClubIdentityConfig = {
   budget: { maxProviderPlayers: number; maxRelevantPlayers: number; maxDryRunAgeMs: number }
   // Operational batch only: never filters the roster or changes matcher decisions.
   orderedBatchCandidates?: readonly { playerId: string; slug: string; providerId: number }[]
+  // A fresh envelope may shrink the closed cohort, never refill it. Existing envelopes still fail closed.
+  ineligibleBatchPolicy?: "DEFER"
 }
 export type ClubIdentityPlayer = {
   id: string; slug: string; name: string; externalId: string | null; apiFootballId: number | null
@@ -39,6 +41,8 @@ const orderId = (a: { id: string }, b: { id: string }) => a.id < b.id ? -1 : a.i
 
 export function requireClubIdentityConfig(config: ClubIdentityConfig) {
   if (config.mode !== "DRY_RUN") throw new Error("AUTO_WRITE_DISABLED")
+  if (config.ineligibleBatchPolicy !== undefined &&
+      (config.ineligibleBatchPolicy !== "DEFER" || !config.orderedBatchCandidates)) throw new Error("INVALID_CLUB_IDENTITY_CONFIG")
   if (!config.clubId || !config.clubSlug || !positive(config.apiFootballTeamId) || !positive(config.season) ||
       !positive(config.cache.maxAgeDays) || config.cache.maxAgeDays > 7 ||
       !positive(config.budget.maxProviderPlayers) || !positive(config.budget.maxRelevantPlayers) ||

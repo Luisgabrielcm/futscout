@@ -181,9 +181,9 @@ for (const kind of ["sixth", "remove", "order", "Nunes", "slug", "cache", "snaps
   })
 }
 
-test("City CLI rejects missing flags, other seasons and Real Madrid write", () => {
+test("City CLI rejects missing flags, other seasons and arbitrary club write", () => {
   const f = cityDispatchFixture()
   for (const index of [5, 7, 9]) { const args = [...f.args]; args.splice(index, 2); assert.throws(() => parseClubIdentityRunnerArgs(args)) }
   const season = [...f.args]; season[4] = "2024"; assert.throws(() => parseClubIdentityRunnerArgs(season))
-  const real = [...f.args]; real[2] = "real-madrid"; assert.throws(() => parseClubIdentityRunnerArgs(real))
+  const other = [...f.args]; other[2] = "unapproved-club"; assert.throws(() => parseClubIdentityRunnerArgs(other))
 })

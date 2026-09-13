@@ -1,4 +1,4 @@
-// Explicit modes. Writes are restricted to the reviewed Eric and first City batches.
+// Explicit modes. Writes require a fresh authorization for Eric, first City or first Real batch.
 import { execFileSync } from "node:child_process"
 import { readFileSync, statSync } from "node:fs"
 import { dispatchClubIdentityRunner, requireOperationalClubIdentityPilot } from "../services/clubIdentityRunner"

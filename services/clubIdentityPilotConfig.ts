@@ -1,5 +1,20 @@
 import type { ClubIdentityConfig } from "./clubPlayerIdentityPipeline"
 
+// Phase I: frozen cohort obtained from the complete roster ranking, not an ongoing top-five query.
+export const REAL_FIRST_IDENTITY_BATCH = Object.freeze([
+  Object.freeze({ playerId: "cmt9bbkmy00pyukucmsxtwhcd", slug: "andriy-lunin", providerId: 47400 }),
+  Object.freeze({ playerId: "cmt99cuqq000jvsuctn6af84s", slug: "trent-alexander-arnold", providerId: 283 }),
+  Object.freeze({ playerId: "cmt99m2880016uguck7c9nctl", slug: "aurelien-tchouameni", providerId: 1271 }),
+  Object.freeze({ playerId: "cmt9bgqa4010pukucsn0awn0g", slug: "alvaro-carreras", providerId: 284300 }),
+  Object.freeze({ playerId: "cmt9d1b0u04fgukucgt5owouh", slug: "endrick", providerId: 377122 }),
+])
+
+export function realFirstIdentityBatchConfig(): ClubIdentityConfig {
+  const config = parseClubIdentityExpansionReadArgs(["--dry-run", "--club", "real-madrid", "--season", "2026"])
+  return { ...config, cache: { ...config.cache, expectedRowHash: "d9c2494b577cea8cdf5e5287f424d05e" },
+    orderedBatchCandidates: REAL_FIRST_IDENTITY_BATCH, ineligibleBatchPolicy: "DEFER" }
+}
+
 // Phase F reviewed batch. Order is confidence DESC, snapshot DESC, margin DESC,
 // provider ID ASC. Never replace an ineligible member with an unselected candidate.
 export const CITY_FIRST_IDENTITY_BATCH = Object.freeze([

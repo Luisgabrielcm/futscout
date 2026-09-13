@@ -19,6 +19,10 @@ export function selectedClubIdentityAutoMatches(report: ClubIdentityReport) {
     if (!c.playerId || !c.slug || !Number.isSafeInteger(c.providerId) || c.providerId <= 0) throw new Error("INVALID_BATCH_SELECTION")
     const rows = report.rows.filter(r => r.providerPlayerId === c.providerId)
     const r = rows[0]
+    // Only a NEW authorization can omit an ineligible original member. The write adapter
+    // compares the recomputed ordered list to its authorized list before every transaction.
+    if (rows.length === 1 && report.config.ineligibleBatchPolicy === "DEFER" &&
+        (r.decision === "REVIEW" || r.decision === "UNRESOLVED")) return []
     if (rows.length !== 1 || r.localCandidate?.playerId !== c.playerId || r.localCandidate?.slug !== c.slug ||
         !["AUTO_MATCH", "ALREADY_MATCHED"].includes(r.decision)) throw new Error("BATCH_CANDIDATE_NOT_ELIGIBLE")
     // A new envelope after verified commits can be a no-op; never fill the vacancy.

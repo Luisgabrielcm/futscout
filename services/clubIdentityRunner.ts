@@ -1,11 +1,15 @@
 import { isDeepStrictEqual } from "node:util"
 import { barcelonaClubIdentityDryRunConfig, parseClubIdentityPilotArgs, parseClubIdentityExpansionReadArgs,
-  cityFirstIdentityBatchConfig, CITY_FIRST_IDENTITY_BATCH } from "./clubIdentityPilotConfig"
+  cityFirstIdentityBatchConfig, CITY_FIRST_IDENTITY_BATCH, realFirstIdentityBatchConfig, REAL_FIRST_IDENTITY_BATCH } from "./clubIdentityPilotConfig"
 import { requireClubIdentityAuthorization } from "./clubIdentityAuthorization"
 import { rankClubIdentityAutoMatches, selectedClubIdentityAutoMatches } from "./clubIdentityBatchSelection"
 import type { ClubIdentityConfig, ClubIdentityReport } from "./clubPlayerIdentityPipeline"
 
 export function parseClubIdentityRunnerArgs(args: string[]) {
+  if (args[0] === "--preflight" && args[2] === "real-madrid") {
+    parseClubIdentityExpansionReadArgs(["--dry-run", ...args.slice(1)])
+    return { mode: "PREFLIGHT" as const, config: realFirstIdentityBatchConfig() }
+  }
   if (args[0] === "--preflight" && args[2] === "manchester-city") {
     parseClubIdentityExpansionReadArgs(["--dry-run", ...args.slice(1)])
     return { mode: "PREFLIGHT" as const, config: cityFirstIdentityBatchConfig() }
@@ -24,7 +28,9 @@ export function parseClubIdentityRunnerArgs(args: string[]) {
   }
   const pilotArgs = ["--dry-run", ...args.slice(1, 5)]
   const config = args[2] === "manchester-city"
-    ? (parseClubIdentityExpansionReadArgs(pilotArgs), cityFirstIdentityBatchConfig()) : parseClubIdentityPilotArgs(pilotArgs)
+    ? (parseClubIdentityExpansionReadArgs(pilotArgs), cityFirstIdentityBatchConfig())
+    : args[2] === "real-madrid" ? (parseClubIdentityExpansionReadArgs(pilotArgs), realFirstIdentityBatchConfig())
+    : parseClubIdentityPilotArgs(pilotArgs)
   return { mode: "AUTO_WRITE" as const, config,
     summaryFile: args[6], confirmation: args[8], expectedHead: args[10] }
 }
@@ -46,7 +52,23 @@ export function requireCityFirstIdentityBatch(report: ClubIdentityReport) {
 
 export function requireOperationalClubIdentityPilot(report: ClubIdentityReport) {
   if (report.config.clubSlug === "manchester-city") requireCityFirstIdentityBatch(report)
+  else if (report.config.clubSlug === "real-madrid") requireRealFirstIdentityBatch(report)
   else requireEricClubIdentityPilot(report)
+}
+
+export function requireRealFirstIdentityBatch(report: ClubIdentityReport) {
+  if (!isDeepStrictEqual(report.config, realFirstIdentityBatchConfig()) || report.totalProviderPlayers !== 29 ||
+      report.rows.length !== 29 || new Set(report.rows.map(r => r.providerPlayerId)).size !== 29 || report.cache.count !== 29 ||
+      report.cache.rowHash !== report.config.cache.expectedRowHash || report.snapshotHash !== report.config.snapshot.expectedHash) {
+    throw new Error("REAL_BATCH_SCOPE_MISMATCH")
+  }
+  const candidates = selectedClubIdentityAutoMatches(report)
+  if (candidates.some(r => r.confidence !== 100 || r.margin === null || r.margin < 75 ||
+      !r.lineupEvidence.present || !r.birth.matches || !r.nationality.matches || !r.position.matches || !r.rosterEvidence.teamMatches)) {
+    throw new Error("REAL_BATCH_EVIDENCE_CHANGED")
+  }
+  if (candidates.length === 5 && !isDeepStrictEqual(rankClubIdentityAutoMatches(report).slice(0, 5).map(r => r.providerPlayerId),
+      REAL_FIRST_IDENTITY_BATCH.map(c => c.providerId))) throw new Error("REAL_BATCH_RANKING_CHANGED")
 }
 
 // Operational policy only, not a matcher rule. The generic adapter has no Eric/Barcelona IDs.
