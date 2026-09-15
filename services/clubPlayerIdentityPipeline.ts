@@ -145,7 +145,17 @@ export function runClubPlayerIdentityPipeline(config: ClubIdentityConfig, eviden
     else if (owner && bestLocal && bestLocal.futScoutPlayerId !== owner.id && bestLocal.canAutoSave) {
       decision = "CONFLICT"; reason = "PROVIDER_OWNED_BY_OTHER_PLAYER"
     } else if (p && m) {
-      if (p.apiFootballId !== null && p.apiFootballId !== source.player.id) { decision = "CONFLICT"; reason = "PLAYER_HAS_OTHER_PROVIDER_ID" }
+      if (p.apiFootballId !== null && p.apiFootballId !== source.player.id) {
+        // A weak name fallback is not a competing identity when the incumbent is
+        // uniquely owned and strongly corroborated in this same complete roster.
+        // Keep all uncorroborated incumbents and stronger challengers fail-closed.
+        const confirmedIncumbent = !owner && owners.get(p.apiFootballId)?.length === 1 && attemptConsistent(p) &&
+          ranking!.top1?.apiFootballId === p.apiFootballId && ranking!.canAutoSave &&
+          ranking!.top2?.classification !== "MATCH FORTE"
+        if (m.classification === "MATCH FRACO" && confirmedIncumbent) {
+          decision = "REVIEW"; reason = "WEAK_CANDIDATE_WITH_CONFIRMED_OTHER_ID"
+        } else { decision = "CONFLICT"; reason = "PLAYER_HAS_OTHER_PROVIDER_ID" }
+      }
       else if (p.apiFootballId !== null && (!attemptConsistent(p) || !m.birthMatches || m.nameScore < 80)) {
         decision = "CONFLICT"; reason = "EXISTING_IDENTITY_INCONSISTENT"
       } else if (p.clubId !== config.clubId || p.club?.apiFootballId !== config.apiFootballTeamId || !rosterClub) {
