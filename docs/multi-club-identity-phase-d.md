@@ -1,5 +1,7 @@
 # Lote 10 Phase D — preparation, not permission to write
 
+Subsequent guarded write implementation is documented in [Phase E.1](multi-club-identity-phase-e1.md). This Phase D contract remains preparation-only.
+
 This phase adds a non-consumable preparation contract. Existing matcher, thresholds, retry, cache, schema and operational writers are unchanged. No token is generated. None of these modules is connected to a public route or a real write dispatcher.
 
 ## Two protected orders

@@ -181,6 +181,6 @@ test("CLI source has no write dispatch/token and blocks HTTP; repository enforce
   assert.match(cli, /globalThis.fetch = async/)
   assert.doesNotMatch(cli, /clubIdentityAutoWrite|clubIdentityWriteToken|loadWrite|executeClubIdentityAutoWrite/)
   const repo = readFileSync("services/multiClubIdentityReadRepository.ts", "utf8")
-  assert.match(repo, /SET TRANSACTION READ ONLY/); assert.match(repo, /GLOBAL_AUDIT_MISMATCH/)
+  assert.match(repo, /withPrismaReadOnly as readOnly/); assert.match(repo, /GLOBAL_AUDIT_MISMATCH/)
   assert.doesNotMatch(repo, /\.update\(|\.upsert\(|\.create\(|getApiFootballTeamPlayers/)
 })

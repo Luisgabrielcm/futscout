@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util"
 import type { PrismaClient, Prisma } from "../app/generated/prisma/client"
+import { withPrismaReadOnly as readOnly } from "../lib/prismaReadOnly"
 import { runMultiClubIdentityReadOnly } from "./multiClubIdentityReadRepository"
 import { CLUB_IDENTITY_AUDIT_TABLES } from "./clubPlayerIdentityReadRepository"
 import { prepareMultiClubIdentitySummary, deferMultiClubCandidates, prepareMultiClubEnvelope,
@@ -47,14 +48,6 @@ export function revalidateSelectedMultiClubCandidates(p: MultiClubPreparation, r
     if (reason) failures.push({ playerId: c.playerId, reason })
   }
   return { preparation: failures.length ? deferMultiClubCandidates(p, failures) : p, failures, requiresNewPreflight: failures.length > 0 }
-}
-async function readOnly<T>(db: Pick<PrismaClient, "$transaction">, fn: (tx: Prisma.TransactionClient) => Promise<T>) {
-  return db.$transaction(async tx => {
-    await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY")
-    const flags = await tx.$queryRawUnsafe<{ transaction_read_only: string }[]>("SHOW transaction_read_only")
-    if (flags[0]?.transaction_read_only !== "on") throw new Error("READ_ONLY_REQUIRED")
-    return fn(tx)
-  }, { isolationLevel: "RepeatableRead", timeout: 60000, maxWait: 5000 })
 }
 async function audit(tx: Prisma.TransactionClient): Promise<Audit> {
   const tables: Audit["tables"] = {}

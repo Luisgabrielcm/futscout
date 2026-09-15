@@ -23,7 +23,7 @@ export function requireClubIdentityGit(git: ClubIdentityGitState, expectedHead: 
   if (git.branch !== "beta-next" || !git.clean || !/^[a-f0-9]{40}$/.test(expectedHead) || git.head !== expectedHead) throw new Error("GIT_GATE_FAILED")
 }
 
-function preparedMatch(evidence: ClubIdentityEvidence, row: ClubIdentityReport["rows"][number]): AtomicIdentityMatch {
+export function preparedMatch(evidence: ClubIdentityEvidence, row: ClubIdentityReport["rows"][number]): AtomicIdentityMatch {
   if (row.decision !== "AUTO_MATCH" || !row.localCandidate) throw new Error("MATCHER_NOT_AUTO_MATCH")
   const p = evidence.players.find(p => p.id === row.localCandidate!.playerId)
   if (!p || p.apiFootballId !== null || p.attempt || !evidence.cache || !evidence.cacheRowHash) throw new Error("PLAYER_BASELINE_CHANGED")

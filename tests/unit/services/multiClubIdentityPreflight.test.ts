@@ -72,7 +72,7 @@ test("CLI/repository expose only read preflight, no real writer, refresh, token 
   assert.match(cli,/globalThis.fetch = async/)
   assert.match(cli,/CLEAN_EXPECTED_BETA_HEAD_REQUIRED/)
   const repo=readFileSync("services/multiClubIdentityPreflight.ts","utf8")
-  assert.match(repo,/SET TRANSACTION READ ONLY/)
+  assert.match(repo,/withPrismaReadOnly as readOnly/)
   for(const src of [cli,repo]){
     assert.doesNotMatch(src,/\.update\(|\.upsert\(|\.create\(|executeClubIdentityAutoWrite|persistPlayerIdentity|clubIdentityWriteToken|getApiFootballTeamPlayers/)
   }

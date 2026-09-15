@@ -3,6 +3,7 @@ import type { Prisma, PrismaClient } from "../app/generated/prisma/client"
 import { CLUB_IDENTITY_AUDIT_TABLES, loadClubIdentityEvidence } from "./clubPlayerIdentityReadRepository"
 import { runMultiClubIdentityPipeline, type MultiClubLoad } from "./multiClubIdentityPipeline"
 import type { ClubIdentityConfig } from "./clubPlayerIdentityPipeline"
+import { withPrismaReadOnly as readOnly } from "../lib/prismaReadOnly"
 
 export function parseMultiClubIdentityArgs(args: string[]) {
   if (args.length !== 5 || args[0] !== "--dry-run" || args[1] !== "--clubs" || args[3] !== "--season" || args[4] !== "2026") {
@@ -17,14 +18,6 @@ export function parseMultiClubIdentityArgs(args: string[]) {
 }
 
 type Db = Pick<PrismaClient, "$transaction">
-async function readOnly<T>(db: Db, read: (tx: Prisma.TransactionClient) => Promise<T>) {
-  return db.$transaction(async tx => {
-    await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY")
-    const [setting] = await tx.$queryRawUnsafe<{ transaction_read_only: string }[]>("SHOW transaction_read_only")
-    if (setting?.transaction_read_only !== "on") throw new Error("READ_ONLY_REQUIRED")
-    return read(tx)
-  }, { isolationLevel: "RepeatableRead", timeout: 60000, maxWait: 5000 })
-}
 async function audit(tx: Prisma.TransactionClient) {
   const tables: Record<string, { count: string; hash: string }> = {}
   for (const table of CLUB_IDENTITY_AUDIT_TABLES) {
