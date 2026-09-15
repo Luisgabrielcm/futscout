@@ -4,6 +4,7 @@ import { withPrismaReadOnly } from "../lib/prismaReadOnly"
 import { firstMultiClubBatchPolicy, firstMultiClubPreflightPins, type MultiClubBatchPolicy } from "./firstMultiClubIdentityBatch"
 import { requireMultiClubWriteEnvelope, type MultiClubWriteEnvelope } from "./multiClubIdentityWriteAuthorization"
 import { prepareMultiClubIdentitySummary, requireSameMultiClubPreparation } from "./multiClubIdentityAuthorization"
+import type { MultiClubIdentityAuthorizationSummary } from "./multiClubIdentityAuthorization"
 import { runMultiClubIdentityPipeline } from "./multiClubIdentityPipeline"
 import { runClubPlayerIdentityPipeline, type ClubIdentityConfig, type ClubIdentityEvidence } from "./clubPlayerIdentityPipeline"
 import { loadClubIdentityEvidence } from "./clubPlayerIdentityReadRepository"
@@ -18,7 +19,10 @@ export type MultiClubOperationalEvent = IdentityWriteEvent & {
   playerId: string | null; providerId: number | null; status: string
 }
 
-export type MultiClubWriteState={ evidence:ClubIdentityEvidence[]; audit:IdentityWriteAudit }
+export type MultiClubWriteState={ evidence:ClubIdentityEvidence[]; audit:IdentityWriteAudit
+  identities?: { id:string; slug:string; clubId:string|null }[] }
+export type MultiClubExecutionSummary = Pick<MultiClubIdentityAuthorizationSummary,"clubs"|"executionOrder"|"batchDryRunHash">
+export type MultiClubExecutionEnvelope = { summary:MultiClubExecutionSummary; expiresAt:string }
 export type MultiClubWriteDependencies={
   clock:()=>Date; git:()=>ClubIdentityGitState
   onEvent?:(event:MultiClubOperationalEvent)=>void
@@ -26,8 +30,8 @@ export type MultiClubWriteDependencies={
   persist:(match:AtomicIdentityMatch, state:MultiClubWriteState, revalidate:(state:MultiClubWriteState)=>Promise<void>,
     validUntil:Date,onEvent?:IdentityWriteObserver)=>Promise<AtomicMatchResult>
 }
-export function multiClubWriteConfigs(e:MultiClubWriteEnvelope):ClubIdentityConfig[] {
-  return e.summary.clubs.map(c=>({clubId:c.clubId,clubSlug:c.clubSlug,apiFootballTeamId:c.teamId,season:2026,mode:"DRY_RUN",
+export function multiClubWriteConfigs(e:MultiClubExecutionEnvelope):ClubIdentityConfig[] {
+  return e.summary.clubs.map(c=>({clubId:c.clubId,clubSlug:c.clubSlug,apiFootballTeamId:c.teamId,season:c.season,mode:"DRY_RUN",
     cache:{maxAgeDays:7,expectedRowHash:c.cacheRowHash},snapshot:{required:false,requireParticipation:false,...(c.snapshotHash?{expectedHash:c.snapshotHash}:{})},
     writePolicy:{maxAutoWrites:5,stopOnConflict:true,stopOnAuditMismatch:true,stopOnIndeterminateCommit:true,zeroRetry:true},
     budget:{maxProviderPlayers:200,maxRelevantPlayers:2000,maxDryRunAgeMs:900000}}))
@@ -43,19 +47,31 @@ export function assertMultiClubWriteAudit(before:IdentityWriteAudit,after:Identi
 }
 export async function executeMultiClubIdentityAutoWrite(input:{envelope:MultiClubWriteEnvelope;confirmation:string;expectedHead:string},
   deps:MultiClubWriteDependencies,policy:MultiClubBatchPolicy=firstMultiClubBatchPolicy()) {
-  let stage:IdentityWriteStage="AUTHORIZATION"
-  try {
   const request=structuredClone(input)
   const guard=()=>{requireClubIdentityGit(deps.git(),request.expectedHead)
     return requireMultiClubWriteEnvelope(request.envelope,request.confirmation,request.expectedHead,deps.clock(),policy)}
-  const approved=guard(),configs=multiClubWriteConfigs(request.envelope)
+  return executeGuardedMultiClubPlan(request.envelope,deps,policy.id,()=>guard().summary,async(state,configs)=>{
+    const current=await runMultiClubIdentityPipeline({mode:"DRY_RUN",clubs:configs},{
+      load:async config=>({status:"READY",evidence:state.evidence.find(e=>e.club.id===config.clubId)!}),audit:async()=>true,
+    },deps.clock())
+    requireSameMultiClubPreparation(guard(),prepareMultiClubIdentitySummary(current))
+  })
+}
+// Shared orchestration only. Public pristine/resume entrypoints supply their own closed authorization gates.
+export async function executeGuardedMultiClubPlan(envelope:MultiClubExecutionEnvelope,deps:MultiClubWriteDependencies,
+  batchId:string,guard:()=>MultiClubExecutionSummary,
+  validateInitial:(state:MultiClubWriteState,configs:ClubIdentityConfig[])=>Promise<void>) {
+  let stage:IdentityWriteStage="AUTHORIZATION"
+  try {
+  const request={envelope:structuredClone(envelope)}
+  const approved={summary:guard()},configs=multiClubWriteConfigs(request.envelope)
   const events:MultiClubOperationalEvent[]=[]
   const candidateReports=approved.summary.executionOrder.map((p,i)=>({playerId:p.playerId,providerId:p.providerId,clubId:p.clubId,
-    executionPosition:i+1,batchId:policy.id,batchHash:approved.summary.batchDryRunHash,timestamp:new Date().toISOString(),
+    executionPosition:i+1,batchId,batchHash:approved.summary.batchDryRunHash,timestamp:new Date().toISOString(),
     status:"NOT_STARTED",diagnostic:diagnostic("PREFLIGHT","NOT_EXECUTED","NOT_STARTED")}))
   const log=(entry:IdentityWriteEvent,playerId:string|null,clubId:string|null,status:string)=>{
     const candidate=candidateReports.find(p=>p.playerId===playerId)
-    const safe:MultiClubOperationalEvent={...entry,batchId:policy.id,batchHash:approved.summary.batchDryRunHash,
+    const safe:MultiClubOperationalEvent={...entry,batchId,batchHash:approved.summary.batchDryRunHash,
       executionPosition:candidate?.executionPosition??null,clubId,playerId,providerId:candidate?.providerId??null,status}
     events.push(safe)
     try{deps.onEvent?.({...safe,...(safe.codeChain?{codeChain:[...safe.codeChain]}:{})})}catch{/* observability never changes STOP/commit behavior */}
@@ -64,10 +80,7 @@ export async function executeMultiClubIdentityAutoWrite(input:{envelope:MultiClu
     emitIdentityEvent([],entry=>log(entry,playerId,clubId,status),name,detail)
   stage="PREFLIGHT"
   let state=await deps.loadState()
-  const current=await runMultiClubIdentityPipeline({mode:"DRY_RUN",clubs:configs},{
-    load:async config=>({status:"READY",evidence:state.evidence.find(e=>e.club.id===config.clubId)!}),audit:async()=>true,
-  },deps.clock())
-  try{requireSameMultiClubPreparation(approved,prepareMultiClubIdentitySummary(current))}
+  try{await validateInitial(state,configs)}
   catch(error){
     const detail=failureDiagnostic(error,"PREFLIGHT","NOT_STARTED")
     throw new IdentityWriteDiagnosticError(detail.code==="AUTHORIZATION_MISMATCH"?
@@ -190,11 +203,13 @@ export async function executeMultiClubIdentityAutoWrite(input:{envelope:MultiClu
     throw new IdentityWriteDiagnosticError(detail)
   }
 }
-export function createPrismaMultiClubWriteDependencies(db:PrismaClient,envelope:MultiClubWriteEnvelope,
+export function createPrismaMultiClubWriteDependencies(db:PrismaClient,envelope:MultiClubExecutionEnvelope,
   git:()=>ClubIdentityGitState,clock:()=>Date=()=>new Date(),
-  expectedBefore:IdentityWriteAudit["tables"]=firstMultiClubPreflightPins().baseline.tables as IdentityWriteAudit["tables"]):MultiClubWriteDependencies {
+  expectedBefore:IdentityWriteAudit["tables"]=firstMultiClubPreflightPins().baseline.tables as IdentityWriteAudit["tables"],
+  readState?:(tx:Prisma.TransactionClient)=>Promise<MultiClubWriteState>):MultiClubWriteDependencies {
   const configs=multiClubWriteConfigs(envelope)
   const read=async(tx:Prisma.TransactionClient):Promise<MultiClubWriteState>=>{
+    if(readState)return readState(tx)
     const evidence:ClubIdentityEvidence[]=[]
     for(const config of configs)evidence.push(await loadClubIdentityEvidence(tx,config,clock()))
     return {evidence,audit:await readIdentityWriteAudit(tx)}

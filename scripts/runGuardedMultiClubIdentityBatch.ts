@@ -4,6 +4,7 @@ import { dispatchGuardedMultiClub } from "../services/multiClubIdentityRunner"
 import { firstMultiClubPreflightPins } from "../services/firstMultiClubIdentityBatch"
 import { runFirstMultiClubPreflight } from "../services/multiClubIdentityPreflight"
 import { requireMultiClubBatchPolicy } from "../services/multiClubIdentityWriteAuthorization"
+import { firstMultiClubResumeConfig } from "../services/firstMultiClubIdentityResume"
 import { failureDiagnostic, IdentityWriteDiagnosticError, type IdentityWriteStage, type IdentityTransactionState } from "../services/identityWriteDiagnostics"
 let operationStage:IdentityWriteStage="AUTHORIZATION"
 let lastTransactionState:IdentityTransactionState="NOT_STARTED"
@@ -25,6 +26,32 @@ async function main(){
   const result=await dispatchGuardedMultiClub(process.argv.slice(2),{git,clock:()=>new Date(),
     blockHttp:()=>{globalThis.fetch=async()=>{throw new Error("HTTP_FORBIDDEN_IN_MULTI_CLUB_OPERATION")}},
     readSummary:path=>JSON.parse(readFileSync(path,"utf8")),
+    resumePreflight:async(configId,head)=>{
+      operationStage="PREFLIGHT"
+      const {runMultiClubResumePreflight}=await import("../services/multiClubIdentityResumeOperation")
+      const db=await openDb()
+      try{
+        const report=await runMultiClubResumePreflight(db,firstMultiClubResumeConfig(configId),head)
+        const state=git();if(state.head!==head||!state.clean||state.branch!=="beta-next")throw new Error("GIT_CHANGED")
+        return report // No envelope, no token, and every transaction rolls back.
+      }finally{await disconnect(db)}
+    },
+    loadResumeWrite:async()=>{
+      const {createPrismaMultiClubResumeDependencies,executeMultiClubIdentityResume}=await import("../services/multiClubIdentityResumeOperation")
+      return async(input,configId)=>{
+        operationStage="PREFLIGHT"
+        const db=await openDb(),config=firstMultiClubResumeConfig(configId)
+        try{
+          const deps=createPrismaMultiClubResumeDependencies(db,config,input.envelope,git)
+          deps.onEvent=event=>{
+            operationStage=event.stage
+            if(event.executionPosition!==null)lastTransactionState=event.transactionState
+            console.error(JSON.stringify({type:"IDENTITY_WRITE_EVENT",...event}))
+          }
+          return await executeMultiClubIdentityResume(input,deps,config)
+        }finally{await disconnect(db)}
+      }
+    },
     preflight:async head=>{
       operationStage="PREFLIGHT"
       const db=await openDb()
