@@ -20,6 +20,7 @@ const load = <T,>(file: string, dependencies: Record<string, unknown> = {}) => l
 const { default: Pagination } = load<typeof import("../../../app/components/CatalogPagination")>("CatalogPagination")
 const { default: Countries } = load<typeof import("../../../app/components/NationalityDirectory")>("NationalityDirectory")
 const { default: Career } = load<typeof import("../../../app/components/PlayerCareer")>("PlayerCareer")
+const { default: History } = load<typeof import("../../../app/components/PlayerHistory")>("PlayerHistory")
 const { default: Card } = load<typeof import("../../../app/components/PlayerCard")>("PlayerCard", {
   "./PlayerActions": () => null, "../../utils/formatCurrency": { formatCurrency },
 })
@@ -177,15 +178,16 @@ test("career distinguishes catalog club from confirmed club and does not invent 
   assert.match(html, /Confirmed current club<\/dt><dd>—/)
   assert.match(html, /National team represented<\/dt><dd>—/)
   assert.match(html, /Salary<\/dt><dd>—/)
-  assert.match(html, /Verified history is not yet available/)
+  assert.match(html, /href="#history"/)
+  assert.doesNotMatch(html, /transferTimeline/)
 })
 test("prepared transfer presentation keeps raw fee separate and does not infer salary or market value", () => {
-  const html = renderToStaticMarkup(React.createElement(Career, { locale: "pt", catalogClub: null, data: { source: "fixture", transfers: [
+  const html = renderToStaticMarkup(React.createElement(History, { locale: "pt", data: { source: "fixture", transfers: [
     { id: "fixture", date: "2026-01-03", from: "Fixture A", to: "Fixture B", typeRaw: "Free" },
   ] } }))
   assert.match(html, /Fixture A → Fixture B/)
   assert.match(html, />Free</)
-  assert.match(html, /Salário<\/dt><dd>—/)
+  assert.match(html, /não representam salário nem valor de mercado/)
   assert.equal(displayCareerDate("2026-02-30", "en"), "—")
 })
 test("league logo is optional, never initials or a club/player asset", () => {

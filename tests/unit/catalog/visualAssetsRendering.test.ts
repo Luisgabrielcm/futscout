@@ -50,7 +50,7 @@ test("missing portrait and incorrect club card render neutral initials, not anot
   assert.doesNotMatch(html, /<img|player-shields|bobb|musiala/i)
   assert.match(html, /Jogador de teste — imagem indisponível/)
   assert.match(html, /Clube Teste — imagem indisponível/)
-  assert.match(html, />C<\/span>/)
+  assert.match(html, />F<\/span>/)
 })
 
 for (const kind of ["player", "club"] as const) {

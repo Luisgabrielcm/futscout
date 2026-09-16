@@ -18,6 +18,7 @@ type PlayerImageProps = {
   fallbackText?: string
   width?: number
   height?: number
+  loading?: "lazy" | "eager"
 }
 
 export default function PlayerImage({ locale = "pt",
@@ -29,6 +30,7 @@ export default function PlayerImage({ locale = "pt",
   fallbackText,
   width,
   height,
+  loading,
 }: PlayerImageProps) {
   const [
     failedSrc,
@@ -66,6 +68,7 @@ export default function PlayerImage({ locale = "pt",
       className={className}
       width={width}
       height={height}
+      loading={loading}
       ref={(image) => {
         // A cached failure can occur before hydration attaches onError.
         if (image?.complete && image.naturalWidth === 0) setFailedSrc(imageSrc)

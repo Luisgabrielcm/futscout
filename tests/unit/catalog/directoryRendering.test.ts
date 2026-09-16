@@ -169,7 +169,7 @@ test("league detail sanitizes both page parameters without applying list search 
 test("directory card uses existing image fallback and does not invent a league logo", () => {
   const clubHtml = renderToStaticMarkup(createElement(components.ClubCard, { club }))
   const leagueHtml = renderToStaticMarkup(createElement(components.LeagueCard, { league }))
-  assert.match(clubHtml, /directoryBadgeFallback[^>]*>C<\/span>/)
+  assert.match(clubHtml, /clubBadgeFallback[^>]*>F<\/span>/)
   assert.match(leagueHtml, /<h3>Liga Teste<\/h3>/)
   assert.doesNotMatch(leagueHtml, /<img|directoryBadgeFallback|Não informado/)
 })

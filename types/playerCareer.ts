@@ -10,6 +10,8 @@ export type VerifiedSalary = {
 export type PlayerCareerData = {
   source: string
   currentClub?: string | null
+  realLeague?: string | null
+  latestTransfer?: string | null
   salary?: VerifiedSalary | null
   contractUntil?: string | null
   shirtNumber?: number | null

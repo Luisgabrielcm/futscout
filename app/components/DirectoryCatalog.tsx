@@ -1,7 +1,7 @@
 import { t, localizedHref, localeTags, type Locale, type LocaleProps } from "../../lib/i18n"
 
 import Link from "next/link"
-import PlayerImage from "./PlayerImage"
+import ClubBadge from "./ClubBadge"
 import PlayerCard from "./PlayerCard"
 import type { Player } from "../../types/player"
 import { displayCountry } from "../../lib/directoryCatalogParams"
@@ -42,8 +42,7 @@ export function DirectorySearch({ locale = "pt", action, search, league, leagues
 }
 
 export function DirectoryBadge({ locale = "pt", name, imageUrl }: { locale?: Locale; name: string; imageUrl?: string | null }) {
-  return <PlayerImage locale={locale} key={imageUrl ?? name} src={imageUrl ?? undefined} alt={name} kind="club"
-    width={72} height={72} className="directoryBadge" fallbackClassName="directoryBadge directoryBadgeFallback" />
+  return <ClubBadge locale={locale} src={imageUrl} name={name} size="large" className="directoryBadge" />
 }
 
 export function ClubCard({ locale = "pt", club }: { locale?: Locale; club: {

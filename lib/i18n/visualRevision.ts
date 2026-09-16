@@ -1,6 +1,16 @@
 import type { Locale } from "./config"
 
 const copy = {
+  profileNav: ["Navegar pelo perfil", "Profile sections"],
+  overview: ["Visão geral", "Overview"],
+  realLife: ["Vida Real", "Real Life"],
+  realLeague: ["Liga real", "Real-world league"],
+  attributes: ["Atributos", "Attributes"],
+  statistics: ["Estatísticas", "Statistics"],
+  history: ["Histórico", "History"],
+  lastTransfer: ["Última transferência", "Latest transfer"],
+  catalogLeague: ["Liga no catálogo EA FC", "EA FC catalog league"],
+  realStatsMissing: ["Estatísticas do futebol real ainda não disponíveis neste perfil.", "Real-world statistics are not yet available on this profile."],
   nationality: ["Nacionalidade", "Nationality"],
   countrySearch: ["Buscar país ou nacionalidade...", "Search country or nationality..."],
   popular: ["Mais populares", "Most popular"],

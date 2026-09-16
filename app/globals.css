@@ -520,7 +520,9 @@ code, pre, kbd, samp { font-family: var(--font-mono); }
 }
 
 /* Visual revision: shared actions, pagination and honest catalog context. */
-a, button { text-shadow: none; }
+/* Typography contract: no glow, stroke or shadow on interface text/pseudo-text. */
+body, body *, body *::before, body *::after { text-shadow: none; -webkit-text-stroke: 0; }
+:is(a, button, h1, h2, h3, h4, p, label, dt, dd, strong, small, span) { filter: none; }
 .entityBreadcrumb a, .playerHeaderInfo a, .playerHeaderStats a { filter: none; }
 .uiButton.uiButtonPrimary, .uiButton.uiButtonSecondary, .searchBox .uiButton {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -529,7 +531,7 @@ a, button { text-shadow: none; }
   text-decoration: none; text-align: center; cursor: pointer;
   box-shadow: none; filter: none; transition: background-color .15s, border-color .15s;
 }
-.uiButton.uiButtonPrimary { background: #1c6439; color: #fff; border-color: #36985a; }
+.uiButton.uiButtonPrimary { background: #101c15; color: var(--beige-light); border-color: #46604e; }
 .uiButton.uiButtonSecondary { background: #0c1710; color: var(--beige-light); }
 .uiButton:not(:disabled):not([aria-disabled="true"]):hover { background: #204b2e; border-color: var(--green); }
 .uiButton:focus-visible, .nationalityFilters input:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
@@ -3382,9 +3384,9 @@ a, button { text-shadow: none; }
 
   gap: 14px;
 
-  min-height: 130px;
+  min-height: 64px;
 
-  padding: 18px;
+  padding: 12px 14px;
 
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -3452,6 +3454,7 @@ a, button { text-shadow: none; }
   align-items: center;
 
   gap: 5px;
+  flex-wrap: wrap;
 }
 
 .playStyleTitle strong {
@@ -3463,8 +3466,8 @@ a, button { text-shadow: none; }
 .playStyleTitle > span {
   color: var(--beige);
 
-  font-size: 17px;
-  font-weight: 900;
+  font-size: 11px;
+  font-weight: 650;
 }
 
 .playStyleCategory {
@@ -3778,7 +3781,7 @@ a, button { text-shadow: none; }
 .playerHeaderMarketValue { font-size: 22px !important; }
 .quickProfileGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .quickProfileItem { min-width: 0; overflow-wrap: anywhere; }
-.playStyleArtUnavailable { display: inline-flex; width: 22px; height: 22px; border: 1px dashed currentColor; border-radius: 50%; opacity: .65; }
+.playStyleArtUnavailable { color: var(--gray); font-size: 11px; }
 @media (max-width: 1279px) {
   .playerHeader { grid-template-columns: minmax(0, 1fr); }
   .siteContent .hero { grid-template-columns: minmax(0, 1fr); }
@@ -3868,7 +3871,7 @@ a[href] { text-decoration: none; cursor: pointer; }
 .siteContent a[href]:hover { background-color: #22c55e14; color: var(--green); }
 a[href]:focus-visible { outline: 2px solid var(--green); outline-offset: 4px; border-radius: 4px; }
 :is(.playerHeaderMeta, .quickProfileItem, .playStyleContent, .clubInfoPanel) a,
-.playerHeaderLeague { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 1px solid #294135; border-radius: 6px; background: #102219; color: var(--beige-light); }
+.playerHeaderLeague { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--beige-light); }
 .entityBreadcrumb a, .playerClubLink { border-radius: 6px; }
 
 /* Original FutScout pitch and entity identities — presentation, not a lineup. */
@@ -3994,4 +3997,51 @@ a[href]:focus-visible { outline: 2px solid var(--green); outline-offset: 4px; bo
   .clubPitchPlayer > .pitchPortrait { width: 52px; height: 56px; }.clubPitchPlayer strong { font-size: 10px; }
   .clubSquadList { grid-template-columns: minmax(0, 1fr); }.countryHeroFlag { width: 74px; }.countryHeroFlag .countryFlag { width: 70px; height: 48px; }
   .countryProfileHero p { font-size: 12px; }.countryTotal { font-size: 10px; }
+}
+
+/* Corrective visual review: plain text links, compact context, explicit domains. */
+.siteContent :is(.entityBreadcrumb, .playerHeaderInfo, .playerHeaderStats, .quickProfileItem, .playStyleContent, .clubInfoPanel) a[href]:hover,
+.siteContent a.profileTextLink:hover { background: transparent; text-decoration: underline; text-underline-offset: 4px; }
+.playerSectionNav { display: flex; flex-wrap: wrap; gap: 6px 20px; border-bottom: 1px solid var(--border); padding: 8px 0; margin: 20px 0; }
+.playerSectionNav a { display: inline-flex; align-items: center; min-height: 44px; font-size: 13px; color: var(--beige-light); }
+.profileSection { scroll-margin-top: 24px; margin: 28px 0; min-width: 0; }
+.profileSection > h2 { font-size: 22px; font-weight: 650; margin: 0 0 16px; color: var(--beige-light); }
+.profileSection > h3 { font-size: 15px; font-weight: 600; margin: 12px 0; }
+.profileSection .playerQuickProfile, .profileSection .playerPositions, .profileSection .playerPlayStyles, .profileSection .playerAttributes { margin-top: 0; }
+.playerCareer.profileSection { padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+.catalogContextLabel { font-size: 10px; font-weight: 600; color: var(--gray); letter-spacing: .5px; }
+.playerHeaderInfo h1 { font-weight: 650; letter-spacing: -.6px; }
+.playerHeaderLeague .leagueLogo { width: 24px; height: 24px; object-fit: contain; }
+.profileTextLink { color: var(--beige-light); font-size: 13px; }
+.clubBadge { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.clubBadge-small { width: 24px; height: 24px; }
+.clubBadge-medium { width: 32px; height: 32px; }
+.clubBadge-large { width: 72px; height: 72px; }
+.clubBadge-hero { width: 96px; height: 96px; }
+.clubBadge > img, .clubBadge > .clubBadgeFallback { width: 100%; height: 100%; object-fit: contain; }
+.clubBadgeFallback { display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-style: italic; color: var(--gray); background: var(--surface-light); border: 1px solid var(--border); border-radius: 6px; }
+.playerCard { padding: 16px; }
+.playerCard .playerPhotoArea { margin-top: 8px; }
+.playerCard .playerPhotoGlow { width: 120px; height: 120px; }
+.playerCard .playerIdentity { margin-top: 10px; }
+.playerCard .playerIdentity h3 { font-size: 19px; font-weight: 650; }
+.playerCard .overallArea { margin-top: 12px; padding: 10px; }
+.playerCard .playerDetails { margin-top: 10px; }
+.playerCard .playerDetails > div { padding: 8px; }
+.playerCard .marketArea { margin-top: 10px; padding-top: 8px; }
+.playerCard .marketArea > div { padding: 4px; }
+.playerActionButtons button { background: var(--surface); color: var(--beige-light); box-shadow: none; border: 1px solid #36543e; border-radius: 10px; min-height: 44px; padding: 8px 12px; font-weight: 550; }
+.playerActionButtons button:hover { background: #15221a; }
+.playStyleCard:hover { transform: none; }
+.playStyleIcon { width: 32px; height: 32px; border: 0; border-radius: 0; background: transparent; color: var(--beige-light); }
+.playStylePlus .playStyleTitle strong { color: var(--beige-light); }
+.playStyleCard .playStyleArtUnavailable { display: block; margin-top: 4px; }
+@media (max-width: 600px) {
+  .playerSectionNav { gap: 4px 14px; }
+  .playerSectionNav a { font-size: 12px; }
+  .profileSection { margin: 22px 0; }
+  .playerCareer.profileSection { padding: 16px; }
+  .playerPlayStylesGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .playStyleCard { padding: 10px; gap: 8px; min-height: 64px; }
+  .playStyleTitle strong { font-size: 13px; overflow-wrap: anywhere; }
 }

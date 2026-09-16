@@ -34,7 +34,10 @@ test("unknown position stays in full panel; invalid OVR does not outrank valid z
 })
 test("shared link styling removes permanent underline without erasing hover/focus or anchor semantics", () => {
   const css = readFileSync("app/globals.css", "utf8")
-  assert.doesNotMatch(css, /text-decoration(?:-line)?\s*:\s*underline/)
+  // Corrective design permits subtle underline on hover, never permanent text decoration.
+  const underlineRules = [...css.matchAll(/([^{}]+)\{([^{}]*text-decoration(?:-line)?\s*:\s*underline[^{}]*)\}/g)]
+  assert.ok(underlineRules.length > 0)
+  for (const rule of underlineRules) assert.match(rule[1], /:hover/)
   assert.match(css, /a\[href\]\s*\{[^}]*text-decoration:\s*none/)
   assert.match(css, /a\[href\]:focus-visible\s*\{[^}]*outline:\s*2px solid/)
   assert.match(css, /a\[href\]:hover\s*\{[^}]*background-color:/)

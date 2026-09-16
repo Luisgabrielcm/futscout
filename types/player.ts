@@ -233,6 +233,8 @@ export type Player = {
 
   league: string | null
   leagueSlug?: string | null
+  // Optional supplied artwork; the current public reader does not provide it.
+  leagueLogoUrl?: string | null
 
   /* ======================================
      OVERALL

@@ -13,6 +13,7 @@ import {
 
 import PlayerImage from "./PlayerImage"
 import PlayerActions from "./PlayerActions"
+import ClubBadge from "./ClubBadge"
 
 type PlayerCardProps = {
   locale?: Locale
@@ -205,8 +206,7 @@ export default function PlayerCard({ locale = "pt",
           </h3>
 
           <p className="cardClub">
-            {club && <PlayerImage locale={locale} src={clubImageUrl ?? undefined} alt={club} kind="club"
-              width={24} height={24} className="cardClubBadge" fallbackClassName="cardClubBadge clubBadgeFallback" />}
+            {club && <ClubBadge locale={locale} src={clubImageUrl} name={club} size="small" className="cardClubBadge" />}
             <span>{playerClub}</span> •{" "}
             {playerAge}
           </p>

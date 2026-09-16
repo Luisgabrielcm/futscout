@@ -10,24 +10,20 @@ export default function PlayerCareer({ locale, catalogClub, data }: {
   const fields = [
     [visualText(locale, "catalogClub"), catalogClub ?? "—"],
     [visualText(locale, "currentClub"), verified?.currentClub ?? "—"],
+    [visualText(locale, "realLeague"), verified?.realLeague ?? "—"],
     [visualText(locale, "salary"), displaySalary(verified?.salary, locale) ?? "—"],
     [visualText(locale, "contractUntil"), displayCareerDate(verified?.contractUntil, locale)],
     [visualText(locale, "shirt"), verified?.shirtNumber ?? "—"],
     [visualText(locale, "since"), displayCareerDate(verified?.since, locale)],
     [visualText(locale, "contractStatus"), verified?.contractStatus ?? "—"],
     [visualText(locale, "nationalTeam"), verified?.nationalTeam?.name ?? "—"],
+    [visualText(locale, "lastTransfer"), verified?.latestTransfer ?? "—"],
   ]
-  return <section className="playerCareer" aria-labelledby="career-title">
-    <h2 id="career-title">{visualText(locale, "career")}</h2>
+  return <section id="real-life" className="profileSection playerCareer" data-domain="real" aria-labelledby="real-life-title">
+    <h2 id="real-life-title">{visualText(locale, "realLife")}</h2>
+    <h3>{visualText(locale, "career")}</h3>
     <p className="mutedText">{visualText(locale, "catalogNote")}</p>
     <dl className="careerFields">{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-    <h3>{visualText(locale, "transfers")}</h3>
-    {verified?.transfers?.length ? <>
-      <ol className="transferTimeline">{verified.transfers.map(item => <li key={item.id}>
-        <span>{displayCareerDate(item.date, locale)}</span>
-        <strong>{item.from ?? "—"} → {item.to ?? "—"}</strong><span>{item.typeRaw ?? "—"}</span>
-      </li>)}</ol>
-      <p className="mutedText">{visualText(locale, "transferNote")}</p>
-    </> : <p className="mutedText">{visualText(locale, "noTransfers")}</p>}
+    <a className="profileTextLink" href="#history">{visualText(locale, "transfers")} → {visualText(locale, "history")}</a>
   </section>
 }

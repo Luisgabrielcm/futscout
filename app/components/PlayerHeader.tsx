@@ -19,6 +19,9 @@ import { getPlayerProfilePositions } from "../../lib/playerProfilePositions"
 import Link from "next/link"
 import { entityHref, nationalityHref, relatedPlayersHref } from "../../lib/connectedNavigation"
 import { clubText } from "../../lib/i18n/clubExperience"
+import ClubBadge from "./ClubBadge"
+import LeagueLogo from "./LeagueLogo"
+import { visualText } from "../../lib/i18n/visualRevision"
 
 type PlayerHeaderProps = {
   locale?: Locale
@@ -74,8 +77,7 @@ export default function PlayerHeader({ locale = "pt",
   const clubImageUrl =
     player.club?.imageUrl ??
     null
-  const clubIdentity = <><PlayerImage locale={locale} key={clubImageUrl} src={clubImageUrl ?? undefined}
-    alt={clubName} kind="club" width={32} height={32} className="playerHeaderClubBadge" fallbackClassName="playerHeaderClubBadge clubBadgeFallback" /><p>{clubName}</p></>
+  const clubIdentity = <><ClubBadge locale={locale} src={clubImageUrl} name={clubName} className="playerHeaderClubBadge" /><span>{clubName}</span></>
 
   /* ========================================
      RENDER
@@ -119,13 +121,15 @@ export default function PlayerHeader({ locale = "pt",
           <div
             className="playerHeaderClub"
           >
+            <span className="catalogContextLabel">EA FC</span>
             {clubHref ? <Link href={clubHref} className="playerClubLink">{clubIdentity}</Link> : <div className="playerClubLink">{clubIdentity}</div>}
-            {player.league && (leagueHref ? <Link className="playerHeaderLeague" href={leagueHref}>{player.league}</Link> : <span className="playerHeaderLeague">{player.league}</span>)}
+            {player.league && (leagueHref ? <Link className="playerHeaderLeague" href={leagueHref}><LeagueLogo locale={locale} name={player.league} logoUrl={player.leagueLogoUrl} />{player.league}</Link> : <span className="playerHeaderLeague"><LeagueLogo locale={locale} name={player.league} logoUrl={player.leagueLogoUrl} />{player.league}</span>)}
           </div>
 
           <div
             className="playerHeaderMeta"
           >
+            <span className="catalogContextLabel">{visualText(locale, "nationality")}</span>
             {countryHref ? <Link href={countryHref}><CountryFlag locale={locale} country={player.nationality} /></Link> : <CountryFlag locale={locale} country={player.nationality} />}
 
             <span>

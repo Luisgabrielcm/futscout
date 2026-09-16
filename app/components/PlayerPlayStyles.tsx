@@ -57,13 +57,13 @@ export default function PlayerPlayStyles({ locale = "pt",
                   }`}
                   data-playstyle={playStyleKey}
                 >
-                  <div
+                  {iconSrc && <div
                     className="playStyleIcon"
                     title={iconSrc ? displayName : t(locale, "Arte do PlayStyle indisponível")}
                   >
-                    {iconSrc ? <PlayerImage locale={locale} src={iconSrc} alt={displayName} kind="asset" fallbackText="PS" />
-                      : <span className="playStyleArtUnavailable" role="img" aria-label={t(locale, "Arte do PlayStyle indisponível")} />}
-                  </div>
+                    <PlayerImage locale={locale} src={iconSrc} alt={displayName} kind="asset" width={32} height={32}
+                      loading="lazy" fallbackText="" />
+                  </div>}
 
                   <div
                     className="playStyleContent"
@@ -83,6 +83,7 @@ export default function PlayerPlayStyles({ locale = "pt",
                         </span>
                       )}
                     </div>
+                    {!iconSrc && <small className="playStyleArtUnavailable">{t(locale, "Arte do PlayStyle indisponível")}</small>}
                   </div>
                 </div>
               )

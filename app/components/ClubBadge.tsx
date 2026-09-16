@@ -1,0 +1,16 @@
+import type { Locale } from "../../lib/i18n"
+import PlayerImage from "./PlayerImage"
+
+const sizes = { small: 24, medium: 32, large: 72, hero: 96 } as const
+
+// Supplied artwork only. F identifies FutScout's fallback, never an invented crest.
+export default function ClubBadge({ locale = "pt", name, src, size = "medium", className = "" }: {
+  locale?: Locale; name: string; src?: string | null
+  size?: keyof typeof sizes; className?: string
+}) {
+  return <span className={`clubBadge clubBadge-${size}`}>
+    <PlayerImage locale={locale} src={src ?? undefined} alt={name} kind="club"
+      width={sizes[size]} height={sizes[size]} loading="lazy" className={className}
+      fallbackClassName={`clubBadgeFallback ${className}`} fallbackText="F" />
+  </span>
+}

@@ -1,5 +1,14 @@
 import type { PlayerPlayStyle } from "../types/player"
 import type { Locale } from "./i18n/config"
+import { getVisualAssetSrc } from "./visualAssets"
+
+// Populate only after artwork and usage rights are verified. No URL derivation.
+export type PlayStyleArtwork = Readonly<Record<string, { normal?: string; plus?: string }>>
+export const playStyleArtwork: PlayStyleArtwork = {}
+export function getPlayStyleIcon(key: string, isPlus: boolean, artwork: PlayStyleArtwork = playStyleArtwork): string | null {
+  const src = artwork[key]?.[isPlus ? "plus" : "normal"]
+  return getVisualAssetSrc(src, "asset")
+}
 
 export type PlayStyleVisual = {
   playStyleKey: string
@@ -70,10 +79,11 @@ export function getPlayStyleVisual(playStyle: PlayerPlayStyle, locale: Locale = 
   const key = normalizePlayStyleKey(playStyle.id)
   const entry = registry.get(key) ?? registry.get(normalizePlayStyleKey(playStyle.name))
   const hasPlus = (value: string) => /(?:\+|[\s_-]+plus)\s*$/i.test(value)
+  const isPlus = playStyle.level === "plus" || hasPlus(playStyle.id) || hasPlus(playStyle.name)
   return {
     playStyleKey: entry?.key ?? (key || normalizePlayStyleKey(playStyle.name) || "unknown"),
     displayName: (entry && (locale === "pt" ? playStyleNamesPt[entry.key] ?? entry.name : entry.name)) || (playStyle.name.replace(/(?:\+|[\s_-]+plus)\s*$/i, "").trim() || (locale === "pt" ? "PlayStyle não identificado" : "Unidentified PlayStyle")),
-    isPlus: playStyle.level === "plus" || hasPlus(playStyle.id) || hasPlus(playStyle.name),
-    iconSrc: null,
+    isPlus,
+    iconSrc: entry ? getPlayStyleIcon(entry.key, isPlus) : null,
   }
 }

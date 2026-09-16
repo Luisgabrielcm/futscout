@@ -16,6 +16,8 @@ import PlayerQuickProfile from "../../../components/PlayerQuickProfile"
 import ScoutAnalysis from "../../../components/ScoutAnalysis"
 import PlayerActions from "../../../components/PlayerActions"
 import PlayerCareer from "../../../components/PlayerCareer"
+import PlayerHistory from "../../../components/PlayerHistory"
+import { visualText } from "../../../../lib/i18n/visualRevision"
 
 type PlayerPageProps = {
   params: Promise<{
@@ -75,10 +77,27 @@ export default async function PlayerPage({
       />
       <PlayerActions locale={locale} slug={player.slug} name={player.name} />
 
-      <PlayerQuickProfile locale={locale}
-        player={player}
-      />
-      <PlayerCareer locale={locale} catalogClub={player.club?.name ?? null} />
+      <nav className="playerSectionNav" aria-label={visualText(locale, "profileNav")}>
+        <a href="#overview">{visualText(locale, "overview")}</a>
+        <a href="#ea-sports-fc">EA SPORTS FC</a>
+        <a href="#real-life">{visualText(locale, "realLife")}</a>
+        <a href="#attributes">{visualText(locale, "attributes")}</a>
+        <a href="#playstyles">PlayStyles</a>
+        <a href="#statistics">{visualText(locale, "statistics")}</a>
+        <a href="#history">{visualText(locale, "history")}</a>
+      </nav>
+
+      <section id="overview" className="profileSection" aria-labelledby="overview-title">
+        <h2 id="overview-title">{visualText(locale, "overview")}</h2>
+        <PlayerQuickProfile locale={locale} player={player} />
+      </section>
+
+      <section id="ea-sports-fc" className="profileSection" data-domain="ea" aria-labelledby="ea-title">
+        <h2 id="ea-title">EA SPORTS FC</h2>
+        <dl className="careerFields eaCatalogContext">
+          <div><dt>{visualText(locale, "catalogClub")}</dt><dd>{player.club?.name ?? "—"}</dd></div>
+          <div><dt>{visualText(locale, "catalogLeague")}</dt><dd>{player.league ?? "—"}</dd></div>
+        </dl>
 
       {isGoalkeeper ? (
         <section className="playersEmpty">
@@ -86,20 +105,27 @@ export default async function PlayerPage({
           <p>{t(locale, "Análise específica para goleiros em desenvolvimento.")}</p>
         </section>
       ) : <PlayerPositions locale={locale} player={player} />}
+      </section>
 
-      <PlayerPlayStyles locale={locale}
-        player={player}
-      />
+      <PlayerCareer locale={locale} catalogClub={player.club?.name ?? null} />
 
+      <section id="attributes" className="profileSection" data-domain="ea" aria-label={visualText(locale, "attributes")}>
+        <span className="sectionEyebrow">EA SPORTS FC</span>
+        <PlayerAttributes locale={locale} isGoalkeeper={isGoalkeeper} attributes={player.attributes} />
+      </section>
+      <div id="playstyles" className="profileSection" data-domain="ea">
+        <PlayerPlayStyles locale={locale} player={player} />
+      </div>
+
+      <section id="statistics" className="profileSection" aria-labelledby="statistics-title">
+        <h2 id="statistics-title">{visualText(locale, "statistics")}</h2>
+        <p className="mutedText">{visualText(locale, "realStatsMissing")}</p>
+        {!isGoalkeeper && <span className="sectionEyebrow">FutScout · EA SPORTS FC</span>}
       {!isGoalkeeper && <ScoutAnalysis locale={locale}
         player={player}
       />}
-
-      <PlayerAttributes locale={locale} isGoalkeeper={isGoalkeeper}
-        attributes={
-          player.attributes
-        }
-      />
+      </section>
+      <PlayerHistory locale={locale} />
     </main>
   )
 }
