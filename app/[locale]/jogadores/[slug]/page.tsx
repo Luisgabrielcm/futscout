@@ -16,7 +16,8 @@ import PlayerQuickProfile from "../../../components/PlayerQuickProfile"
 import ScoutAnalysis from "../../../components/ScoutAnalysis"
 import PlayerActions from "../../../components/PlayerActions"
 import PlayerCareer from "../../../components/PlayerCareer"
-import PlayerHistory from "../../../components/PlayerHistory"
+import PlayerCurrentStatistics from "../../../components/PlayerCurrentStatistics"
+import { historyText } from "../../../../lib/i18n/playerHistory"
 import { visualText } from "../../../../lib/i18n/visualRevision"
 
 type PlayerPageProps = {
@@ -56,7 +57,9 @@ export default async function PlayerPage({
 
           <p>
             {t(locale, "Perfil incompleto: os atributos deste jogador ainda não estão disponíveis. Nenhuma estatística foi estimada para preencher esses dados.")}</p>
+          <Link className="profileTextLink" href={localizedHref(locale, `/jogadores/${encodeURIComponent(slug)}/historico`)}>{historyText(locale, "fullHistory")}</Link>
         </div>
+        <PlayerCurrentStatistics locale={locale} />
       </main>
     )
   }
@@ -84,7 +87,7 @@ export default async function PlayerPage({
         <a href="#attributes">{visualText(locale, "attributes")}</a>
         <a href="#playstyles">PlayStyles</a>
         <a href="#statistics">{visualText(locale, "statistics")}</a>
-        <a href="#history">{visualText(locale, "history")}</a>
+        <Link href={localizedHref(locale, `/jogadores/${encodeURIComponent(slug)}/historico`)}>{historyText(locale, "history")}</Link>
       </nav>
 
       <section id="overview" className="profileSection" aria-labelledby="overview-title">
@@ -108,6 +111,7 @@ export default async function PlayerPage({
       </section>
 
       <PlayerCareer locale={locale} catalogClub={player.club?.name ?? null} />
+      <Link className="profileTextLink" href={localizedHref(locale, `/jogadores/${encodeURIComponent(slug)}/historico`)}>{historyText(locale, "fullHistory")}</Link>
 
       <section id="attributes" className="profileSection" data-domain="ea" aria-label={visualText(locale, "attributes")}>
         <span className="sectionEyebrow">EA SPORTS FC</span>
@@ -117,15 +121,13 @@ export default async function PlayerPage({
         <PlayerPlayStyles locale={locale} player={player} />
       </div>
 
-      <section id="statistics" className="profileSection" aria-labelledby="statistics-title">
-        <h2 id="statistics-title">{visualText(locale, "statistics")}</h2>
-        <p className="mutedText">{visualText(locale, "realStatsMissing")}</p>
-        {!isGoalkeeper && <span className="sectionEyebrow">FutScout · EA SPORTS FC</span>}
-      {!isGoalkeeper && <ScoutAnalysis locale={locale}
+      <PlayerCurrentStatistics locale={locale} />
+      {!isGoalkeeper && <section className="profileSection" data-domain="ea">
+        <span className="sectionEyebrow">FutScout · EA SPORTS FC</span>
+        <ScoutAnalysis locale={locale}
         player={player}
-      />}
-      </section>
-      <PlayerHistory locale={locale} />
+      />
+      </section>}
     </main>
   )
 }

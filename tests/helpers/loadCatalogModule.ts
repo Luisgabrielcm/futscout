@@ -19,6 +19,7 @@ import * as playStyleAssets from "../../lib/playStyleAssets"
 import * as clubPitchLayout from "../../lib/clubPitchLayout"
 import * as playerProfilePositions from "../../lib/playerProfilePositions"
 import * as visualRevision from "../../lib/i18n/visualRevision"
+import * as playerHistory from "../../lib/i18n/playerHistory"
 import * as nationalityDirectory from "../../lib/nationalityDirectory"
 import * as careerPresentation from "../../lib/playerCareerPresentation"
 import * as visualAssets from "../../lib/visualAssets"
@@ -59,6 +60,7 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/clubPitchLayout": clubPitchLayout,
       "lib/playerProfilePositions": playerProfilePositions,
       "lib/i18n/visualRevision": visualRevision,
+      "lib/i18n/playerHistory": playerHistory,
       "lib/nationalityDirectory": nationalityDirectory,
       "lib/playerCareerPresentation": careerPresentation,
       "lib/visualAssets": visualAssets,
@@ -68,7 +70,7 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
     if (Object.hasOwn(presentation, pureName)) return presentation[pureName]
     // Shared UI runs for real, with a strict finite list, never services.
     const component = name.split("/").at(-1)
-    if (!Object.hasOwn(allowed, name) && component && ["PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "LeagueLogo", "ClubBadge"].includes(component)) {
+    if (!Object.hasOwn(allowed, name) && component && ["PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "PlayerCurrentStatistics", "LeagueLogo", "ClubBadge"].includes(component)) {
       return loadCatalogModule(`app/components/${component}.tsx`, { react: React })
     }
     if (name === "next/link" && !Object.hasOwn(allowed, name)) return function TestLink({ children, href, ...props }: { children: ReactNode; href: string; prefetch?: boolean }) {

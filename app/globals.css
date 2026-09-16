@@ -4018,6 +4018,18 @@ a[href]:focus-visible { outline: 2px solid var(--green); outline-offset: 4px; bo
 .clubBadge-medium { width: 32px; height: 32px; }
 .clubBadge-large { width: 72px; height: 72px; }
 .clubBadge-hero { width: 96px; height: 96px; }
+.careerHistoryHeader { margin: 28px 0; }
+.careerHistoryHeader h1 { font-size: clamp(26px, 4vw, 38px); font-weight: 650; overflow-wrap: anywhere; }
+.careerMetricGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 12px; margin: 16px 0; }
+.careerMetricGrid > div { min-width: 0; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.careerMetricGrid dt { color: var(--gray); font-size: 12px; overflow-wrap: anywhere; }
+.careerMetricGrid dd { margin: 8px 0 0; color: var(--beige-light); font-size: 22px; }
+.careerEmpty { padding: 16px; color: var(--gray); border-left: 2px solid #36543e; background: var(--surface); border-radius: 0 10px 10px 0; font-size: 14px; line-height: 1.6; }
+.careerRows { list-style: none; padding: 0; display: grid; gap: 12px; }
+.careerRows > li { padding: 16px; border: 1px solid var(--border); border-radius: 12px; overflow-wrap: anywhere; }
+.careerRows h3 { margin: 0 0 8px; font-size: 16px; color: var(--beige-light); }
+.playerHistoryPage .entityBreadcrumb { flex-wrap: wrap; }
+.playerHistoryPage .transferTimeline li { overflow-wrap: anywhere; min-width: 0; }
 .clubBadge > img, .clubBadge > .clubBadgeFallback { width: 100%; height: 100%; object-fit: contain; }
 .clubBadgeFallback { display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-style: italic; color: var(--gray); background: var(--surface-light); border: 1px solid var(--border); border-radius: 6px; }
 .playerCard { padding: 16px; }

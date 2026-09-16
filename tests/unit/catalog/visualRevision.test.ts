@@ -178,12 +178,12 @@ test("career distinguishes catalog club from confirmed club and does not invent 
   assert.match(html, /Confirmed current club<\/dt><dd>—/)
   assert.match(html, /National team represented<\/dt><dd>—/)
   assert.match(html, /Salary<\/dt><dd>—/)
-  assert.match(html, /href="#history"/)
+  assert.doesNotMatch(html, /href="#history"/)
   assert.doesNotMatch(html, /transferTimeline/)
 })
 test("prepared transfer presentation keeps raw fee separate and does not infer salary or market value", () => {
   const html = renderToStaticMarkup(React.createElement(History, { locale: "pt", data: { source: "fixture", transfers: [
-    { id: "fixture", date: "2026-01-03", from: "Fixture A", to: "Fixture B", typeRaw: "Free" },
+    { date: "2026-01-03", from: "Fixture A", to: "Fixture B", typeRaw: "Free" },
   ] } }))
   assert.match(html, /Fixture A → Fixture B/)
   assert.match(html, />Free</)

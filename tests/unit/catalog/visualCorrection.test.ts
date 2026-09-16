@@ -61,7 +61,7 @@ test("real-life fields remain independent of catalog club and nationality in PT/
     assert.match(html, /EA fixture/)
     assert.match(html, locale === "pt" ? /Clube atual confirmado<\/dt><dd>—/ : /Confirmed current club<\/dt><dd>—/)
     assert.match(html, locale === "pt" ? /Liga real<\/dt><dd>—/ : /Real-world league<\/dt><dd>—/)
-    assert.match(html, /href="#history"/)
+    assert.doesNotMatch(html, /href="#history"/)
     assert.doesNotMatch(html, /transferTimeline/)
   }
 })
@@ -82,12 +82,12 @@ test("history belongs to real life and does not render unverified transfer evide
   const html = renderToStaticMarkup(createElement(History, { locale: "en", data }))
   assert.match(html, /id="history"/)
   assert.match(html, /data-domain="real"/)
-  assert.match(html, /Real Life/)
+  assert.match(html, /Career summary/)
   assert.match(html, /Verified history is not yet available/)
   assert.doesNotMatch(html, /Loan|transferTimeline/)
 })
 
-test("profile navigation resolves all anchors and keeps history after the EA sections", async () => {
+test("profile navigation resolves local anchors and routes history to its own page", async () => {
   const marker = () => null
   const { default: Page } = loadCatalogModule<typeof import("../../../app/[locale]/jogadores/[slug]/page")>("app/[locale]/jogadores/[slug]/page.tsx", {
     "next/navigation": { notFound: () => { throw new Error("unexpected") } },
@@ -99,11 +99,12 @@ test("profile navigation resolves all anchors and keeps history after the EA sec
   })
   for (const locale of ["pt", "en"] as const) {
     const html = renderToStaticMarkup(await Page({ params: Promise.resolve({ locale, slug: "fixture" }) }))
-    for (const id of ["overview", "ea-sports-fc", "real-life", "attributes", "playstyles", "statistics", "history"]) {
+    for (const id of ["overview", "ea-sports-fc", "real-life", "attributes", "playstyles", "statistics"]) {
       assert.match(html, new RegExp(`href="#${id}"`))
       assert.equal((html.match(new RegExp(`id="${id}"`, "g")) ?? []).length, 1)
     }
-    assert.ok(html.indexOf('id="history"') > html.indexOf('id="playstyles"'))
+    assert.ok(html.includes(`href="/${locale}/jogadores/fixture/historico"`))
+    assert.doesNotMatch(html, /id="history"|transferTimeline/)
     assert.match(html, /EA SPORTS FC/)
   }
 })
