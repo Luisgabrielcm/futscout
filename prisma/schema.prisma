@@ -59,6 +59,8 @@ model Club {
 
   officialLineupSnapshots ClubOfficialLineupSnapshot[]
   currentClubStates      PlayerCurrentClubState[]
+  approvedCurrentClubs   PlayerApprovedCurrentClub[]
+  currentClubProposals   PlayerCurrentClubProposal[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -185,6 +187,8 @@ model Player {
   // Optional relations only: no new scalar columns in legacy Player queries.
   transferObservations PlayerTransferObservation[]
   currentClubState     PlayerCurrentClubState?
+  approvedCurrentClub PlayerApprovedCurrentClub?
+  currentClubProposals PlayerCurrentClubProposal[]
 
   /**
    * MATCHER API-FOOTBALL
@@ -263,6 +267,76 @@ model PlayerCurrentClubState {
 
   @@index([clubId, status], map: "current_club_state_club_idx")
   @@index([decision, evaluatedAt], map: "current_club_state_review_idx")
+}
+
+// V2 preparation only. Legacy PlayerCurrentClubState remains untouched until an
+// independently authorized data transition. Player.clubId always remains EA.
+enum CurrentClubProposalStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+  SUPERSEDED
+  REVIEW
+  CONFLICT
+}
+
+model PlayerCurrentClubProposal {
+  id                     String @id
+  playerId               String
+  player                 Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  providerPlayerId       Int
+  revision               Int
+  version                Int @default(1)
+  baseApprovedVersion    Int
+  proposedClubId         String?
+  proposedClub           Club? @relation(fields: [proposedClubId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  proposedProviderTeamId Int?
+  effectiveSince         DateTime?
+  decision               String
+  evidenceHash           String
+  observationHashes      String[] @default([])
+  policyVersion          String
+  replacementPolicy      String
+  evidence               Json
+  warnings               String[] @default([])
+  supportingEvidence     Json
+  contradictingEvidence  Json
+  status                 CurrentClubProposalStatus
+  statusReason           String
+  evaluatedAt            DateTime
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  supersededById         String?
+  supersededBy           PlayerCurrentClubProposal? @relation("ProposalSupersession", fields: [supersededById, playerId], references: [id, playerId], onDelete: Restrict, onUpdate: Restrict)
+  supersededProposals    PlayerCurrentClubProposal[] @relation("ProposalSupersession")
+  sourceLegacyStateId    String? @unique
+  approvedState          PlayerApprovedCurrentClub?
+
+  @@unique([id, playerId])
+  @@unique([playerId, revision])
+  @@index([playerId, status, evaluatedAt])
+}
+
+model PlayerApprovedCurrentClub {
+  playerId               String @id
+  player                 Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  approvedClubId         String?
+  approvedClub           Club? @relation(fields: [approvedClubId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  approvedProviderTeamId Int?
+  effectiveSince         DateTime?
+  evidenceHash           String
+  approvedAt             DateTime
+  source                 String
+  decision               String
+  metadata               Json
+  version                Int
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  sourceProposalId       String @unique
+  sourceProposal         PlayerCurrentClubProposal @relation(fields: [sourceProposalId, playerId], references: [id, playerId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([sourceProposalId, playerId])
+  @@index([approvedClubId])
 }
 
 model PlayerAttributes {

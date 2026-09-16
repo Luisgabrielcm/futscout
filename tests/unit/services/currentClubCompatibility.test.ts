@@ -7,6 +7,7 @@ import { separatePlayerClubDimensions } from "../../../lib/currentClubPresentati
 
 test("actual EA sync with fake storage keeps real-life B intact while EA/catalog becomes A", async () => {
   const realState = Object.freeze({ playerId: "player", clubId: "real-B", providerTeamId: 202, status: "APPROVED" })
+  const pendingProposal = Object.freeze({ id: "proposal-C", playerId: "player", proposedClubId: "real-C", status: "PROPOSED" })
   const legacyPlayer: Record<string, unknown> = { id: "player", slug: "example", externalId: "ea-id", clubId: "old-ea" }
   const operations: string[] = []
   const prisma = new Proxy({
@@ -30,6 +31,7 @@ test("actual EA sync with fake storage keeps real-life B intact while EA/catalog
   assert.deepEqual(failures, [])
   assert.equal(result.success, 1); assert.equal(result.failed, 0)
   assert.equal(legacyPlayer.clubId, "ea-A"); assert.equal(realState.clubId, "real-B")
+  assert.equal(pendingProposal.proposedClubId, "real-C"); assert.equal(pendingProposal.status, "PROPOSED")
   assert.deepEqual(operations, ["EA league", "EA club", "EA player", "EA attributes"])
   const dto = separatePlayerClubDimensions({ id: "ea-A", name: "EA A", slug: "ea-a" }, null, [], { id: "real-B", name: "Real B", slug: "real-b" })
   assert.equal(dto.eaCatalogClub?.id, "ea-A"); assert.equal(dto.realLifeClub?.id, "real-B")
