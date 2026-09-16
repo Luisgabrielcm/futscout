@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { existsSync } from "node:fs"
 import { test } from "node:test"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
@@ -7,16 +8,17 @@ import { Image, Flag } from "../../helpers/clubExperienceFixture"
 import { catalogPlayer } from "../../fixtures/catalogPlayer"
 import { mapDatabasePlayer } from "../../../mappers/mapDatabasePlayer"
 import { displayNationality } from "../../../lib/i18n/countries"
-import { getPlayStyleVisual, styles, playStyleNamesPt } from "../../../lib/playStyleAssets"
+import { getPlayStyleVisual, styles, playStyleArtwork, playStyleNamesPt } from "../../../lib/playStyleAssets"
 import * as playStyleAssets from "../../../lib/playStyleAssets"
 import * as levels from "../../../utils/getAttributeLevel"
 import * as positions from "../../../lib/playerProfilePositions"
 import { formatCurrency } from "../../../utils/formatCurrency"
 import { getOverallDifference } from "../../../utils/getOverallDifference"
+import type { PlayerPlayStyle } from "../../../types/player"
 
 const { default: Attributes } = loadCatalogModule<typeof import("../../../app/components/PlayerAttributes")>("app/components/PlayerAttributes.tsx", { "../../utils/getAttributeLevel": levels })
 const { default: Quick } = loadCatalogModule<typeof import("../../../app/components/PlayerQuickProfile")>("app/components/PlayerQuickProfile.tsx", {})
-const { default: PlayStyles } = loadCatalogModule<typeof import("../../../app/components/PlayerPlayStyles")>("app/components/PlayerPlayStyles.tsx", { "../../lib/playStyleAssets": playStyleAssets, "./PlayerImage": Image })
+const { default: PlayStyles } = loadCatalogModule<typeof import("../../../app/components/PlayerPlayStyles")>("app/components/PlayerPlayStyles.tsx", { "../../lib/playStyleAssets": playStyleAssets, "./PlayStyleIcon": ({ playStyle, locale }: { playStyle: PlayerPlayStyle; locale?: "pt" | "en" }) => { const visual = playStyleAssets.getPlayStyleVisual(playStyle, locale); return visual.iconSrc ? createElement("img", { src: visual.iconSrc, alt: visual.displayName }) : null } })
 const { default: Header } = loadCatalogModule<typeof import("../../../app/components/PlayerHeader")>("app/components/PlayerHeader.tsx", {
   "./PlayerImage": Image, "./CountryFlag": Flag, "../../lib/playerProfilePositions": positions,
   "../../utils/formatCurrency": { formatCurrency }, "../../utils/getOverallDifference": { getOverallDifference },
@@ -35,13 +37,18 @@ test("nationality display translates exact countries only, without changing iden
 
 test("every allowed PlayStyle has presentation text, with canonical key and Plus unchanged", () => {
   assert.equal(styles.length, 36)
+  assert.equal(Object.keys(playStyleArtwork).length, styles.length)
+  assert.equal(new Set(styles.map(style => style.key)).size, styles.length)
   for (const style of styles) {
+    assert.ok(playStyleArtwork[style.key])
     assert.ok(playStyleNamesPt[style.key])
     const input = { id: style.key, name: style.name, level: "plus" as const }
     const pt = getPlayStyleVisual(input, "pt"), en = getPlayStyleVisual(input, "en")
     assert.equal(pt.playStyleKey, en.playStyleKey)
     assert.equal(pt.isPlus, true)
-    assert.equal(pt.iconSrc, null)
+    assert.match(pt.iconSrc ?? "", /^\/playstyles\/.+\.svg$/)
+    assert.ok(existsSync(`public${pt.iconSrc}`))
+    assert.equal(pt.iconSrc, en.iconSrc)
     assert.equal(en.displayName, style.name)
   }
   assert.equal(getPlayStyleVisual({ id: "relentless", name: "Relentless", level: "normal" }, "pt").displayName, "Incansável")

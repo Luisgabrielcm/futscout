@@ -7,11 +7,12 @@ import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import { getPlayStyleIcon, getPlayStyleVisual } from "../../../lib/playStyleAssets"
 import { mapDatabasePlayer } from "../../../mappers/mapDatabasePlayer"
 import { catalogPlayer } from "../../fixtures/catalogPlayer"
+import type { PlayerPlayStyle } from "../../../types/player"
 
 const { default: Badge } = loadCatalogModule<typeof import("../../../app/components/ClubBadge")>("app/components/ClubBadge.tsx", {})
 const { default: Career } = loadCatalogModule<typeof import("../../../app/components/PlayerCareer")>("app/components/PlayerCareer.tsx", {})
 const { default: History } = loadCatalogModule<typeof import("../../../app/components/PlayerHistory")>("app/components/PlayerHistory.tsx", {})
-const { default: PlayStyles } = loadCatalogModule<typeof import("../../../app/components/PlayerPlayStyles")>("app/components/PlayerPlayStyles.tsx", {})
+const { default: PlayStyles } = loadCatalogModule<typeof import("../../../app/components/PlayerPlayStyles")>("app/components/PlayerPlayStyles.tsx", { "./PlayStyleIcon": ({ playStyle, locale }: { playStyle: PlayerPlayStyle; locale?: "pt" | "en" }) => { const visual = getPlayStyleVisual(playStyle, locale); return visual.iconSrc ? createElement("img", { src: visual.iconSrc, alt: visual.displayName }) : null } })
 
 test("shared club badge uses supplied artwork with dimensions and lazy loading", () => {
   const html = renderToStaticMarkup(createElement(Badge, { name: "Fixture Club", src: "/clubs/fixture.svg", size: "small" }))
@@ -37,10 +38,11 @@ test("PlayStyle asset mapping is explicit and separates normal from plus artwork
   assert.equal(getPlayStyleIcon("unknown", false, fixture), null)
   assert.equal(getPlayStyleIcon("rapid", true, { rapid: { normal: "/playstyles/rapid.svg" } }), null)
   assert.equal(getPlayStyleIcon("rapid", false, { rapid: { normal: "javascript:bad" } }), null)
-  assert.equal(getPlayStyleVisual({ id: "rapid", name: "Rapid", level: "normal" }).iconSrc, null)
+  assert.equal(getPlayStyleVisual({ id: "rapid", name: "Rapid", level: "normal" }).iconSrc, "/playstyles/speed.svg")
+  assert.equal(getPlayStyleVisual({ id: "rapid", name: "Rapid", level: "plus" }).iconSrc, "/playstyles/speed.svg")
 })
 
-test("missing PlayStyle art renders readable names, not empty circles or fabricated icons", () => {
+test("known PlayStyle art renders a local FutScout icon and Plus marker", () => {
   const player = mapDatabasePlayer(catalogPlayer())
   player.playStyles = [{ id: "rapid", name: "Rapid", level: "plus" }]
   for (const locale of ["pt", "en"] as const) {
@@ -48,8 +50,18 @@ test("missing PlayStyle art renders readable names, not empty circles or fabrica
     assert.match(html, /playStylePlus/)
     assert.match(html, /PlayStyle\+/)
     assert.ok(html.includes(locale === "pt" ? "Veloz" : "Rapid"))
-    assert.doesNotMatch(html, /class="playStyleIcon"|<img|role="img"/)
+    assert.match(html, /class="playStyleIcon"/)
+    assert.match(html, /src="\/playstyles\/speed.svg"/)
+    assert.doesNotMatch(html, /Arte do PlayStyle indisponível/)
   }
+})
+
+test("unknown PlayStyle keeps the honest text fallback", () => {
+  const player = mapDatabasePlayer(catalogPlayer())
+  player.playStyles = [{ id: "unknown-style", name: "Unknown Style", level: "normal" }]
+  const html = renderToStaticMarkup(createElement(PlayStyles, { player, locale: "en" }))
+  assert.doesNotMatch(html, /class="playStyleIcon"|<img/)
+  assert.match(html, /PlayStyle artwork unavailable/)
 })
 
 test("real-life fields remain independent of catalog club and nationality in PT/EN", () => {

@@ -4,7 +4,7 @@ import type {
   Player,
 } from "../../types/player"
 import { getPlayStyleVisual } from "../../lib/playStyleAssets"
-import PlayerImage from "./PlayerImage"
+import PlayStyleIcon from "./PlayStyleIcon"
 import Link from "next/link"
 import { relatedPlayersHref } from "../../lib/connectedNavigation"
 import { styles } from "../../lib/playStyleAssets"
@@ -61,8 +61,7 @@ export default function PlayerPlayStyles({ locale = "pt",
                     className="playStyleIcon"
                     title={iconSrc ? displayName : t(locale, "Arte do PlayStyle indisponível")}
                   >
-                    <PlayerImage locale={locale} src={iconSrc} alt={displayName} kind="asset" width={32} height={32}
-                      loading="lazy" fallbackText="" />
+                    <PlayStyleIcon locale={locale} playStyle={playStyle} />
                   </div>}
 
                   <div

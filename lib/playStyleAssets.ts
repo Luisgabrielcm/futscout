@@ -2,9 +2,31 @@ import type { PlayerPlayStyle } from "../types/player"
 import type { Locale } from "./i18n/config"
 import { getVisualAssetSrc } from "./visualAssets"
 
-// Populate only after artwork and usage rights are verified. No URL derivation.
+// Central registry for original FutScout artwork. No URL derivation from providers.
 export type PlayStyleArtwork = Readonly<Record<string, { normal?: string; plus?: string }>>
-export const playStyleArtwork: PlayStyleArtwork = {}
+
+// Original FutScout glyphs. These are conceptual symbols, not EA artwork.
+const glyph = (name: string) => `/playstyles/${name}.svg`
+export const playStyleArtwork: PlayStyleArtwork = {
+  anticipate: { normal: glyph("defense"), plus: glyph("defense") }, block: { normal: glyph("defense"), plus: glyph("defense") },
+  "cross-claimer": { normal: glyph("passing"), plus: glyph("passing") }, "dead-ball": { normal: glyph("passing"), plus: glyph("passing") },
+  deflector: { normal: glyph("defense"), plus: glyph("defense") }, "far-reach": { normal: glyph("speed"), plus: glyph("speed") },
+  "far-throw": { normal: glyph("passing"), plus: glyph("passing") }, footwork: { normal: glyph("speed"), plus: glyph("speed") },
+  "incisive-pass": { normal: glyph("passing"), plus: glyph("passing") }, intercept: { normal: glyph("defense"), plus: glyph("defense") },
+  jockey: { normal: glyph("defense"), plus: glyph("defense") }, "long-throw": { normal: glyph("passing"), plus: glyph("passing") },
+  "pinged-pass": { normal: glyph("passing"), plus: glyph("passing") }, "rush-out": { normal: glyph("speed"), plus: glyph("speed") },
+  trickster: { normal: glyph("control"), plus: glyph("control") }, "power-shot": { normal: glyph("finishing"), plus: glyph("finishing") },
+  "long-ball-pass": { normal: glyph("passing"), plus: glyph("passing") }, "aerial-fortress": { normal: glyph("defense"), plus: glyph("defense") },
+  "press-proven": { normal: glyph("stamina"), plus: glyph("stamina") }, bruiser: { normal: glyph("physical"), plus: glyph("physical") },
+  "tiki-taka": { normal: glyph("control"), plus: glyph("control") }, "chip-shot": { normal: glyph("finishing"), plus: glyph("finishing") },
+  enforcer: { normal: glyph("defense"), plus: glyph("defense") }, "precision-header": { normal: glyph("finishing"), plus: glyph("finishing") },
+  "low-driven-shot": { normal: glyph("finishing"), plus: glyph("finishing") }, acrobatic: { normal: glyph("finishing"), plus: glyph("finishing") },
+  gamechanger: { normal: glyph("stamina"), plus: glyph("stamina") }, "first-touch": { normal: glyph("control"), plus: glyph("control") },
+  inventive: { normal: glyph("control"), plus: glyph("control") }, technical: { normal: glyph("control"), plus: glyph("control") },
+  relentless: { normal: glyph("stamina"), plus: glyph("stamina") }, "slide-tackle": { normal: glyph("defense"), plus: glyph("defense") },
+  "finesse-shot": { normal: glyph("finishing"), plus: glyph("finishing") }, rapid: { normal: glyph("speed"), plus: glyph("speed") },
+  "quick-step": { normal: glyph("speed"), plus: glyph("speed") }, "whipped-pass": { normal: glyph("passing"), plus: glyph("passing") },
+}
 export function getPlayStyleIcon(key: string, isPlus: boolean, artwork: PlayStyleArtwork = playStyleArtwork): string | null {
   const src = artwork[key]?.[isPlus ? "plus" : "normal"]
   return getVisualAssetSrc(src, "asset")
@@ -24,8 +46,8 @@ export function normalizePlayStyleKey(value: string): string {
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
 }
 
-// Central registry; no local PlayStyle artwork exists yet. Do not synthesize
-// EA URLs or substitute unrelated glyphs. Aliases are exact, never fuzzy.
+// Central registry; aliases are exact, never fuzzy. Provider artwork is never
+// synthesized or substituted for these original FutScout glyphs.
 export const styles: { key: string; name: string; aliases?: string[] }[] = [
   ...["anticipate", "block", "cross-claimer", "dead-ball", "deflector", "far-reach", "far-throw", "footwork", "incisive-pass", "intercept", "jockey", "long-throw", "pinged-pass", "rush-out", "trickster"].map(key => ({ key, name: key.split("-").map(word => word[0].toUpperCase() + word.slice(1)).join(" ") })),
   { key: "power-shot", name: "Power Shot", aliases: ["powershot"] },

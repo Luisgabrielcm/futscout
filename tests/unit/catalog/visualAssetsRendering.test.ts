@@ -12,6 +12,7 @@ import { mapDatabasePlayer } from "../../../mappers/mapDatabasePlayer"
 import { catalogPlayer } from "../../fixtures/catalogPlayer"
 import { formatCurrency } from "../../../utils/formatCurrency"
 import { getOverallDifference } from "../../../utils/getOverallDifference"
+import type { PlayerPlayStyle } from "../../../types/player"
 
 const { default: Image } = loadCatalogModule<typeof import("../../../app/components/PlayerImage")>(
   "app/components/PlayerImage.tsx", { react: React, "../../lib/visualAssets": visualAssets },
@@ -27,7 +28,7 @@ const { default: Header } = loadCatalogModule<typeof import("../../../app/compon
   },
 )
 const { default: PlayStyles } = loadCatalogModule<typeof import("../../../app/components/PlayerPlayStyles")>(
-  "app/components/PlayerPlayStyles.tsx", { "../../lib/playStyleAssets": playStyleAssets, "./PlayerImage": Image },
+  "app/components/PlayerPlayStyles.tsx", { "../../lib/playStyleAssets": playStyleAssets, "./PlayStyleIcon": ({ playStyle, locale }: { playStyle: PlayerPlayStyle; locale?: "pt" | "en" }) => { const visual = playStyleAssets.getPlayStyleVisual(playStyle, locale); return visual.iconSrc ? createElement("img", { src: visual.iconSrc, alt: visual.displayName }) : null } },
 )
 
 test("header renders each player's own supplied image and club badge", () => {
@@ -124,7 +125,7 @@ test("broken flag disappears without removing the country's readable name", () =
   assert.match(html, /França<\/span>/)
 })
 
-test("PlayStyle cards use canonical names, neutral art fallback and explicit Plus text", () => {
+test("PlayStyle cards use local FutScout art, canonical names and explicit Plus text", () => {
   const player = mapDatabasePlayer(catalogPlayer())
   player.playStyles = [
     { id: "powerShot", name: "Power Shot", level: "normal" },
@@ -135,7 +136,8 @@ test("PlayStyle cards use canonical names, neutral art fallback and explicit Plu
   assert.match(html, /data-playstyle="power-shot"/)
   assert.match(html, /playStylePlus/)
   assert.match(html, /PlayStyle\+/)
-  assert.match(html, /Arte do PlayStyle indisponível/)
+  assert.match(html, /src="\/playstyles\/finishing\.svg"/)
   assert.match(html, /Unknown/)
-  assert.doesNotMatch(html, /★|◆|<img/)
+  assert.match(html, /Arte do PlayStyle indisponível/)
+  assert.doesNotMatch(html, /★|◆/)
 })

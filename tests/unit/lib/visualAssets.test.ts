@@ -69,7 +69,7 @@ test("PlayStyle names and keys normalize spaces, accents, hyphens and legacy spe
     ["Bruiser", "bruiser"], ["tikitaka", "tiki-taka"]]) {
     const visual = getPlayStyleVisual({ id: input, name: input, level: "normal" })
     assert.equal(visual.playStyleKey, key)
-    assert.equal(visual.iconSrc, null)
+    assert.match(visual.iconSrc ?? "", /^\/playstyles\/.+\.svg$/)
     assert.equal(visual.isPlus, false)
   }
   assert.equal(normalizePlayStyleKey(" Power Shot+ "), "power-shot")

@@ -11,12 +11,13 @@ import * as positions from "../../../lib/playerProfilePositions"
 import * as styles from "../../../lib/playStyleAssets"
 import { formatCurrency } from "../../../utils/formatCurrency"
 import { getOverallDifference } from "../../../utils/getOverallDifference"
+import type { PlayerPlayStyle } from "../../../types/player"
 
 const { default: Header } = loadCatalogModule<typeof import("../../../app/components/PlayerHeader")>("app/components/PlayerHeader.tsx", {
   "./PlayerImage": Image, "./CountryFlag": Flag, "../../lib/playerProfilePositions": positions,
   "../../utils/formatCurrency": { formatCurrency }, "../../utils/getOverallDifference": { getOverallDifference },
 })
-const { default: PlayStyles } = loadCatalogModule<typeof import("../../../app/components/PlayerPlayStyles")>("app/components/PlayerPlayStyles.tsx", { "../../lib/playStyleAssets": styles, "./PlayerImage": Image })
+const { default: PlayStyles } = loadCatalogModule<typeof import("../../../app/components/PlayerPlayStyles")>("app/components/PlayerPlayStyles.tsx", { "../../lib/playStyleAssets": styles, "./PlayStyleIcon": ({ playStyle, locale }: { playStyle: PlayerPlayStyle; locale?: "pt" | "en" }) => { const visual = styles.getPlayStyleVisual(playStyle, locale); return visual.iconSrc ? createElement("img", { src: visual.iconSrc, alt: visual.displayName }) : null } })
 
 for (const locale of ["pt", "en"] as const) {
   test(`${locale}: actual header links only persisted club/league slugs and real contextual values`, () => {
