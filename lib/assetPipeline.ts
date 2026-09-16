@@ -1,45 +1,74 @@
 import { getVisualAssetSrc, type ImageKind } from "./visualAssets"
 
 export type AssetRightsStatus =
-  | "LOCAL_APPROVED"
-  | "REMOTE_REFERENCE_ALLOWED"
+  | "APPROVED"
+  | "REMOTE_ONLY"
   | "CACHE_ALLOWED"
-  | "SOURCE_REVIEW_REQUIRED"
-  | "UNAVAILABLE"
+  | "REVIEW_REQUIRED"
+  | "BLOCKED"
+
+export type AssetStatus =
+  | "DISCOVERED"
+  | "VALIDATED"
+  | "ACTIVE"
+  | "STALE"
+  | "REMOVED"
+  | "ERROR"
+
+export type BrandAssetEntityType = Extract<ImageKind, "club" | "league">
+export type BrandAssetType = "CREST" | "LOGO"
 
 export type AssetIdentity = Readonly<{
-  kind: ImageKind
+  entityType: BrandAssetEntityType
   provider: string
-  providerAssetId: string | number
+  providerEntityId: string | number
+  assetType: BrandAssetType
 }>
 
 export type AssetReference = Readonly<{
   identity: AssetIdentity
+  entityId: string
   sourceUrl: string
-  status: AssetRightsStatus
-  contentHash?: string
-  fetchedAt?: string
-  version?: string
+  storageUrl?: string | null
+  contentHash?: string | null
+  version: number
+  fetchedAt: string
+  rightsStatus: AssetRightsStatus
+  status: AssetStatus
 }>
 
 export type AssetRegistry = ReadonlyMap<string, AssetReference>
 
 export function assetIdentityKey(identity: AssetIdentity): string {
-  return `${identity.kind}:${identity.provider}:${String(identity.providerAssetId).trim()}`
+  return [identity.entityType, identity.provider.trim().toLowerCase(), String(identity.providerEntityId).trim(), identity.assetType].join(":")
 }
 
 /** Resolve only by a provider identity; names are deliberately not considered. */
 export function resolveAssetByIdentity(identity: AssetIdentity | null | undefined, registry: AssetRegistry): AssetReference | null {
-  if (!identity || String(identity.providerAssetId).trim() === "") return null
+  if (!identity || !identity.provider.trim() || String(identity.providerEntityId).trim() === "") return null
   const reference = registry.get(assetIdentityKey(identity))
-  return reference ? normalizeAssetReference(reference) : null
+  return reference && assetIdentityKey(reference.identity) === assetIdentityKey(identity)
+    ? normalizeAssetReference(reference) : null
+}
+
+function permittedAssetUrl(reference: AssetReference): string | null {
+  if (reference.status !== "ACTIVE") return null
+  if (reference.rightsStatus === "REVIEW_REQUIRED" || reference.rightsStatus === "BLOCKED") return null
+
+  const sourceUrl = getVisualAssetSrc(reference.sourceUrl, reference.identity.entityType)
+  const storageUrl = getVisualAssetSrc(reference.storageUrl, reference.identity.entityType)
+  if (reference.rightsStatus === "REMOTE_ONLY") return sourceUrl
+  return storageUrl ?? sourceUrl
 }
 
 export function normalizeAssetReference(reference: AssetReference): AssetReference | null {
-  if (reference.status === "UNAVAILABLE" || reference.status === "SOURCE_REVIEW_REQUIRED") return null
-  const sourceUrl = getVisualAssetSrc(reference.sourceUrl, reference.identity.kind)
-  if (!sourceUrl) return null
-  return sourceUrl === reference.sourceUrl ? reference : { ...reference, sourceUrl }
+  const compatibleType = (reference.identity.entityType === "club" && reference.identity.assetType === "CREST") ||
+    (reference.identity.entityType === "league" && reference.identity.assetType === "LOGO")
+  if (!reference.entityId.trim() || !reference.identity.provider.trim() ||
+      String(reference.identity.providerEntityId).trim() === "" || !Number.isInteger(reference.version) || reference.version < 1 ||
+      !compatibleType ||
+      !Number.isFinite(Date.parse(reference.fetchedAt)) || !permittedAssetUrl(reference)) return null
+  return reference
 }
 
 /** Remove duplicate references while preserving first-seen order. */
@@ -56,5 +85,6 @@ export function deduplicateAssetReferences(references: readonly AssetReference[]
 export function resolveAssetSource(input: string | AssetReference | null | undefined, kind: ImageKind): string | null {
   if (!input) return null
   if (typeof input === "string") return getVisualAssetSrc(input, kind)
-  return normalizeAssetReference(input)?.sourceUrl ?? null
+  if (input.identity.entityType !== kind || !normalizeAssetReference(input)) return null
+  return permittedAssetUrl(input)
 }

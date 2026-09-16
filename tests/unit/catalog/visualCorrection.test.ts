@@ -5,11 +5,14 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { readFileSync } from "node:fs"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import { getPlayStyleIcon, getPlayStyleVisual } from "../../../lib/playStyleAssets"
+import type { AssetReference } from "../../../lib/assetPipeline"
 import { mapDatabasePlayer } from "../../../mappers/mapDatabasePlayer"
 import { catalogPlayer } from "../../fixtures/catalogPlayer"
 import type { PlayerPlayStyle } from "../../../types/player"
 
 const { default: Badge } = loadCatalogModule<typeof import("../../../app/components/ClubBadge")>("app/components/ClubBadge.tsx", {})
+const { default: ClubLogo } = loadCatalogModule<typeof import("../../../app/components/ClubLogo")>("app/components/ClubLogo.tsx", {})
+const { default: LeagueLogo } = loadCatalogModule<typeof import("../../../app/components/LeagueLogo")>("app/components/LeagueLogo.tsx", {})
 const { default: Career } = loadCatalogModule<typeof import("../../../app/components/PlayerCareer")>("app/components/PlayerCareer.tsx", {})
 const { default: History } = loadCatalogModule<typeof import("../../../app/components/PlayerHistory")>("app/components/PlayerHistory.tsx", {})
 const { default: PlayStyles } = loadCatalogModule<typeof import("../../../app/components/PlayerPlayStyles")>("app/components/PlayerPlayStyles.tsx", { "./PlayStyleIcon": ({ playStyle, locale }: { playStyle: PlayerPlayStyle; locale?: "pt" | "en" }) => { const visual = getPlayStyleVisual(playStyle, locale); return visual.iconSrc ? createElement("img", { src: visual.iconSrc, alt: visual.displayName }) : null } })
@@ -20,6 +23,37 @@ test("shared club badge uses supplied artwork with dimensions and lazy loading",
   assert.match(html, /width="24" height="24" loading="lazy"/)
   assert.match(html, /alt="Fixture Club"/)
   assert.doesNotMatch(html, /clubBadgeFallback/)
+})
+
+test("ClubLogo and LeagueLogo enforce the central rights gate without knowing the provider", () => {
+  const base: AssetReference = {
+    identity: { entityType: "club", provider: "fixture-provider", providerEntityId: "50", assetType: "CREST" },
+    entityId: "fixture-club",
+    sourceUrl: "https://media.example.test/teams/50.png",
+    storageUrl: "/clubs/fixture.svg",
+    version: 1,
+    fetchedAt: "2026-09-16T12:00:00.000Z",
+    rightsStatus: "APPROVED",
+    status: "ACTIVE",
+  }
+  const club = renderToStaticMarkup(createElement(ClubLogo, { locale: "en", name: "Fixture Club", asset: base }))
+  assert.match(club, /src="\/clubs\/fixture\.svg"/)
+
+  const blockedClub = renderToStaticMarkup(createElement(Badge, { locale: "en", name: "Blocked Club", asset: { ...base, rightsStatus: "BLOCKED" } }))
+  assert.match(blockedClub, /clubBadgeFallback/)
+  assert.doesNotMatch(blockedClub, /<img/)
+
+  const leagueAsset: AssetReference = {
+    ...base,
+    identity: { entityType: "league", provider: "fixture-provider", providerEntityId: "39", assetType: "LOGO" },
+    entityId: "fixture-league",
+    sourceUrl: "https://media.example.test/leagues/39.png",
+    storageUrl: "/leagues/fixture.svg",
+  }
+  const league = renderToStaticMarkup(createElement(LeagueLogo, { locale: "en", name: "Fixture League", asset: leagueAsset }))
+  assert.match(league, /src="\/leagues\/fixture\.svg"/)
+  const blockedLeague = renderToStaticMarkup(createElement(LeagueLogo, { locale: "en", name: "Blocked League", asset: { ...leagueAsset, rightsStatus: "REVIEW_REQUIRED" } }))
+  assert.equal(blockedLeague, "")
 })
 
 test("club absence and wrong-context image use neutral FutScout, never another club's initial", () => {

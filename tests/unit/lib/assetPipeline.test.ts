@@ -10,26 +10,64 @@ import {
 } from "../../../lib/assetPipeline"
 
 const club: AssetReference = {
-  identity: { kind: "club", provider: "api-football", providerAssetId: 50 },
-  sourceUrl: "/clubs/real-madrid.svg", status: "LOCAL_APPROVED",
+  identity: { entityType: "club", provider: "api-football", providerEntityId: 50, assetType: "CREST" },
+  entityId: "club-manchester-city",
+  sourceUrl: "https://media.example.test/teams/50.png",
+  storageUrl: "/clubs/manchester-city.svg",
+  contentHash: "sha256:fixture",
+  version: 1,
+  fetchedAt: "2026-09-16T12:00:00.000Z",
+  rightsStatus: "APPROVED",
+  status: "ACTIVE",
 }
 
-test("asset pipeline resolves clubs and leagues by provider identity only", () => {
-  const league: AssetReference = { identity: { kind: "league", provider: "catalog", providerAssetId: "laliga" }, sourceUrl: "/leagues/laliga.svg", status: "LOCAL_APPROVED" }
-  const registry = new Map([[assetIdentityKey(club.identity), club], [assetIdentityKey(league.identity), league]])
-  assert.equal(resolveAssetByIdentity(club.identity, registry)?.sourceUrl, club.sourceUrl)
-  assert.equal(resolveAssetByIdentity(league.identity, registry)?.sourceUrl, league.sourceUrl)
-  assert.equal(resolveAssetByIdentity({ ...club.identity, providerAssetId: 999 }, registry), null)
+test("asset registry resolves only an exact provider identity and asset type", () => {
+  const league: AssetReference = {
+    ...club,
+    identity: { entityType: "league", provider: "api-football", providerEntityId: 39, assetType: "LOGO" },
+    entityId: "league-premier-league",
+    sourceUrl: "https://media.example.test/leagues/39.png",
+    storageUrl: "/leagues/premier-league.svg",
+  }
+  const registry = new Map([
+    [assetIdentityKey(club.identity), club],
+    [assetIdentityKey(league.identity), league],
+  ])
+
+  assert.equal(resolveAssetByIdentity(club.identity, registry), club)
+  assert.equal(resolveAssetByIdentity(league.identity, registry), league)
+  assert.equal(resolveAssetByIdentity({ ...club.identity, providerEntityId: 999 }, registry), null)
+  assert.equal(resolveAssetByIdentity({ ...club.identity, assetType: "LOGO" }, registry), null)
+  const forged = new Map([[assetIdentityKey(club.identity), { ...club, identity: { ...club.identity, providerEntityId: 541 } }]])
+  assert.equal(resolveAssetByIdentity(club.identity, forged), null)
 })
 
-test("invalid, unavailable, or rights-uncertain assets fall back safely", () => {
+test("rights gate chooses only the URL allowed by the explicit policy", () => {
+  assert.equal(resolveAssetSource(club, "club"), "/clubs/manchester-city.svg")
+  assert.equal(resolveAssetSource({ ...club, rightsStatus: "REMOTE_ONLY" }, "club"), club.sourceUrl)
+  assert.equal(resolveAssetSource({ ...club, rightsStatus: "CACHE_ALLOWED" }, "club"), club.storageUrl)
+  assert.equal(resolveAssetSource({ ...club, rightsStatus: "REVIEW_REQUIRED" }, "club"), null)
+  assert.equal(resolveAssetSource({ ...club, rightsStatus: "BLOCKED" }, "club"), null)
+})
+
+test("non-active, malformed and wrong-context assets retain the FutScout fallback", () => {
+  assert.equal(resolveAssetSource({ ...club, status: "VALIDATED" }, "club"), null)
+  assert.equal(resolveAssetSource({ ...club, sourceUrl: "javascript:bad", storageUrl: null }, "club"), null)
+  assert.equal(resolveAssetSource({ ...club, fetchedAt: "invalid" }, "club"), null)
+  assert.equal(resolveAssetSource({ ...club, version: 0 }, "club"), null)
+  assert.equal(resolveAssetSource({ ...club, identity: { ...club.identity, assetType: "LOGO" } }, "club"), null)
+  assert.equal(resolveAssetSource(club, "league"), null)
   assert.equal(resolveAssetSource("/player-shields/en/1.png", "club"), null)
-  assert.equal(normalizeAssetReference({ ...club, sourceUrl: "javascript:bad" }), null)
-  assert.equal(normalizeAssetReference({ ...club, status: "UNAVAILABLE" }), null)
-  assert.equal(normalizeAssetReference({ ...club, status: "SOURCE_REVIEW_REQUIRED" }), null)
+  assert.equal(normalizeAssetReference({ ...club, entityId: "" }), null)
 })
 
-test("asset references are deduplicated by identity, preserving first occurrence", () => {
-  const duplicate = { ...club, sourceUrl: "/clubs/updated.svg" }
-  assert.deepEqual(deduplicateAssetReferences([club, duplicate]), [club])
+test("remote-only never leaks a cached copy and approved assets can fall back to source", () => {
+  assert.equal(resolveAssetSource({ ...club, rightsStatus: "REMOTE_ONLY", storageUrl: "/clubs/forbidden.svg" }, "club"), club.sourceUrl)
+  assert.equal(resolveAssetSource({ ...club, storageUrl: null }, "club"), club.sourceUrl)
+})
+
+test("asset references are deduplicated by provider identity while preserving first occurrence", () => {
+  const duplicate = { ...club, sourceUrl: "https://media.example.test/teams/50-v2.png" }
+  const otherVersion = { ...club, identity: { ...club.identity, providerEntityId: 541 }, entityId: "club-real-madrid" }
+  assert.deepEqual(deduplicateAssetReferences([club, duplicate, otherVersion]), [club, otherVersion])
 })

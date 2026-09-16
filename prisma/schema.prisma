@@ -7,6 +7,86 @@ datasource db {
   provider = "postgresql"
 }
 
+enum BrandAssetEntityType {
+  CLUB
+  LEAGUE
+}
+
+enum BrandAssetType {
+  CREST
+  LOGO
+}
+
+enum BrandAssetIdentityStatus {
+  VERIFIED
+  REVIEW_REQUIRED
+  BLOCKED
+}
+
+enum BrandAssetRightsStatus {
+  APPROVED
+  REMOTE_ONLY
+  CACHE_ALLOWED
+  REVIEW_REQUIRED
+  BLOCKED
+}
+
+enum BrandAssetStatus {
+  DISCOVERED
+  VALIDATED
+  ACTIVE
+  STALE
+  REMOVED
+  ERROR
+}
+
+/**
+ * Provider identity is deliberately separate from the visual asset.
+ * entityId references either Club.id or League.id according to entityType.
+ * The prepared migration enforces that polymorphic reference with a trigger
+ * without altering the existing Club or League models.
+ */
+model BrandAssetIdentity {
+  id               String                   @id @default(cuid())
+  entityType       BrandAssetEntityType
+  entityId         String
+  provider         String
+  providerEntityId String
+  status           BrandAssetIdentityStatus @default(REVIEW_REQUIRED)
+  evidence         Json?
+  version          Int                      @default(1)
+  verifiedAt       DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  assets BrandAsset[]
+
+  @@unique([entityType, entityId, provider])
+  @@unique([entityType, provider, providerEntityId])
+  @@index([entityType, entityId, status])
+}
+
+model BrandAsset {
+  id           String                 @id @default(cuid())
+  identityId   String
+  identity     BrandAssetIdentity     @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  assetType    BrandAssetType
+  sourceUrl    String
+  storageUrl   String?
+  contentHash  String?
+  version      Int                    @default(1)
+  fetchedAt    DateTime
+  rightsStatus BrandAssetRightsStatus @default(REVIEW_REQUIRED)
+  status       BrandAssetStatus       @default(DISCOVERED)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@unique([identityId, assetType, version])
+  @@index([identityId, assetType, status])
+  @@index([rightsStatus, status])
+  @@index([contentHash])
+}
+
 /**
  * ========================================
  * LEAGUE
