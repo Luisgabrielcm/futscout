@@ -58,6 +58,7 @@ model Club {
   players Player[]
 
   officialLineupSnapshots ClubOfficialLineupSnapshot[]
+  currentClubStates      PlayerCurrentClubState[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -181,6 +182,10 @@ model Player {
   transfers     PlayerTransfer[]
   trophies      PlayerTrophy[]
 
+  // Optional relations only: no new scalar columns in legacy Player queries.
+  transferObservations PlayerTransferObservation[]
+  currentClubState     PlayerCurrentClubState?
+
   /**
    * MATCHER API-FOOTBALL
    */
@@ -207,6 +212,58 @@ model Player {
  * PLAYER ATTRIBUTES
  * ========================================
  */
+
+// Pending additive migration. Not queried by the current public application.
+// Immutable source observations; legacy PlayerTransfer remains untouched.
+model PlayerTransferObservation {
+  id                    String   @id
+  playerId              String
+  player                Player   @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  provider              String
+  providerPlayerId      Int
+  providerPlayerNameRaw String
+  transferDate          DateTime?
+  dateRaw               String?
+  fromProviderTeamId    Int?
+  fromTeamNameRaw        String?
+  toProviderTeamId      Int?
+  toTeamNameRaw          String?
+  typeRaw               String?
+  payloadVersion        Int
+  contentHash           String
+  logicalEventKey       String
+  possibleRevisionHashes String[] @default([])
+  sourceGroup           Int
+  sourceOrder           Int
+  sourceIndex           Int
+  warnings              String[] @default([])
+  fetchedAt             DateTime
+  createdAt             DateTime @default(now())
+
+  @@unique([playerId, provider, contentHash], map: "transfer_observation_content_key")
+  @@index([playerId, transferDate(sort: Desc)], map: "transfer_observation_player_date_idx")
+  @@index([provider, providerPlayerId, logicalEventKey], map: "transfer_observation_event_idx")
+}
+
+// Derived/proposed real-life projection; NEVER the authority for Player.clubId (EA catalog).
+// Future promotion requires explicit authorization, fresh evidence and CAS; no writer is wired in Phase C.
+model PlayerCurrentClubState {
+  playerId       String   @id
+  player         Player   @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  clubId         String?
+  club           Club?    @relation(fields: [clubId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  providerTeamId Int?
+  effectiveSince DateTime?
+  decision       String
+  evidenceHash   String
+  policyVersion  String
+  evidence       Json
+  evaluatedAt    DateTime
+  status         String   @default("PROPOSED")
+
+  @@index([clubId, status], map: "current_club_state_club_idx")
+  @@index([decision, evaluatedAt], map: "current_club_state_review_idx")
+}
 
 model PlayerAttributes {
   id String @id @default(cuid())

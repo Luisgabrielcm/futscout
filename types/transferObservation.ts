@@ -39,7 +39,8 @@ export type TransferTeamResolution = {
   status: "RESOLVED" | "UNKNOWN_TEAM" | "CONFLICT"; clubId: string | null
 }
 export type CurrentClubPlayer = {
-  providerPlayerId: number; identityConfirmed: boolean; clubId: string; localTeamId: number
+  providerPlayerId: number; identityConfirmed: boolean; clubId: string; localTeamId: number | null
+  realLifeTeamId?: number | null
 }
 export type TransferRosterEvidence = {
   teamId: number; season: number; fetchedAt: string; expiresAt: string; playerIds: number[]
@@ -47,4 +48,4 @@ export type TransferRosterEvidence = {
 export type TransferLineupEvidence = { teamId: number; fixtureDate: string; playerIds: number[] }
 export type CurrentClubDecision = "CURRENT_CLUB_CONFIRMED" | "TRANSFER_CANDIDATE" | "LOAN_CANDIDATE" |
   "RETURN_FROM_LOAN_CANDIDATE" | "TRANSFER_CANDIDATE_NEEDS_DESTINATION_ROSTER" | "STALE_LOCAL_CLUB" |
-  "ROSTER_MISMATCH" | "INSUFFICIENT_EVIDENCE" | "CONFLICT"
+  "ROSTER_MISMATCH" | "INSUFFICIENT_EVIDENCE" | "CONFLICT" | "TEAM_IDENTITY_UNRESOLVED"

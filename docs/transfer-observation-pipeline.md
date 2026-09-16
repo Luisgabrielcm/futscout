@@ -1,5 +1,11 @@
 # Transfer observation pilot — Lote 11 / B-PREP
 
+**Historical B-PREP contract.** Phase B's six requests have already completed; do not
+replay them from this document. Phase C supersedes the v1 decision policy and persistence
+design with [current-club-transfer-pipeline.md](current-club-transfer-pipeline.md).
+The closed pilot/reader and its zero-write boundary remain unchanged. Phase C prepares
+an additive schema but does not apply it; the historical audit is not retroactively changed.
+
 Preparation only. No real API request is authorized by this document or its fixtures.
 No player identity, club membership, transfer history, schema or migration is changed.
 The CLI is operationally gated; its dry-run means **no database writes**, not no HTTP.
