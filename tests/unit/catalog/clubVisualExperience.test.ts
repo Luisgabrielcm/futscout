@@ -61,8 +61,8 @@ for (const locale of ["pt", "en"] as const) {
     assert.match(html, /<dd>0<\/dd>/)
     assert.match(html, /<dd>€0<\/dd>/)
     assert.match(html, /<dd>—<\/dd>/)
-    assert.match(html, /playerPositionSecondary">MC<\/span>/)
-    assert.match(html, /playerPositionSecondary">VOL<\/span>/)
+    assert.match(html, locale === "pt" ? /playerPositionSecondary">MC<\/span>/ : /playerPositionSecondary">CM<\/span>/)
+    assert.match(html, locale === "pt" ? /playerPositionSecondary">VOL<\/span>/ : /playerPositionSecondary">CDM<\/span>/)
     assert.doesNotMatch(html, /NaN|undefined|OVR FutScout/)
   })
   test(`${locale}: XI and entire position panel retain portraits and semantic destinations`, () => {

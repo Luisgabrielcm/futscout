@@ -18,6 +18,12 @@ import * as profileText from "../../lib/i18n/playerProfile"
 import * as playStyleAssets from "../../lib/playStyleAssets"
 import * as clubPitchLayout from "../../lib/clubPitchLayout"
 import * as playerProfilePositions from "../../lib/playerProfilePositions"
+import * as visualRevision from "../../lib/i18n/visualRevision"
+import * as nationalityDirectory from "../../lib/nationalityDirectory"
+import * as careerPresentation from "../../lib/playerCareerPresentation"
+import * as visualAssets from "../../lib/visualAssets"
+import * as countryFlags from "../../lib/countryFlags"
+import * as React from "react"
 import { createElement, type ReactNode } from "react"
 
 // Compile TSX in memory using React's automatic runtime, without starting Next.
@@ -52,9 +58,19 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/playStyleAssets": playStyleAssets,
       "lib/clubPitchLayout": clubPitchLayout,
       "lib/playerProfilePositions": playerProfilePositions,
+      "lib/i18n/visualRevision": visualRevision,
+      "lib/nationalityDirectory": nationalityDirectory,
+      "lib/playerCareerPresentation": careerPresentation,
+      "lib/visualAssets": visualAssets,
+      "lib/countryFlags": countryFlags,
     }
     const pureName = name.replace(/^(?:\.\.\/)+/, "")
     if (Object.hasOwn(presentation, pureName)) return presentation[pureName]
+    // Shared UI runs for real, with a strict finite list, never services.
+    const component = name.split("/").at(-1)
+    if (!Object.hasOwn(allowed, name) && component && ["PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "LeagueLogo"].includes(component)) {
+      return loadCatalogModule(`app/components/${component}.tsx`, { react: React })
+    }
     if (name === "next/link" && !Object.hasOwn(allowed, name)) return function TestLink({ children, href, ...props }: { children: ReactNode; href: string; prefetch?: boolean }) {
       const attributes = { ...props }
       delete attributes.prefetch

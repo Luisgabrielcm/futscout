@@ -170,8 +170,8 @@ test("directory card uses existing image fallback and does not invent a league l
   const clubHtml = renderToStaticMarkup(createElement(components.ClubCard, { club }))
   const leagueHtml = renderToStaticMarkup(createElement(components.LeagueCard, { league }))
   assert.match(clubHtml, /directoryBadgeFallback[^>]*>C<\/span>/)
-  assert.match(leagueHtml, /directoryBadgeFallback[^>]*>L<\/span>/)
-  assert.doesNotMatch(leagueHtml, /<img|Não informado/)
+  assert.match(leagueHtml, /<h3>Liga Teste<\/h3>/)
+  assert.doesNotMatch(leagueHtml, /<img|directoryBadgeFallback|Não informado/)
 })
 
 test("directory badge falls back after an image load error without retrying/proxying", () => {

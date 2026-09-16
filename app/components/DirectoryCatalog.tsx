@@ -9,6 +9,8 @@ import { displayNationality } from "../../lib/i18n/countries"
 import { CLUB_SORTS } from "../../lib/directoryCatalogParams"
 import { clubText } from "../../lib/i18n/clubExperience"
 import type { ClubRating } from "../../lib/clubRating"
+import LeagueLogo from "./LeagueLogo"
+export { default as DirectoryPagination } from "./CatalogPagination"
 
 export function DirectoryNav({ locale = "pt" }: LocaleProps = {}) {
   return <nav className="directoryNav" aria-label={t(locale, "Catálogo FutScout")}>
@@ -34,14 +36,14 @@ export function DirectorySearch({ locale = "pt", action, search, league, leagues
     {leagues && <label>{clubText(locale, "sort")}<select name="sort" defaultValue={sort ?? "name-asc"}>
       {CLUB_SORTS.map(value => <option key={value} value={value}>{clubText(locale, value)}</option>)}
     </select></label>}
-    <button className="paginationButton" type="submit">{t(locale, "Buscar")}</button>
-    <Link href={action} className="paginationButton">{t(locale, "Limpar filtros")}</Link>
+    <button className="uiButton uiButtonPrimary" type="submit">{t(locale, "Buscar")}</button>
+    <Link href={action} className="uiButton uiButtonSecondary">{t(locale, "Limpar filtros")}</Link>
   </form>
 }
 
 export function DirectoryBadge({ locale = "pt", name, imageUrl }: { locale?: Locale; name: string; imageUrl?: string | null }) {
   return <PlayerImage locale={locale} key={imageUrl ?? name} src={imageUrl ?? undefined} alt={name} kind="club"
-    className="directoryBadge" fallbackClassName="directoryBadge directoryBadgeFallback" />
+    width={72} height={72} className="directoryBadge" fallbackClassName="directoryBadge directoryBadgeFallback" />
 }
 
 export function ClubCard({ locale = "pt", club }: { locale?: Locale; club: {
@@ -61,38 +63,20 @@ export function ClubCard({ locale = "pt", club }: { locale?: Locale; club: {
 }
 
 export function LeagueCard({ locale = "pt", league }: { locale?: Locale; league: {
-  name: string; slug: string; country: string; _count: { clubs: number }
+  name: string; slug: string; country: string; logoUrl?: string | null; _count: { clubs: number }
 } }) {
   const country = displayCountry(league.country)
   return <Link href={localizedHref(locale, `/ligas/${encodeURIComponent(league.slug)}`)} className="directoryCard">
-    <DirectoryBadge locale={locale} name={league.name} />
+    <LeagueLogo locale={locale} name={league.name} logoUrl={league.logoUrl} />
     <h3>{league.name}</h3>
     {country && <p>{displayNationality(country, locale)}</p>}
     <span>{league._count.clubs} {t(locale, "clubes cadastrados")}</span>
   </Link>
 }
 
-export function DirectoryPagination({ locale = "pt", page, totalPages, href, label }: { locale?: Locale;
-  page: number; totalPages: number; href: (page: number) => string; label: string
-}) {
-  if (page > totalPages) return <p className="playersEmpty">
-    {t(locale, "Esta página não tem resultados.")}{" "}<Link href={href(1)}>{t(locale, "Voltar à primeira página")}</Link>
-  </p>
-  if (totalPages <= 1) return null
-  return <nav className="playersPagination" aria-label={label}>
-    {page > 1
-      ? <Link className="paginationButton" href={href(page - 1)}>{t(locale, "← Anterior")}</Link>
-      : <span className="paginationButton paginationButtonDisabled">{t(locale, "← Anterior")}</span>}
-    <span className="paginationStatus">{t(locale, "Página")}{" "}{page} {t(locale, "de")}{" "}{totalPages}</span>
-    {page < totalPages
-      ? <Link className="paginationButton" href={href(page + 1)}>{t(locale, "Próxima →")}</Link>
-      : <span className="paginationButton paginationButtonDisabled">{t(locale, "Próxima →")}</span>}
-  </nav>
-}
-
 export function DirectoryPlayers({ locale = "pt", players, empty }: { locale?: Locale; players: Player[]; empty: string }) {
   if (!players.length) return <p className="playersEmpty">{empty}</p>
   return <div className="playersPageGrid">
-    {players.map((player) => <PlayerCard locale={locale} key={player.id} {...player} club={player.club?.name ?? null} />)}
+    {players.map((player) => <PlayerCard locale={locale} key={player.id} {...player} club={player.club?.name ?? null} clubImageUrl={player.club?.imageUrl} />)}
   </div>
 }

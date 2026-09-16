@@ -1,4 +1,5 @@
 import { t, type Locale } from "../../lib/i18n"
+import { displayPosition } from "../../lib/i18n/presentation"
 
 import type { Player } from "../../types/player"
 
@@ -38,7 +39,7 @@ export default function PlayerPositions({ locale = "pt",
   const positions = positionNames.map(
     (position) => ({
       key: position,
-      label: position,
+      label: displayPosition(position, locale),
 
       score: calculatePositionOverall(
         player,
@@ -309,7 +310,7 @@ export default function PlayerPositions({ locale = "pt",
               }
             `}
           >
-            <span>ATA</span>
+            <span>{displayPosition("ATA", locale)}</span>
 
             <strong>
               {
@@ -336,7 +337,7 @@ export default function PlayerPositions({ locale = "pt",
               }
             `}
           >
-            <span>PE</span>
+            <span>{displayPosition("PE", locale)}</span>
 
             <strong>
               {
@@ -363,7 +364,7 @@ export default function PlayerPositions({ locale = "pt",
               }
             `}
           >
-            <span>MEI</span>
+            <span>{displayPosition("MEI", locale)}</span>
 
             <strong>
               {
@@ -390,7 +391,7 @@ export default function PlayerPositions({ locale = "pt",
               }
             `}
           >
-            <span>PD</span>
+            <span>{displayPosition("PD", locale)}</span>
 
             <strong>
               {
@@ -417,7 +418,7 @@ export default function PlayerPositions({ locale = "pt",
               }
             `}
           >
-            <span>MC</span>
+            <span>{displayPosition("MC", locale)}</span>
 
             <strong>
               {
@@ -444,7 +445,7 @@ export default function PlayerPositions({ locale = "pt",
               }
             `}
           >
-            <span>VOL</span>
+            <span>{displayPosition("VOL", locale)}</span>
 
             <strong>
               {
@@ -471,7 +472,7 @@ export default function PlayerPositions({ locale = "pt",
               }
             `}
           >
-            <span>LE</span>
+            <span>{displayPosition("LE", locale)}</span>
 
             <strong>
               {
@@ -498,7 +499,7 @@ export default function PlayerPositions({ locale = "pt",
               }
             `}
           >
-            <span>ZAG</span>
+            <span>{displayPosition("ZAG", locale)}</span>
 
             <strong>
               {
@@ -525,7 +526,7 @@ export default function PlayerPositions({ locale = "pt",
               }
             `}
           >
-            <span>LD</span>
+            <span>{displayPosition("LD", locale)}</span>
 
             <strong>
               {
@@ -546,7 +547,7 @@ export default function PlayerPositions({ locale = "pt",
               {t(locale, "POSIÇÕES E ADEQUAÇÃO")}</span>
 
             <strong>
-              {player.position}
+              {displayPosition(player.position, locale)}
             </strong>
           </div>
 

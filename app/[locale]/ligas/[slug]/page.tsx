@@ -6,7 +6,7 @@ import { notFound } from "next/navigation"
 import { getLeagueBySlug, getLeagueClubs, getLeaguePlayers } from "../../../../services/leagueService"
 import { directoryHref, displayCountry, parseDirectoryParams } from "../../../../lib/directoryCatalogParams"
 import type { CatalogSearchParams } from "../../../../lib/playerCatalogParams"
-import { ClubCard, DirectoryBadge, DirectoryNav, DirectoryPagination, DirectoryPlayers } from "../../../components/DirectoryCatalog"
+import { ClubCard, DirectoryNav, DirectoryPagination, DirectoryPlayers } from "../../../components/DirectoryCatalog"
 import { CLUB_SORTS } from "../../../../lib/directoryCatalogParams"
 import { clubText } from "../../../../lib/i18n/clubExperience"
 import { displayNationality } from "../../../../lib/i18n/countries"
@@ -40,7 +40,6 @@ export default async function LeaguePage({ params, searchParams }: Props) {
     <DirectoryNav locale={locale} />
     <Link href={localizedHref(locale, "/ligas")} className="backButton">{t(locale, "← Todas as ligas")}</Link>
     <header className="playersPageHeader directoryHeader">
-      <DirectoryBadge locale={locale} name={league.name} />
       <div><h1>{league.name}</h1>{country && <p>{displayNationality(country, locale)}</p>}
         <p>{league._count.clubs} {t(locale, "clubes cadastrados")}</p>
       </div>
@@ -49,7 +48,7 @@ export default async function LeaguePage({ params, searchParams }: Props) {
       <h2 id="clubs-title">{t(locale, "Clubes")}</h2>
       <form method="get" className="directoryFilters"><input type="hidden" name="page" value={page} />
         <label>{clubText(locale, "sort")}<select name="sort" defaultValue={sort}>{CLUB_SORTS.map(value => <option key={value} value={value}>{clubText(locale, value)}</option>)}</select></label>
-        <button className="paginationButton" type="submit">{t(locale, "Buscar")}</button>
+        <button className="uiButton uiButtonPrimary" type="submit">{t(locale, "Buscar")}</button>
       </form>
       {clubs.clubs.length
         ? <div className="directoryGrid">{clubs.clubs.map((club) => <ClubCard locale={locale} key={club.id} club={club} />)}</div>

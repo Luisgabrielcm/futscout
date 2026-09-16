@@ -15,6 +15,7 @@ import PlayerPositions from "../../../components/PlayerPositions"
 import PlayerQuickProfile from "../../../components/PlayerQuickProfile"
 import ScoutAnalysis from "../../../components/ScoutAnalysis"
 import PlayerActions from "../../../components/PlayerActions"
+import PlayerCareer from "../../../components/PlayerCareer"
 
 type PlayerPageProps = {
   params: Promise<{
@@ -77,6 +78,7 @@ export default async function PlayerPage({
       <PlayerQuickProfile locale={locale}
         player={player}
       />
+      <PlayerCareer locale={locale} catalogClub={player.club?.name ?? null} />
 
       {isGoalkeeper ? (
         <section className="playersEmpty">

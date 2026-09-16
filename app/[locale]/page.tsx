@@ -108,6 +108,10 @@ export default async function Home({ params }: { params?: Promise<{ locale: stri
                     player.position
                   }
                   club={player.club?.name ?? null}
+                  clubImageUrl={player.club?.imageUrl}
+                  nationality={player.nationality}
+                  secondaryPosition={player.secondaryPosition}
+                  secondaryPositions={player.secondaryPositions}
                   image={player.image}
                   baseOverall={
                     player.baseOverall

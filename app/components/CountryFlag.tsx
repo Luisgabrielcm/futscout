@@ -9,7 +9,7 @@ export default function CountryFlag({ locale = "pt", country }: { locale?: Local
   const name = displayNationality(country, locale)
   return <span className="playerNationality">
     {flag?.iconSrc && <PlayerImage locale={locale} src={flag.iconSrc} alt={t(locale, "flagFor", { name })} kind="asset"
-      className="countryFlag" fallbackClassName="countryFlagUnavailable" fallbackText="" />}
+      width={24} height={18} className="countryFlag" fallbackClassName="countryFlagUnavailable" fallbackText="" />}
     {name}
   </span>
 }

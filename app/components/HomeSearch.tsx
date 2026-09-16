@@ -67,7 +67,7 @@ export default function HomeSearch({ locale = "pt" }: LocaleProps = {}) {
           }}
         />
 
-        <button onClick={handleSearch}>
+        <button type="button" className="uiButton uiButtonPrimary" onClick={handleSearch}>
           {t(locale, "Buscar")}</button>
       </div>
 

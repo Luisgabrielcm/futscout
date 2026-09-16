@@ -26,3 +26,13 @@ export function displayForm(value: string | null, locale: Locale): string | null
     ? forms[value as keyof typeof forms][locale === "pt" ? 0 : 1]
     : value
 }
+
+const englishPositions: Record<string, string> = {
+  GOL: "GK", LD: "RB", LE: "LB", ZAG: "CB", VOL: "CDM", MC: "CM",
+  MEI: "CAM", MD: "RM", ME: "LM", PD: "RW", PE: "LW", SA: "CF", ATA: "ST",
+}
+
+// Presentation only: persisted positions and filter/query values stay unchanged.
+export function displayPosition(position: string, locale: Locale) {
+  return locale === "en" ? englishPositions[position] ?? position : position
+}

@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { t, localeTags, type Locale } from "../../lib/i18n"
 import { clubText, SQUAD_SORTS } from "../../lib/i18n/clubExperience"
-import { displayForm } from "../../lib/i18n/presentation"
+import { displayForm, displayPosition } from "../../lib/i18n/presentation"
 import { entityHref, nationalityHref, relatedPlayersHref } from "../../lib/connectedNavigation"
 import type { ClubRating } from "../../lib/clubRating"
 import type { Player } from "../../types/player"
@@ -27,7 +27,7 @@ export function ClubRatingPanel({ locale, rating }: { locale: Locale; rating: Cl
 function PitchPortrait({ locale, player, position }: { locale: Locale; player: PitchPlayer; position: string }) {
   return <Link prefetch={false} href={entityHref(locale, "jogadores", player.slug)!} className="clubPitchPlayer" data-position={position}>
     <PlayerImage locale={locale} src={player.imageUrl ?? undefined} alt={player.name} className="pitchPortrait" fallbackClassName="pitchPortrait portraitFallback" />
-    <strong>{player.name}</strong><span className="clubPitchPosition">{position}</span>
+    <strong>{player.name}</strong><span className="clubPitchPosition">{displayPosition(position, locale)}</span>
     <span className="pitchOverall"><small>EA</small> {validPitchOverall(player.officialOverall) ? player.officialOverall : "—"}</span>
   </Link>
 }
@@ -42,7 +42,7 @@ export function SquadPositionPanel({ locale, players, selectedIds, official = fa
       {group.players.map(player => <Link key={player.id} prefetch={false} className="squadPositionCard" href={entityHref(locale, "jogadores", player.slug)!}>
         <PlayerImage locale={locale} src={player.imageUrl ?? undefined} alt={player.name} className="squadPanelPortrait" fallbackClassName="squadPanelPortrait portraitFallback" />
         <div className="squadPanelIdentity"><strong>{player.name}</strong>
-          <span className="squadPanelPositions">{pitchPositions(player).map((position, index) => <span key={position} className={index === 0 ? "playerPositionPrimary" : "playerPositionSecondary"}>{position}</span>)}</span>
+          <span className="squadPanelPositions">{pitchPositions(player).map((position, index) => <span key={position} className={index === 0 ? "playerPositionPrimary" : "playerPositionSecondary"}>{displayPosition(position, locale)}</span>)}</span>
           {selectedIds.has(player.id) && <span className="xiMarker">{clubText(locale, "xiMarker")}</span>}
         </div>
         <dl className="squadPanelStats">
@@ -92,7 +92,7 @@ export function SquadSort({ locale, sort, tab, search }: { locale: Locale; sort:
     <label>{t(locale, "Buscar por nome")}<input type="search" name="search" defaultValue={search} maxLength={200} /></label>
     <label>{clubText(locale, "sort")}<select name="sort" defaultValue={sort}>
       {SQUAD_SORTS.map(value => <option key={value} value={value}>{clubText(locale, value)}</option>)}
-    </select></label><button type="submit" className="paginationButton">{t(locale, "Buscar")}</button>
+    </select></label><button type="submit" className="uiButton uiButtonPrimary">{t(locale, "Buscar")}</button>
   </form>
 }
 
@@ -108,7 +108,7 @@ export function SquadList({ locale, players }: { locale: Locale; players: Player
       <div className="clubSquadContext">
         {clubHref ? <Link href={clubHref}>{player.club?.name}</Link> : <span>{player.club?.name ?? t(locale, "Sem clube")}</span>}
         {countryHref && <Link href={countryHref}><CountryFlag locale={locale} country={player.nationality} /></Link>}
-        <span className="squadPositions">{getPlayerProfilePositions(player).map((position, index) => <Link key={position} className={`positionChip ${index === 0 ? "playerPositionPrimary" : "playerPositionSecondary"}`} href={relatedPlayersHref(locale, { position })}>{position}</Link>)}</span>
+        <span className="squadPositions">{getPlayerProfilePositions(player).map((position, index) => <Link key={position} className={`positionChip ${index === 0 ? "playerPositionPrimary" : "playerPositionSecondary"}`} href={relatedPlayersHref(locale, { position })}>{displayPosition(position, locale)}</Link>)}</span>
       </div>
       <dl>
         <div><dt>OVR EA</dt><dd>{player.baseOverall}</dd></div>

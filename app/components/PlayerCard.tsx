@@ -1,5 +1,9 @@
 import { t, localizedHref, type Locale } from "../../lib/i18n"
-import { displayForm } from "../../lib/i18n/presentation"
+import { displayForm, displayPosition } from "../../lib/i18n/presentation"
+import CountryFlag from "./CountryFlag"
+import { displaySalary } from "../../lib/playerCareerPresentation"
+import { visualText } from "../../lib/i18n/visualRevision"
+import type { VerifiedSalary } from "../../types/playerCareer"
 
 import Link from "next/link"
 
@@ -18,6 +22,11 @@ type PlayerCardProps = {
   age: number | null
 
   position: string
+  secondaryPosition?: string | null
+  secondaryPositions?: string[]
+  nationality?: string | null
+  clubImageUrl?: string | null
+  salary?: VerifiedSalary | null
 
   club: string | null
 
@@ -59,6 +68,11 @@ export default function PlayerCard({ locale = "pt",
   age,
 
   position,
+  secondaryPosition,
+  secondaryPositions = [],
+  nationality = null,
+  clubImageUrl,
+  salary,
 
   club,
 
@@ -76,6 +90,8 @@ export default function PlayerCard({ locale = "pt",
 
   valueTrend,
 }: PlayerCardProps) {
+  const positions = [...new Set([position, ...secondaryPositions, ...(secondaryPosition ? [secondaryPosition] : [])])]
+  const salaryLabel = displaySalary(salary, locale)
   /* ======================================
      OVR DINÂMICO
   ====================================== */
@@ -148,11 +164,13 @@ export default function PlayerCard({ locale = "pt",
         <div
           className="playerCardTop"
         >
-          <span
-            className="playerPosition"
-          >
-            {position}
-          </span>
+          <div className="cardPositions" aria-label={t(locale, "Posições do jogador")}>
+            {positions.map((value, index) => <span key={value}
+              className={`playerPosition ${index === 0 ? "playerPositionPrimary" : "playerPositionSecondary"}`}
+              title={t(locale, index === 0 ? "Posição principal" : "Posição secundária")}>
+              {displayPosition(value, locale)}
+            </span>)}
+          </div>
 
         </div>
 
@@ -186,10 +204,14 @@ export default function PlayerCard({ locale = "pt",
             {name}
           </h3>
 
-          <p>
-            {playerClub} •{" "}
+          <p className="cardClub">
+            {club && <PlayerImage locale={locale} src={clubImageUrl ?? undefined} alt={club} kind="club"
+              width={24} height={24} className="cardClubBadge" fallbackClassName="cardClubBadge clubBadgeFallback" />}
+            <span>{playerClub}</span> •{" "}
             {playerAge}
           </p>
+          <div className="cardNationality"><span className="smallLabel">{visualText(locale, "nationality")}</span>
+            <CountryFlag locale={locale} country={nationality} /></div>
         </div>
 
         {/* ==================================
@@ -332,6 +354,7 @@ export default function PlayerCard({ locale = "pt",
             </strong>
           </div>}
         </div>
+        {salaryLabel && <p className="cardSalary"><span>{visualText(locale, "salary")}</span> <strong>{salaryLabel}</strong></p>}
       </Link>
     </article>
   )

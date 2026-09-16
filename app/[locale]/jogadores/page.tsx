@@ -7,6 +7,7 @@ import { getLeagues, getPlayers } from "../../../services/playerService"
 import { parsePlayerCatalogParams, playerCatalogQuery } from "../../../lib/playerCatalogParams"
 import type { CatalogSearchParams } from "../../../lib/playerCatalogParams"
 import PlayersSearch from "../../components/PlayersSearch"
+import CatalogPagination from "../../components/CatalogPagination"
 
 type PlayersPageProps = { params?: Promise<{ locale: string }>; locale?: Locale; searchParams: Promise<CatalogSearchParams> }
 
@@ -72,25 +73,7 @@ async function PlayersResults({ searchParams, locale = "pt" }: PlayersPageProps)
         initialMinPhysical={String(params.minPhysical ?? "")}
         initialSort={params.sort}
       />
-      {result.page > result.totalPages && (
-        <p className="playersEmpty">
-          {t(locale, "Esta página não tem resultados.")}{" "}
-          <Link href={createPageHref(1)}>{t(locale, "Voltar à primeira página")}</Link>
-        </p>
-      )}
-      {result.totalPages > 1 && (
-        <nav className="playersPagination" aria-label={t(locale, "Paginação de jogadores")}>
-          {result.page > 1 ? (
-            <Link href={createPageHref(Math.min(result.page - 1, result.totalPages))} className="paginationButton">{t(locale, "← Anterior")}</Link>
-          ) : <span className="paginationButton paginationButtonDisabled">{t(locale, "← Anterior")}</span>}
-          <span className="paginationStatus">
-            {t(locale, "Página")}{" "}<strong>{result.page}</strong> {t(locale, "de")}{" "}<strong>{result.totalPages}</strong>
-          </span>
-          {result.page < result.totalPages ? (
-            <Link href={createPageHref(result.page + 1)} className="paginationButton">{t(locale, "Próxima →")}</Link>
-          ) : <span className="paginationButton paginationButtonDisabled">{t(locale, "Próxima →")}</span>}
-        </nav>
-      )}
+      <CatalogPagination locale={locale} {...result} href={createPageHref} label={t(locale, "Paginação de jogadores")} />
     </main>
   )
 }

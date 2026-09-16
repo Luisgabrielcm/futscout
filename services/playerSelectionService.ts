@@ -11,8 +11,9 @@ export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVOR
     where: { slug: { in: slugs } }, take: slugs.length,
     select: {
       id: true, slug: true, name: true, position: true, dateOfBirth: true,
+      nationality: true, secondaryPosition: true, secondaryPositions: true,
       imageUrl: true, officialOverall: true, dynamicOverall: true, potential: true,
-      marketValue: true, form: true, club: { select: { name: true } },
+      marketValue: true, form: true, club: { select: { name: true, imageUrl: true } },
       attributes: { select: { pace: true, shooting: true, passing: true, dribbling: true, defending: true, physical: true } },
     },
   })
@@ -23,6 +24,8 @@ export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVOR
     return [{
       id: row.id, slug: row.slug, name: row.name, position: row.position,
       club: row.club?.name ?? null, age: calculateAge(row.dateOfBirth),
+      clubImageUrl: row.club?.imageUrl ?? null, nationality: row.nationality,
+      secondaryPosition: row.secondaryPosition, secondaryPositions: row.secondaryPositions,
       image: row.imageUrl ?? undefined, baseOverall: row.officialOverall,
       dynamicOverall: row.dynamicOverall, potential: row.potential,
       marketValue: row.marketValue === null ? null : Number(row.marketValue),

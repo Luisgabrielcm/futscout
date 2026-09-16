@@ -1,5 +1,5 @@
 import { t, type Locale } from "../../lib/i18n"
-import { displayFoot } from "../../lib/i18n/presentation"
+import { displayFoot, displayPosition } from "../../lib/i18n/presentation"
 
 import type {
   Player,
@@ -75,7 +75,7 @@ export default function PlayerHeader({ locale = "pt",
     player.club?.imageUrl ??
     null
   const clubIdentity = <><PlayerImage locale={locale} key={clubImageUrl} src={clubImageUrl ?? undefined}
-    alt={clubName} kind="club" className="playerHeaderClubBadge" fallbackClassName="playerHeaderClubBadge clubBadgeFallback" /><p>{clubName}</p></>
+    alt={clubName} kind="club" width={32} height={32} className="playerHeaderClubBadge" fallbackClassName="playerHeaderClubBadge clubBadgeFallback" /><p>{clubName}</p></>
 
   /* ========================================
      RENDER
@@ -108,7 +108,7 @@ export default function PlayerHeader({ locale = "pt",
             {positions.map((position, index) => <Link key={position} href={relatedPlayersHref(locale, { position })}
               className={`playerHeaderPosition ${index === 0 ? "playerPositionPrimary" : "playerPositionSecondary"}`}
               title={index === 0 ? t(locale, "Posição principal") : t(locale, "Posição secundária")}>
-              {position}
+              {displayPosition(position, locale)}
             </Link>)}
           </div>
 

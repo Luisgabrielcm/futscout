@@ -168,7 +168,7 @@ test("active chips and chip removal use applied filters, never the edited draft"
   assert.ok(pace?.props.onClick)
   pace.props.onClick()
   assert.equal(navigations[0], "/pt/jogadores?search=applied")
-  const clear = elements(tree).find((element) => element.props.className === "clearFiltersButton")
+  const clear = elements(tree).find((element) => element.props.className?.split(" ").includes("clearFiltersButton"))
   assert.ok(clear?.props.onClick)
   clear.props.onClick()
   assert.equal(navigations[1], "/pt/jogadores")

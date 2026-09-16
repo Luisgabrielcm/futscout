@@ -7,6 +7,7 @@ import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 
 const row = (slug: string) => ({
   id: slug, slug, name: slug, position: "MC", dateOfBirth: null, imageUrl: null,
+  nationality: slug === "a" ? "Germany" : null, secondaryPosition: null, secondaryPositions: slug === "a" ? ["MEI", "VOL"] : [],
   officialOverall: 80, dynamicOverall: null, potential: null, marketValue: null, form: null,
   club: null, attributes: null,
 })
@@ -58,4 +59,17 @@ test("favorites lookup caps volume and deduplicates instead of querying each pla
   await f.service.getSelectedPlayers(["a", "a", ...Array.from({ length: 100 }, (_, i) => "p-" + i)])
   assert.equal(f.reads.length, 1)
   assert.equal(f.reads[0].take, selections.FAVORITES_LIMIT)
+})
+
+test("selected cards receive existing nationality and alternate positions in the same bounded read", async () => {
+  const f = fixture()
+  const result = await f.service.getSelectedPlayers(["a", "b"])
+  assert.equal(f.reads.length, 1)
+  assert.equal(f.reads[0].select?.nationality, true)
+  assert.equal(f.reads[0].select?.secondaryPositions, true)
+  assert.deepEqual(JSON.parse(JSON.stringify(f.reads[0].select?.club)), { select: { name: true, imageUrl: true } })
+  assert.equal(result[0].nationality, "Germany")
+  assert.deepEqual(Array.from(result[0].secondaryPositions ?? []), ["MEI", "VOL"])
+  assert.equal(result[1].nationality, null)
+  assert.equal(result[1].clubImageUrl, null)
 })

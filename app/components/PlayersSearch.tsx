@@ -464,7 +464,7 @@ export default function PlayersSearch({ locale = "pt",
           disabled={
             isPending
           }
-          className="playersSearchButton"
+            className="playersSearchButton uiButton uiButtonPrimary"
         >
           {isPending
             ? t(locale, "Buscando...")
@@ -496,7 +496,7 @@ export default function PlayersSearch({ locale = "pt",
           >
             <button
               type="button"
-              className="clearFiltersButton"
+              className="clearFiltersButton uiButton uiButtonSecondary"
               onClick={
                 clearFilters
               }
@@ -508,7 +508,7 @@ export default function PlayersSearch({ locale = "pt",
 
             <button
               type="button"
-              className="applyFiltersButton"
+              className="applyFiltersButton uiButton uiButtonPrimary"
               onClick={() =>
                 applyFilters()
               }
@@ -1215,7 +1215,7 @@ export default function PlayersSearch({ locale = "pt",
             >
               <button
                 type="button"
-                className="applyFiltersButton"
+                className="applyFiltersButton uiButton uiButtonPrimary"
                 disabled={
                   isPending
                 }
@@ -1268,6 +1268,10 @@ export default function PlayersSearch({ locale = "pt",
                   player.position
                 }
                 club={player.club?.name ?? null}
+                clubImageUrl={player.club?.imageUrl}
+                nationality={player.nationality}
+                secondaryPosition={player.secondaryPosition}
+                secondaryPositions={player.secondaryPositions}
                 image={
                   player.image
                 }
