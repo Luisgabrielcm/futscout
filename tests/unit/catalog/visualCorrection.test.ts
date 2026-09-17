@@ -133,7 +133,7 @@ test("history belongs to real life and does not render unverified transfer evide
   assert.doesNotMatch(html, /Loan|transferTimeline/)
 })
 
-test("profile navigation resolves local anchors and routes history to its own page", async () => {
+test("profile navigation exposes only EA and real-life experiences while EA sections stay inline", async () => {
   const marker = () => null
   const { default: Page } = loadCatalogModule<typeof import("../../../app/[locale]/jogadores/[slug]/page")>("app/[locale]/jogadores/[slug]/page.tsx", {
     "next/navigation": { notFound: () => { throw new Error("unexpected") } },
@@ -145,12 +145,12 @@ test("profile navigation resolves local anchors and routes history to its own pa
   })
   for (const locale of ["pt", "en"] as const) {
     const html = renderToStaticMarkup(await Page({ params: Promise.resolve({ locale, slug: "fixture" }) }))
-    for (const id of ["overview", "ea-sports-fc", "real-life", "attributes", "playstyles", "statistics"]) {
-      assert.match(html, new RegExp(`href="#${id}"`))
-      assert.equal((html.match(new RegExp(`id="${id}"`, "g")) ?? []).length, 1)
-    }
-    assert.ok(html.includes(`href="/${locale}/jogadores/fixture/historico"`))
-    assert.doesNotMatch(html, /id="history"|transferTimeline/)
+    const nav = html.match(/<nav class="playerExperienceNav"[\s\S]*?<\/nav>/)?.[0] ?? ""
+    assert.equal((nav.match(/<a /g) ?? []).length, 2)
+    assert.ok(nav.includes(`href="/${locale}/jogadores/fixture"`))
+    assert.ok(nav.includes(`href="/${locale}/jogadores/fixture/vida-real"`))
+    for (const id of ["ea-sports-fc", "attributes", "playstyles"]) assert.equal((html.match(new RegExp(`id="${id}"`, "g")) ?? []).length, 1)
+    assert.doesNotMatch(html, /href="#(?:overview|attributes|playstyles|statistics|history)"|id="real-life"|id="statistics"|id="history"|transferTimeline/)
     assert.match(html, /EA SPORTS FC/)
   }
 })

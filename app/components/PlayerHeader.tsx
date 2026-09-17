@@ -22,14 +22,17 @@ import { clubText } from "../../lib/i18n/clubExperience"
 import ClubBadge from "./ClubBadge"
 import LeagueLogo from "./LeagueLogo"
 import { visualText } from "../../lib/i18n/visualRevision"
+import { playerExperienceText } from "../../lib/i18n/playerExperience"
 
 type PlayerHeaderProps = {
   locale?: Locale
   player: Player
+  valueContext?: "market" | "career-mode"
 }
 
 export default function PlayerHeader({ locale = "pt",
   player,
+  valueContext = "market",
 }: PlayerHeaderProps) {
   const positions = getPlayerProfilePositions(player)
   const clubHref = entityHref(locale, "clubes", player.club?.slug)
@@ -246,18 +249,17 @@ export default function PlayerHeader({ locale = "pt",
           className="playerHeaderStat"
         >
           <span>
-            {t(locale, "VALOR DE MERCADO")}</span>
+            {valueContext === "career-mode" ? playerExperienceText(locale, "careerModeValue") : t(locale, "VALOR DE MERCADO")}</span>
 
           <strong
             className="playerHeaderMarketValue"
           >
-            {player.marketValue !==
-            null
+            {valueContext === "market" && player.marketValue !== null
               ? formatCurrency(player.marketValue, locale)
               : "—"}
           </strong>
 
-          {player.marketValue !== null && player.valueTrend !== null ? (
+          {valueContext === "market" && player.marketValue !== null && player.valueTrend !== null ? (
             <small
               className={`headerMarketTrend ${player.valueTrend}`}
             >
@@ -271,7 +273,7 @@ export default function PlayerHeader({ locale = "pt",
             </small>
           ) : (
             <small>
-              {player.marketValue === null ? t(locale, "Não informado") : t(locale, "Tendência não disponível")}
+              {valueContext === "career-mode" || player.marketValue === null ? t(locale, "Não informado") : t(locale, "Tendência não disponível")}
             </small>
           )}
         </div>

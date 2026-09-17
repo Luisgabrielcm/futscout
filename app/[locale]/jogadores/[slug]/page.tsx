@@ -1,135 +1,80 @@
-import { t, localizedHref } from "../../../../lib/i18n"
-import { requireLocale } from "../../../../lib/i18n/server"
-import { localizedMetadata } from "../../../../lib/i18n/metadata"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-
-import {
-  getPlayerBySlug,
-} from "../../../../services/playerService"
-
+import { localizedHref, t } from "../../../../lib/i18n"
+import { localizedMetadata } from "../../../../lib/i18n/metadata"
+import { playerExperienceText } from "../../../../lib/i18n/playerExperience"
+import { requireLocale } from "../../../../lib/i18n/server"
+import { visualText } from "../../../../lib/i18n/visualRevision"
+import { getPlayerBySlug } from "../../../../services/playerService"
+import PlayerActions from "../../../components/PlayerActions"
 import PlayerAttributes from "../../../components/PlayerAttributes"
+import PlayerExperienceNav from "../../../components/PlayerExperienceNav"
 import PlayerHeader from "../../../components/PlayerHeader"
 import PlayerPlayStyles from "../../../components/PlayerPlayStyles"
 import PlayerPositions from "../../../components/PlayerPositions"
 import PlayerQuickProfile from "../../../components/PlayerQuickProfile"
 import ScoutAnalysis from "../../../components/ScoutAnalysis"
-import PlayerActions from "../../../components/PlayerActions"
-import PlayerCareer from "../../../components/PlayerCareer"
-import PlayerCurrentStatistics from "../../../components/PlayerCurrentStatistics"
-import { historyText } from "../../../../lib/i18n/playerHistory"
-import { visualText } from "../../../../lib/i18n/visualRevision"
 
-type PlayerPageProps = {
-  params: Promise<{
-    slug: string
-    locale?: string
-  }>
-}
+type PlayerPageProps = { params: Promise<{ slug: string; locale?: string }> }
 
-export default async function PlayerPage({
-  params,
-}: PlayerPageProps) {
+export default async function PlayerPage({ params }: PlayerPageProps) {
   const { slug, locale: routeLocale } = await params
   const locale = requireLocale(routeLocale ?? "pt")
-
-  const profile =
-    await getPlayerBySlug(slug)
-
-  if (!profile) {
-    notFound()
-  }
+  const profile = await getPlayerBySlug(slug)
+  if (!profile) notFound()
 
   if (profile.status === "incomplete") {
-    return (
-      <main className="playerPage">
-        <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}><Link
-          href={localizedHref(locale, "/jogadores")}
-          className="backButton"
-        >
-          {t(locale, "Jogadores")}</Link><span aria-hidden="true">›</span><span aria-current="page">{profile.name}</span></nav>
-
-        <div className="playersEmpty">
-          <h1>
-            {profile.name}
-          </h1>
-          <PlayerActions locale={locale} slug={slug} name={profile.name} />
-
-          <p>
-            {t(locale, "Perfil incompleto: os atributos deste jogador ainda não estão disponíveis. Nenhuma estatística foi estimada para preencher esses dados.")}</p>
-          <Link className="profileTextLink" href={localizedHref(locale, `/jogadores/${encodeURIComponent(slug)}/historico`)}>{historyText(locale, "fullHistory")}</Link>
-        </div>
-        <PlayerCurrentStatistics locale={locale} />
-      </main>
-    )
+    return <main className="playerPage">
+      <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}>
+        <Link href={localizedHref(locale, "/jogadores")} className="backButton">{t(locale, "Jogadores")}</Link>
+        <span aria-hidden="true">›</span><span aria-current="page">{profile.name}</span>
+      </nav>
+      <div className="playersEmpty">
+        <h1>{profile.name}</h1>
+        <PlayerActions locale={locale} slug={slug} name={profile.name} />
+        <PlayerExperienceNav locale={locale} slug={slug} active="ea" />
+        <p>{t(locale, "Perfil incompleto: os atributos deste jogador ainda não estão disponíveis. Nenhuma estatística foi estimada para preencher esses dados.")}</p>
+      </div>
+    </main>
   }
 
   const player = profile.player
   const isGoalkeeper = player.position === "GOL"
+  return <main className="playerPage">
+    <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}>
+      <Link href={localizedHref(locale, "/jogadores")} className="backButton">{t(locale, "Jogadores")}</Link>
+      <span aria-hidden="true">›</span><span aria-current="page">{player.name}</span>
+    </nav>
+    <PlayerHeader locale={locale} player={player} valueContext="career-mode" />
+    <PlayerActions locale={locale} slug={player.slug} name={player.name} />
+    <PlayerExperienceNav locale={locale} slug={slug} active="ea" />
 
-  return (
-    <main className="playerPage">
-      <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}><Link
-        href={localizedHref(locale, "/jogadores")}
-        className="backButton"
-      >
-        {t(locale, "Jogadores")}</Link><span aria-hidden="true">›</span><span aria-current="page">{player.name}</span></nav>
+    <section id="ea-sports-fc" className="profileSection" data-domain="ea" aria-labelledby="ea-title">
+      <span className="sectionEyebrow">{playerExperienceText(locale, "eaContext")}</span>
+      <h2 id="ea-title">EA SPORTS FC</h2>
+      <PlayerQuickProfile locale={locale} player={player} />
+      <dl className="careerFields eaCatalogContext">
+        <div><dt>{visualText(locale, "catalogClub")}</dt><dd>{player.club?.name ?? "—"}</dd></div>
+        <div><dt>{visualText(locale, "catalogLeague")}</dt><dd>{player.league ?? "—"}</dd></div>
+      </dl>
+      {isGoalkeeper ? <section className="playersEmpty">
+        <h2>{t(locale, "Análise FutScout")}</h2>
+        <p>{t(locale, "Análise específica para goleiros em desenvolvimento.")}</p>
+      </section> : <PlayerPositions locale={locale} player={player} />}
+    </section>
 
-      <PlayerHeader locale={locale}
-        player={player}
-      />
-      <PlayerActions locale={locale} slug={player.slug} name={player.name} />
-
-      <nav className="playerSectionNav" aria-label={visualText(locale, "profileNav")}>
-        <a href="#overview">{visualText(locale, "overview")}</a>
-        <a href="#ea-sports-fc">EA SPORTS FC</a>
-        <a href="#real-life">{visualText(locale, "realLife")}</a>
-        <a href="#attributes">{visualText(locale, "attributes")}</a>
-        <a href="#playstyles">PlayStyles</a>
-        <a href="#statistics">{visualText(locale, "statistics")}</a>
-        <Link href={localizedHref(locale, `/jogadores/${encodeURIComponent(slug)}/historico`)}>{historyText(locale, "history")}</Link>
-      </nav>
-
-      <section id="overview" className="profileSection" aria-labelledby="overview-title">
-        <h2 id="overview-title">{visualText(locale, "overview")}</h2>
-        <PlayerQuickProfile locale={locale} player={player} />
-      </section>
-
-      <section id="ea-sports-fc" className="profileSection" data-domain="ea" aria-labelledby="ea-title">
-        <h2 id="ea-title">EA SPORTS FC</h2>
-        <dl className="careerFields eaCatalogContext">
-          <div><dt>{visualText(locale, "catalogClub")}</dt><dd>{player.club?.name ?? "—"}</dd></div>
-          <div><dt>{visualText(locale, "catalogLeague")}</dt><dd>{player.league ?? "—"}</dd></div>
-        </dl>
-
-      {isGoalkeeper ? (
-        <section className="playersEmpty">
-          <h2>{t(locale, "Análise FutScout")}</h2>
-          <p>{t(locale, "Análise específica para goleiros em desenvolvimento.")}</p>
-        </section>
-      ) : <PlayerPositions locale={locale} player={player} />}
-      </section>
-
-      <PlayerCareer locale={locale} catalogClub={player.club?.name ?? null} />
-      <Link className="profileTextLink" href={localizedHref(locale, `/jogadores/${encodeURIComponent(slug)}/historico`)}>{historyText(locale, "fullHistory")}</Link>
-
-      <section id="attributes" className="profileSection" data-domain="ea" aria-label={visualText(locale, "attributes")}>
-        <span className="sectionEyebrow">EA SPORTS FC</span>
-        <PlayerAttributes locale={locale} isGoalkeeper={isGoalkeeper} attributes={player.attributes} />
-      </section>
-      <div id="playstyles" className="profileSection" data-domain="ea">
-        <PlayerPlayStyles locale={locale} player={player} />
-      </div>
-
-      <PlayerCurrentStatistics locale={locale} />
-      {!isGoalkeeper && <section className="profileSection" data-domain="ea">
-        <span className="sectionEyebrow">FutScout · EA SPORTS FC</span>
-        <ScoutAnalysis locale={locale}
-        player={player}
-      />
-      </section>}
-    </main>
-  )
+    <section id="attributes" className="profileSection" data-domain="ea" aria-label={visualText(locale, "attributes")}>
+      <span className="sectionEyebrow">EA SPORTS FC</span>
+      <PlayerAttributes locale={locale} isGoalkeeper={isGoalkeeper} attributes={player.attributes} />
+    </section>
+    <div id="playstyles" className="profileSection" data-domain="ea">
+      <PlayerPlayStyles locale={locale} player={player} />
+    </div>
+    {!isGoalkeeper && <section className="profileSection" data-domain="ea">
+      <span className="sectionEyebrow">FutScout · EA SPORTS FC</span>
+      <ScoutAnalysis locale={locale} player={player} />
+    </section>}
+  </main>
 }
 
 export async function generateMetadata({ params }: PlayerPageProps) {
