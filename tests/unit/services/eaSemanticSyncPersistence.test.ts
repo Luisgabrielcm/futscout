@@ -58,7 +58,8 @@ test("NO_OP records provenance without touching Player, Club, League or Current 
     eaGameVersion: "FC27", gameVersionEvidence: "OFFICIAL_PAGE_CONTEXT",
     gameVersionEvidenceUrl: "https://www.ea.com/games/ea-sports-fc/ratings",
     catalogVersion: null, sourceUpdatedAt: null, observedAt: new Date("2026-09-17T16:46:16.000Z"),
-    responseDate: new Date("2026-09-17T16:46:16.000Z"), etag: "etag", locale: "en", gender: 0,
+    responseDate: new Date("2026-09-17T16:46:16.000Z"), etag: "etag", lastModified: null,
+    locale: "en", gender: 0, requestOffset: 0, requestLimit: 1, totalItems: 1,
   } })
 
   assert.equal(result.noOp, 1)
@@ -82,7 +83,8 @@ test("invalid batch never records provenance, allowing checkpoint to remain bloc
       provider: "ea-ratings", endpoint: "endpoint", eaGameVersion: "FC27",
       gameVersionEvidence: "OFFICIAL_PAGE_CONTEXT", gameVersionEvidenceUrl: "context",
       catalogVersion: null, sourceUpdatedAt: null, observedAt: new Date(), responseDate: null,
-      etag: null, locale: "en", gender: 0,
+      etag: null, lastModified: null, locale: "en", gender: 0,
+      requestOffset: 0, requestLimit: 1, totalItems: 1,
     },
   })
   assert.equal(result.failed, 1)
@@ -126,7 +128,8 @@ test("explicit dry-run reports domain fields without invoking domain or provenan
       provider: "ea-ratings", endpoint: "endpoint", eaGameVersion: "FC27",
       gameVersionEvidence: "OFFICIAL_PAGE_CONTEXT", gameVersionEvidenceUrl: "context",
       catalogVersion: null, sourceUpdatedAt: null, observedAt: new Date(), responseDate: null,
-      etag: null, locale: "en", gender: 0,
+      etag: null, lastModified: null, locale: "en", gender: 0,
+      requestOffset: 0, requestLimit: 1, totalItems: 1,
     },
   })
 
@@ -157,6 +160,55 @@ test("league-only change updates League and Club without touching Player", async
   assert.equal(result.updated, 1)
   assert.deepEqual(result.items[0].changedFields, ["league.externalId", "league.name"])
   assert.deepEqual(operations, ["league", "club"])
+})
+
+test("automatic CREATE rejects ambiguous legacy slug instead of silently attaching EA identity", async () => {
+  const legacy = { ...storedRow(), externalId: null, semanticSnapshot: undefined }
+  const prisma = new Proxy({
+    player: { findMany: async () => [legacy] },
+  }, { get(target, key) {
+    if (!(key in target)) throw new Error(`Unexpected write for ambiguous identity: ${String(key)}`)
+    return Reflect.get(target, key)
+  } })
+
+  const result = await loadSync(prisma).syncPlayers([normalized], {
+    dryRun: true,
+    requireResolvedCreateContext: true,
+  })
+  assert.equal(result.conflicts, 1)
+  assert.equal(result.items[0].action, "CONFLICT")
+  assert.equal(result.items[0].reason, "AMBIGUOUS_LEGACY_SLUG")
+})
+
+test("automatic CREATE requires resolvable club and league context", async () => {
+  const prisma = { player: { findMany: async () => [] } }
+  const result = await loadSync(prisma).syncPlayers([{ ...normalized, club: undefined }], {
+    dryRun: true,
+    requireResolvedCreateContext: true,
+  })
+  assert.equal(result.invalid, 1)
+  assert.equal(result.items[0].reason, "CREATE_CONTEXT_UNRESOLVED")
+})
+
+test("write-mode identity conflict is counted and remains non-persisted", async () => {
+  const legacy = { ...storedRow(), externalId: null, semanticSnapshot: undefined }
+  const failures: unknown[] = []
+  const prisma = new Proxy({
+    player: { findMany: async () => [legacy] },
+  }, { get(target, key) {
+    if (!(key in target)) throw new Error(`Unexpected persistence for conflict: ${String(key)}`)
+    return Reflect.get(target, key)
+  } })
+
+  const result = await loadSync(prisma).syncPlayers([normalized], {
+    requireResolvedCreateContext: true,
+    onError: ({ error }) => { failures.push(error) },
+  })
+  assert.equal(result.conflicts, 1)
+  assert.equal(result.failed, 1)
+  assert.equal(result.success, 0)
+  assert.equal(result.items[0].action, "CONFLICT")
+  assert.equal(failures.length, 1)
 })
 
 test("provenance migration is additive and Current Club V2 remains outside EA sync", () => {

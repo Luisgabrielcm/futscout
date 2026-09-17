@@ -81,6 +81,18 @@ test("rating, attribute and league changes are semantic updates", () => {
     league: { externalId: "53", name: "LALIGA EA SPORTS" },
   })), current)
   assert.deepEqual(league.changedFields, ["league.externalId", "league.name"])
+
+  const position = planEaSemanticSync(normalizedPlayerSnapshot(player({
+    position: "MC",
+    secondaryPosition: "VOL",
+    secondaryPositions: ["VOL"],
+  })), current)
+  assert.deepEqual(position.changedFields, ["position", "secondaryPosition", "secondaryPositions"])
+
+  const playStyles = planEaSemanticSync(normalizedPlayerSnapshot(player({
+    playStyles: [{ code: "power-shot", name: "Power Shot", level: "normal" }],
+  })), current)
+  assert.deepEqual(playStyles.changedFields, ["playStyles"])
 })
 
 test("planner classifies CREATE, CONFLICT and INVALID without writes", () => {

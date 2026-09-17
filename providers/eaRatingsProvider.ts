@@ -96,6 +96,10 @@ export class EARatingsProvider {
     const responseDate = responseDateValue && Number.isFinite(Date.parse(responseDateValue))
       ? new Date(responseDateValue)
       : null
+    const lastModifiedValue = response.headers.get("last-modified")
+    const lastModified = lastModifiedValue && Number.isFinite(Date.parse(lastModifiedValue))
+      ? new Date(lastModifiedValue)
+      : null
 
     return {
       response: (
@@ -112,8 +116,12 @@ export class EARatingsProvider {
         observedAt,
         responseDate,
         etag: response.headers.get("etag"),
+        lastModified,
         locale,
         gender,
+        requestOffset: offset,
+        requestLimit: limit,
+        totalItems: 0,
       },
     }
   }
@@ -166,7 +174,10 @@ export class EARatingsProvider {
         result.response.totalItems ?? 0,
 
       provenance:
-        result.provenance,
+        {
+          ...result.provenance,
+          totalItems: result.response.totalItems ?? 0,
+        },
     }
   }
 

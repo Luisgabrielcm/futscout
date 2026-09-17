@@ -67,14 +67,20 @@ model EaCatalogObservation {
   observedAt             DateTime
   responseDate           DateTime?
   etag                   String?
+  lastModified           DateTime?
   locale                 String
   gender                 Int
+  requestOffset          Int
+  requestLimit           Int
+  totalItems             Int
+  batchHash              String
   schemaVersion          Int                    @default(1)
   createdAt              DateTime               @default(now())
 
   players EaPlayerCatalogObservation[]
 
   @@index([provider, eaGameVersion, observedAt(sort: Desc)])
+  @@index([provider, endpoint, locale, gender, requestOffset, requestLimit, observedAt(sort: Desc)])
   @@index([observedAt])
 }
 

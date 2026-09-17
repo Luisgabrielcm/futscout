@@ -17,8 +17,13 @@ CREATE TABLE "EaCatalogObservation" (
     "observedAt" TIMESTAMP(3) NOT NULL,
     "responseDate" TIMESTAMP(3),
     "etag" TEXT,
+    "lastModified" TIMESTAMP(3),
     "locale" TEXT NOT NULL,
     "gender" INTEGER NOT NULL,
+    "requestOffset" INTEGER NOT NULL,
+    "requestLimit" INTEGER NOT NULL,
+    "totalItems" INTEGER NOT NULL,
+    "batchHash" TEXT NOT NULL,
     "schemaVersion" INTEGER NOT NULL DEFAULT 1,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -45,6 +50,10 @@ CREATE TABLE "EaPlayerCatalogObservation" (
 -- CreateIndex
 CREATE INDEX "EaCatalogObservation_provider_eaGameVersion_observedAt_idx"
 ON "EaCatalogObservation"("provider", "eaGameVersion", "observedAt" DESC);
+
+-- CreateIndex
+CREATE INDEX "EaCatalogObservation_provider_endpoint_locale_gender_requestOffset_requestLimit_observedAt_idx"
+ON "EaCatalogObservation"("provider", "endpoint", "locale", "gender", "requestOffset", "requestLimit", "observedAt" DESC);
 
 -- CreateIndex
 CREATE INDEX "EaCatalogObservation_observedAt_idx"

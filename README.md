@@ -53,6 +53,20 @@ A configuração CLI tolera URL ausente para geração; comandos de banco exigem
 O build não consulta PostgreSQL: CI usa placeholder em loopback, sem servidor.
 **Nunca usar o placeholder de CI no runtime público.** Nenhum segredo usa NEXT_PUBLIC_.
 
+### EA incremental auto-sync (prepared, not scheduled)
+
+The existing EA Ratings pipeline is reused by the incremental runner. A read-only
+preview requires the explicit `npm run ea:sync:auto:dry-run` command. Write mode is
+disabled unless `EA_AUTO_SYNC_WRITE_ENABLED=true`, and must only be enabled after the
+pending additive provenance migration is separately reviewed, backed up and applied.
+Batch size, maximum batches, locale and gender are environment configuration; job
+frequency belongs to the hosting scheduler. No cron or scheduler is active in this repo.
+
+Catalog `ETag` and `Last-Modified` values are recorded when the source supplies them,
+but are treated as evidence rather than an unconditional skip. The semantic hash/diff
+remains authoritative, so unchanged players do not touch Player, Club, League,
+PlayStyles or `Player.updatedAt`. Missing players are never automatically deleted.
+
 ## Production
 
 Configurar SITE_URL com o domínio real e DATABASE_URL pooled no ambiente do servidor

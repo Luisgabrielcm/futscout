@@ -10,6 +10,7 @@ import type {
 
 import {
   EA_CATALOG_PROVENANCE_SCHEMA_VERSION,
+  eaCatalogBatchHash,
   normalizedPlayerSnapshot,
   planEaSemanticSync,
   type EaCatalogBatchProvenance,
@@ -34,6 +35,8 @@ type SyncPlayersOptions = {
   provenance?: EaCatalogBatchProvenance
 
   dryRun?: boolean
+
+  requireResolvedCreateContext?: boolean
 }
 
 /* ========================================
@@ -1585,10 +1588,37 @@ export async function syncPlayers(
     try {
       const incomingSnapshot = normalizedPlayerSnapshot(player)
       const existing = lookupCache.byExternalId.get(player.externalId)
-      const plan = planEaSemanticSync(
+      let plan = planEaSemanticSync(
         incomingSnapshot,
         existing?.semanticSnapshot ?? null
       )
+
+      const slugOwner = lookupCache.bySlug.get(createSlug(player.name))
+      if (
+        plan.action === "CREATE" &&
+        slugOwner &&
+        !slugOwner.externalId
+      ) {
+        plan = {
+          ...plan,
+          action: "CONFLICT",
+          changedFields: ["identity.slug"],
+          reason: "AMBIGUOUS_LEGACY_SLUG",
+        }
+      }
+
+      if (
+        plan.action === "CREATE" &&
+        options.requireResolvedCreateContext &&
+        (!player.club?.externalId || !player.club.name.trim() || !player.league?.name.trim())
+      ) {
+        plan = {
+          ...plan,
+          action: "INVALID",
+          changedFields: [],
+          reason: "CREATE_CONTEXT_UNRESOLVED",
+        }
+      }
 
       if (options.dryRun) {
         result.items.push({
@@ -1609,6 +1639,15 @@ export async function syncPlayers(
       }
 
       if (plan.action === "INVALID" || plan.action === "CONFLICT") {
+        if (plan.action === "INVALID") result.invalid++
+        if (plan.action === "CONFLICT") result.conflicts++
+        result.items.push({
+          ...plan,
+          playerId: existing?.id ?? null,
+          clubExternalId: player.club?.externalId ?? null,
+          leagueExternalId: player.league?.externalId ?? null,
+          leagueName: player.league?.name ?? null,
+        })
         throw new Error(plan.reason ?? plan.action)
       }
 
@@ -1691,6 +1730,9 @@ export async function syncPlayers(
 
   if (!options.dryRun && options.provenance && result.failed === 0) {
     const provenance = options.provenance
+    const batchHash = eaCatalogBatchHash(
+      players.map(normalizedPlayerSnapshot)
+    )
 
     await databaseRetry(
       () => prisma.$transaction((tx) =>
@@ -1706,8 +1748,13 @@ export async function syncPlayers(
             observedAt: provenance.observedAt,
             responseDate: provenance.responseDate,
             etag: provenance.etag,
+            lastModified: provenance.lastModified,
             locale: provenance.locale,
             gender: provenance.gender,
+            requestOffset: provenance.requestOffset,
+            requestLimit: provenance.requestLimit,
+            totalItems: provenance.totalItems,
+            batchHash,
             schemaVersion: EA_CATALOG_PROVENANCE_SCHEMA_VERSION,
             players: {
               create: result.items.map((item) => ({

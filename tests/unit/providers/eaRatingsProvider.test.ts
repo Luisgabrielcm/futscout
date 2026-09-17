@@ -32,6 +32,10 @@ test("EA batch records FC27 as official-page context, never as player payload me
     assert.equal(batch.provenance.sourceUpdatedAt, null)
     assert.equal(batch.provenance.responseDate?.toISOString(), "2026-09-17T16:46:16.000Z")
     assert.equal(batch.provenance.etag, "fixture-etag")
+    assert.equal(batch.provenance.lastModified, null)
+    assert.equal(batch.provenance.requestOffset, 0)
+    assert.equal(batch.provenance.requestLimit, 1)
+    assert.equal(batch.provenance.totalItems, 1)
     assert.ok(batch.provenance.observedAt >= before)
   } finally {
     globalThis.fetch = originalFetch

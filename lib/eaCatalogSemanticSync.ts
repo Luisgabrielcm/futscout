@@ -22,8 +22,12 @@ export type EaCatalogBatchProvenance = {
   observedAt: Date
   responseDate: Date | null
   etag: string | null
+  lastModified: Date | null
   locale: string
   gender: number
+  requestOffset: number
+  requestLimit: number
+  totalItems: number
 }
 
 export type EaSemanticSnapshot = {
@@ -81,6 +85,19 @@ function canonical(value: unknown): unknown {
 export function eaSemanticHash(snapshot: EaSemanticSnapshot): string {
   return createHash("sha256")
     .update(JSON.stringify(canonical(snapshot)))
+    .digest("hex")
+}
+
+export function eaCatalogBatchHash(snapshots: EaSemanticSnapshot[]): string {
+  const entries = snapshots
+    .map((snapshot) => ({
+      externalId: snapshot.externalId,
+      payloadHash: eaSemanticHash(snapshot),
+    }))
+    .sort((left, right) => left.externalId.localeCompare(right.externalId))
+
+  return createHash("sha256")
+    .update(JSON.stringify(entries))
     .digest("hex")
 }
 
