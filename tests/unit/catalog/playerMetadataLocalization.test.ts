@@ -85,10 +85,12 @@ for (const locale of ["pt", "en"] as const) {
     })
   }
   for (const [form, en] of [["Péssima", "Very poor"], ["Ruim", "Poor"], ["Normal", "Normal"], ["Boa", "Good"], ["Excelente", "Excellent"]] as const) {
-    test(`${locale}: form ${form} is localized in card, overview and squad without changing DTO`, () => {
+    test(`${locale}: form ${form} remains localized outside cards without changing DTO`, () => {
       const player = mapDatabasePlayer(catalogPlayer({ form }))
+      const card = renderToStaticMarkup(createElement(Card, { ...player, club: null, locale }))
+      assert.ok(!visibleText(card).includes(locale === "pt" ? form : en))
+      assert.doesNotMatch(card, /Forma|Form<\/span>/)
       for (const html of [
-        renderToStaticMarkup(createElement(Card, { ...player, club: null, locale })),
         renderToStaticMarkup(createElement(Overview, { player, locale })),
         renderToStaticMarkup(createElement(clubComponents.SquadList, { players: [player], locale })),
       ]) {

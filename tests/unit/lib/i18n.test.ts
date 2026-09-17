@@ -41,11 +41,12 @@ for (const locale of ["pt", "en"] as const) {
       "next/link": link, "./PlayerImage": empty, "./PlayerActions": empty,
       "../../utils/formatCurrency": { formatCurrency },
     })
-    const html = renderToStaticMarkup(Card({ ...player, club: "Manchester City", locale, marketValue: 12345, potential: null, form: null }))
+    const html = renderToStaticMarkup(Card({ ...player, club: "Manchester City", locale, marketValue: 12345, potential: null }))
     assert.ok(html.includes(player.name))
     assert.ok(html.includes("Manchester City"))
     assert.ok(html.includes(t(locale, "Potencial")))
-    assert.ok(html.includes(t(locale, "Forma")))
+    assert.ok(!html.includes(t(locale, "Forma")))
+    assert.ok(html.includes(locale === "pt" ? "Salário" : "Salary"))
     assert.ok(html.includes(formatCurrency(12345, locale)))
     assert.ok(html.includes('href="/' + locale + '/jogadores/' + player.slug + '"'))
   })
@@ -56,7 +57,7 @@ for (const locale of ["pt", "en"] as const) {
       "next/link": link, "next/navigation": { notFound: () => { throw new Error("missing") } },
       "../../../../services/playerService": { getPlayerBySlug: async () => ({ status: "ready", player }) },
     }
-    for (const component of ["PlayerAttributes", "PlayerHeader", "PlayerPlayStyles", "PlayerPositions", "PlayerQuickProfile", "ScoutAnalysis", "PlayerActions"]) {
+    for (const component of ["PlayerAttributes", "PlayerGoalkeeperAttributes", "PlayerHeader", "PlayerPlayStyles", "PlayerPositions", "PlayerQuickProfile", "ScoutAnalysis", "PlayerActions"]) {
       dependencies["../../../components/" + component] = empty
     }
     const page = loadCatalogModule<typeof import("../../../app/[locale]/jogadores/[slug]/page")>("app/[locale]/jogadores/[slug]/page.tsx", dependencies)

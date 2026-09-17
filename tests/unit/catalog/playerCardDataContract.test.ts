@@ -67,11 +67,11 @@ function contractFixture(row: mapper.DatabasePlayer) {
 
 for (const scenario of [
   { name: "valid persisted values", potential: 94, form: "Excelente", marketValue: BigInt(145_000_000),
-    expectedPotential: "94", expectedForm: "Excelente", expectedMarket: "€145M" },
+    expectedPotential: "94", expectedMarket: "€145M" },
   { name: "true nulls without overall/form/value fallback", potential: null, form: null, marketValue: null,
-    expectedPotential: "—", expectedForm: "—", expectedMarket: "—" },
+    expectedPotential: "—", expectedMarket: "—" },
   { name: "zero values without mistaking them for null", potential: 0, form: "Normal", marketValue: BigInt(0),
-    expectedPotential: "0", expectedForm: "Normal", expectedMarket: "€0" },
+    expectedPotential: "0", expectedMarket: "€0" },
 ]) {
   test(`catalog query → mapper → callers → PlayerCard preserves ${scenario.name}`, async () => {
     const { service, Search, Home } = contractFixture(catalogPlayer({
@@ -90,7 +90,8 @@ for (const scenario of [
       renderToStaticMarkup(await Home()),
     ]) {
       assert.ok(html.includes(`<span>Potencial</span><strong>${scenario.expectedPotential}</strong>`))
-      assert.ok(html.includes(`<span>Forma</span><strong>${scenario.expectedForm}</strong>`))
+      assert.doesNotMatch(html, /Forma|OVR FUTSCOUT/)
+      assert.ok(html.includes(`<span>Salário</span> <strong>—</strong>`))
       assert.ok(html.includes(`<strong class="marketValue">${scenario.expectedMarket}</strong>`))
       assert.doesNotMatch(html, /TENDÊNCIA|NaN|undefined/)
     }

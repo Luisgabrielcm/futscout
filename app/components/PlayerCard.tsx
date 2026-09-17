@@ -1,5 +1,5 @@
 import { t, localizedHref, type Locale } from "../../lib/i18n"
-import { displayForm, displayPosition } from "../../lib/i18n/presentation"
+import { displayPosition } from "../../lib/i18n/presentation"
 import CountryFlag from "./CountryFlag"
 import { displaySalary } from "../../lib/playerCareerPresentation"
 import { visualText } from "../../lib/i18n/visualRevision"
@@ -35,27 +35,14 @@ type PlayerCardProps = {
 
   baseOverall: number
 
-  dynamicOverall:
-    | number
-    | null
-
   potential:
     | number
-    | null
-
-  form:
-    | string
     | null
 
   marketValue:
     | number
     | null
 
-  valueTrend:
-    | "up"
-    | "down"
-    | "stable"
-    | null
 }
 
 /* ========================================
@@ -81,50 +68,12 @@ export default function PlayerCard({ locale = "pt",
 
   baseOverall,
 
-  dynamicOverall,
-
   potential,
 
-  form,
-
   marketValue,
-
-  valueTrend,
 }: PlayerCardProps) {
   const positions = [...new Set([position, ...secondaryPositions, ...(secondaryPosition ? [secondaryPosition] : [])])]
   const salaryLabel = displaySalary(salary, locale)
-  /* ======================================
-     OVR DINÂMICO
-  ====================================== */
-
-  const displayedDynamicOverall =
-    dynamicOverall ??
-    baseOverall
-
-  const overallDifference =
-    dynamicOverall !== null
-      ? dynamicOverall -
-        baseOverall
-      : null
-
-  /* ======================================
-     TENDÊNCIA
-  ====================================== */
-
-  const trendSymbol =
-    valueTrend === "up"
-      ? "↑"
-      : valueTrend === "down"
-        ? "↓"
-        : "→"
-
-  const trendLabel =
-    valueTrend === "up"
-      ? t(locale, "Em alta")
-      : valueTrend === "down"
-        ? t(locale, "Em baixa")
-        : t(locale, "Estável")
-
   /* ======================================
      DADOS OPCIONAIS
   ====================================== */
@@ -142,10 +91,6 @@ export default function PlayerCard({ locale = "pt",
     potential !== null
       ? potential
       : "—"
-
-  const playerForm =
-    displayForm(form, locale) ??
-    "—"
 
   /* ======================================
      RENDER
@@ -233,52 +178,6 @@ export default function PlayerCard({ locale = "pt",
             </strong>
           </div>
 
-          {dynamicOverall !== null && <>
-          <span
-            className="overallArrow"
-          >
-            →
-          </span>
-
-          <div>
-            <span
-              className="smallLabel"
-            >
-              OVR FUTSCOUT
-            </span>
-
-            <strong
-              className="dynamicOverall"
-            >
-              {
-                displayedDynamicOverall
-              }
-            </strong>
-
-            {overallDifference !==
-              null &&
-              overallDifference !==
-                0 && (
-              <span
-                className={
-                  overallDifference >
-                  0
-                    ? "overallChange positive"
-                    : "overallChange negative"
-                }
-              >
-                {overallDifference >
-                0
-                  ? "+"
-                  : ""}
-
-                {
-                  overallDifference
-                }
-              </span>
-            )}
-          </div>
-          </>}
         </div>
 
         {/* ==================================
@@ -299,14 +198,6 @@ export default function PlayerCard({ locale = "pt",
             </strong>
           </div>
 
-          <div>
-            <span>
-              {t(locale, "Forma")}</span>
-
-            <strong>
-              {playerForm}
-            </strong>
-          </div>
         </div>
 
         {/* ==================================
@@ -332,29 +223,8 @@ export default function PlayerCard({ locale = "pt",
             </strong>
           </div>
 
-          {valueTrend !== null && marketValue !== null && <div
-            className={
-              valueTrend ===
-              "up"
-                ? "trendBox up"
-                : valueTrend ===
-                    "down"
-                  ? "trendBox down"
-                  : "trendBox stable"
-            }
-          >
-            <span
-              className="trendTitle"
-            >
-              {t(locale, "TENDÊNCIA")}</span>
-
-            <strong>
-              {trendLabel}{" "}
-              {trendSymbol}
-            </strong>
-          </div>}
         </div>
-        {salaryLabel && <p className="cardSalary"><span>{visualText(locale, "salary")}</span> <strong>{salaryLabel}</strong></p>}
+        <p className="cardSalary"><span>{visualText(locale, "salary")}</span> <strong>{salaryLabel ?? "—"}</strong></p>
       </Link>
     </article>
   )

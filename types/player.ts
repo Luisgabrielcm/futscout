@@ -10,8 +10,11 @@ export type PlayerPosition =
   | "VOL"
   | "MC"
   | "MEI"
+  | "MD"
+  | "ME"
   | "PD"
   | "PE"
+  | "SA"
   | "ATA"
 
 /* ========================================

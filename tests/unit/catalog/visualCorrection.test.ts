@@ -140,7 +140,7 @@ test("profile navigation exposes only EA and real-life experiences while EA sect
     "../../../../services/playerService": { getPlayerBySlug: async () => ({ status: "complete", player: mapDatabasePlayer(catalogPlayer()) }) },
     "../../../components/PlayerHeader": marker, "../../../components/PlayerActions": marker,
     "../../../components/PlayerQuickProfile": marker, "../../../components/PlayerPositions": marker,
-    "../../../components/PlayerAttributes": marker, "../../../components/PlayerPlayStyles": marker,
+    "../../../components/PlayerAttributes": marker, "../../../components/PlayerGoalkeeperAttributes": marker, "../../../components/PlayerPlayStyles": marker,
     "../../../components/ScoutAnalysis": marker,
   })
   for (const locale of ["pt", "en"] as const) {

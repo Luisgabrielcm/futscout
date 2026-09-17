@@ -3,8 +3,10 @@ import type {
     PlayerPosition,
 } from "../types/player"
 
-export type CalculatedPosition =
-  Exclude<PlayerPosition, "GOL">
+export type CalculatedPosition = Extract<
+  PlayerPosition,
+  "LD" | "LE" | "ZAG" | "VOL" | "MC" | "MEI" | "PD" | "PE" | "ATA"
+>
 
 function getFamiliarityBonus(
   player: Player,

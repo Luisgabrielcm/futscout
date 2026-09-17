@@ -8,6 +8,7 @@ import { visualText } from "../../../../lib/i18n/visualRevision"
 import { getPlayerBySlug } from "../../../../services/playerService"
 import PlayerActions from "../../../components/PlayerActions"
 import PlayerAttributes from "../../../components/PlayerAttributes"
+import PlayerGoalkeeperAttributes from "../../../components/PlayerGoalkeeperAttributes"
 import PlayerExperienceNav from "../../../components/PlayerExperienceNav"
 import PlayerHeader from "../../../components/PlayerHeader"
 import PlayerPlayStyles from "../../../components/PlayerPlayStyles"
@@ -65,13 +66,14 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
 
     <section id="attributes" className="profileSection" data-domain="ea" aria-label={visualText(locale, "attributes")}>
       <span className="sectionEyebrow">EA SPORTS FC</span>
-      <PlayerAttributes locale={locale} isGoalkeeper={isGoalkeeper} attributes={player.attributes} />
+      {isGoalkeeper
+        ? <PlayerGoalkeeperAttributes locale={locale} />
+        : <PlayerAttributes locale={locale} attributes={player.attributes} />}
     </section>
     <div id="playstyles" className="profileSection" data-domain="ea">
       <PlayerPlayStyles locale={locale} player={player} />
     </div>
     {!isGoalkeeper && <section className="profileSection" data-domain="ea">
-      <span className="sectionEyebrow">FutScout · EA SPORTS FC</span>
       <ScoutAnalysis locale={locale} player={player} />
     </section>}
   </main>

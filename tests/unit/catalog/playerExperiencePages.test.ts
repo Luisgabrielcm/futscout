@@ -30,7 +30,7 @@ for (const locale of ["pt", "en"] as const) {
       "../../../../services/playerService": { getPlayerBySlug: async () => complete },
       "../../../components/PlayerHeader": marker("EA_HEADER"), "../../../components/PlayerActions": marker("ACTIONS"),
       "../../../components/PlayerQuickProfile": marker("QUICK"), "../../../components/PlayerPositions": marker("POSITIONS"),
-      "../../../components/PlayerAttributes": marker("ATTRIBUTES"), "../../../components/PlayerPlayStyles": marker("PLAYSTYLES"),
+      "../../../components/PlayerAttributes": marker("ATTRIBUTES"), "../../../components/PlayerGoalkeeperAttributes": marker("GK_ATTRIBUTES"), "../../../components/PlayerPlayStyles": marker("PLAYSTYLES"),
       "../../../components/ScoutAnalysis": marker("ANALYSIS"),
     })
     const html = renderToStaticMarkup(await page.default({ params: Promise.resolve({ locale, slug: "rodri" }) }))

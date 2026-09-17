@@ -116,18 +116,11 @@ export default async function Home({ params }: { params?: Promise<{ locale: stri
                   baseOverall={
                     player.baseOverall
                   }
-                  dynamicOverall={
-                    player.dynamicOverall
-                  }
                   potential={
                     player.potential
                   }
-                  form={player.form}
                   marketValue={
                     player.marketValue
-                  }
-                  valueTrend={
-                    player.valueTrend
                   }
                 />
               )

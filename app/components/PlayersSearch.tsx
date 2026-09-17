@@ -573,11 +573,20 @@ export default function PlayersSearch({ locale = "pt",
               <option value="MEI">
                 {t(locale, "Meia ofensivo")}</option>
 
+              <option value="MD">
+                {t(locale, "Meia direito")}</option>
+
+              <option value="ME">
+                {t(locale, "Meia esquerdo")}</option>
+
               <option value="PD">
                 {t(locale, "Ponta Direito")}</option>
 
               <option value="PE">
                 {t(locale, "Ponta Esquerdo")}</option>
+
+              <option value="SA">
+                {t(locale, "Segundo atacante")}</option>
 
               <option value="ATA">
                 {t(locale, "Atacante")}</option>
@@ -1278,20 +1287,11 @@ export default function PlayersSearch({ locale = "pt",
                 baseOverall={
                   player.baseOverall
                 }
-                dynamicOverall={
-                  player.dynamicOverall
-                }
                 potential={
                   player.potential
                 }
-                form={
-                  player.form
-                }
                 marketValue={
                   player.marketValue
-                }
-                valueTrend={
-                  player.valueTrend
                 }
               />
             )

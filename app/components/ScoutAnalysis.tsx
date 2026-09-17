@@ -20,10 +20,8 @@ export default function ScoutAnalysis({ locale = "pt",
   return (
     <section className="scoutAnalysis">
       <div className="scoutAnalysisHeader">
-        <span>{t(locale, "ANÁLISE POR ATRIBUTOS")}</span>
-
         <h2>{t(locale, "Análise FutScout")}</h2>
-        <p>{t(locale, "Leitura heurística dos atributos disponíveis, não uma análise em tempo real.")}</p>
+        <p>{t(locale, "Análise baseada nos atributos do jogador no EA SPORTS FC.")}</p>
       </div>
 
       <div className="scoutAnalysisGrid">

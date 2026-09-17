@@ -11,7 +11,7 @@ export type PlayerSort = (typeof PLAYER_SORTS)[number]
 export type CatalogSearchParams = Record<string, string | string[] | undefined>
 
 const POSITIONS: readonly PlayerPosition[] = [
-  "GOL", "LD", "LE", "ZAG", "VOL", "MC", "MEI", "PD", "PE", "ATA",
+  "GOL", "LD", "LE", "ZAG", "VOL", "MC", "MEI", "MD", "ME", "PD", "PE", "SA", "ATA",
 ]
 
 export const NUMERIC_FILTER_LIMITS = {

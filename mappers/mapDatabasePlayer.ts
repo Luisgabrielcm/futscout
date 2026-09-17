@@ -149,8 +149,11 @@ const validPositions:
     "VOL",
     "MC",
     "MEI",
+    "MD",
+    "ME",
     "PD",
     "PE",
+    "SA",
     "ATA",
   ]
 

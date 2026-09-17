@@ -1,18 +1,15 @@
 import { t, type Locale } from "../../lib/i18n"
 
 import type { PlayerAttributes as PlayerAttributesType } from "../../types/player"
-import { profileText } from "../../lib/i18n/playerProfile"
 import { getAttributeLevel } from "../../utils/getAttributeLevel"
 
 type PlayerAttributesProps = {
   locale?: Locale
-  isGoalkeeper?: boolean
   attributes: { [Group in keyof PlayerAttributesType]?: Partial<Record<keyof PlayerAttributesType[Group], number | null>> | null } | null
 }
 
 export default function PlayerAttributes({ locale = "pt",
   attributes,
-  isGoalkeeper = false,
 }: PlayerAttributesProps) {
   const attributeGroups = [
     {
@@ -175,26 +172,15 @@ export default function PlayerAttributes({ locale = "pt",
   ]
 
   const isValue = (value: number | null | undefined): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 99
-  const faceCodes = ["PAC", "SHO", "PAS", "DRI", "DEF", "PHY"]
-
   return (
     <section className="playerAttributes">
       <div className="attributesHeader">
         <span>{t(locale, "ATRIBUTOS")}</span>
-        <h2>{isGoalkeeper ? profileText(locale, "general") : t(locale, "Desempenho do jogador")}</h2>
+        <h2>{t(locale, "Desempenho do jogador")}</h2>
       </div>
-
-      {isGoalkeeper && <div className="goalkeeperDataNotice">
-        <h3>{profileText(locale, "goalkeeper")}</h3>
-        <p>{profileText(locale, "missingGoalkeeper")}</p>
-        <h3>{profileText(locale, "faceStats")}</h3>
-        <p>{profileText(locale, "faceNotice")}</p>
-        <dl>{attributeGroups.map((group, i) => <div key={faceCodes[i]}><dt>{faceCodes[i]}</dt><dd>{isValue(group.value) ? group.value : "—"}</dd></div>)}</dl>
-      </div>}
       <div className="attributesList">
         {attributeGroups.map((attribute) => (
           <details
-            open={isGoalkeeper}
             className="attributeItem"
             key={attribute.label}
           >
@@ -202,10 +188,10 @@ export default function PlayerAttributes({ locale = "pt",
               <div className="attributeMain">
                 <div className="attributeInfo">
                   <span>{attribute.label}</span>
-                  {!isGoalkeeper && <strong>{isValue(attribute.value) ? attribute.value : "—"}</strong>}
+                  <strong>{isValue(attribute.value) ? attribute.value : "—"}</strong>
                 </div>
 
-                {!isGoalkeeper && isValue(attribute.value) && <div className="attributeBar">
+                {isValue(attribute.value) && <div className="attributeBar">
                   <div
                     className={`attributeBarFill ${getAttributeLevel(
                       attribute.value

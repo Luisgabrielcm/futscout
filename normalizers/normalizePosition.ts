@@ -74,8 +74,9 @@ RW: "PD",
 "RIGHT WING": "PD",
 "RIGHT FORWARD": "PD",
 
-RM: "PD",
-"RIGHT MIDFIELDER": "PD",
+RM: "MD",
+"RIGHT MIDFIELDER": "MD",
+MD: "MD",
 
 PD: "PD",
 
@@ -84,8 +85,9 @@ LW: "PE",
 "LEFT WING": "PE",
 "LEFT FORWARD": "PE",
 
-LM: "PE",
-"LEFT MIDFIELDER": "PE",
+LM: "ME",
+"LEFT MIDFIELDER": "ME",
+ME: "ME",
 
 PE: "PE",
 
@@ -96,9 +98,10 @@ PE: "PE",
   ST: "ATA",
   STRIKER: "ATA",
 
-  CF: "ATA",
-  "CENTRE FORWARD": "ATA",
-  "CENTER FORWARD": "ATA",
+  CF: "SA",
+  "CENTRE FORWARD": "SA",
+  "CENTER FORWARD": "SA",
+  SA: "SA",
 
   ATA: "ATA",
 }

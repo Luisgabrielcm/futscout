@@ -17,6 +17,7 @@ import { getOverallDifference } from "../../../utils/getOverallDifference"
 import type { PlayerPlayStyle } from "../../../types/player"
 
 const { default: Attributes } = loadCatalogModule<typeof import("../../../app/components/PlayerAttributes")>("app/components/PlayerAttributes.tsx", { "../../utils/getAttributeLevel": levels })
+const { default: GoalkeeperAttributes } = loadCatalogModule<typeof import("../../../app/components/PlayerGoalkeeperAttributes")>("app/components/PlayerGoalkeeperAttributes.tsx", {})
 const { default: Quick } = loadCatalogModule<typeof import("../../../app/components/PlayerQuickProfile")>("app/components/PlayerQuickProfile.tsx", {})
 const { default: PlayStyles } = loadCatalogModule<typeof import("../../../app/components/PlayerPlayStyles")>("app/components/PlayerPlayStyles.tsx", { "../../lib/playStyleAssets": playStyleAssets, "./PlayStyleIcon": ({ playStyle, locale }: { playStyle: PlayerPlayStyle; locale?: "pt" | "en" }) => { const visual = playStyleAssets.getPlayStyleVisual(playStyle, locale); return visual.iconSrc ? createElement("img", { src: visual.iconSrc, alt: visual.displayName }) : null } })
 const { default: Header } = loadCatalogModule<typeof import("../../../app/components/PlayerHeader")>("app/components/PlayerHeader.tsx", {
@@ -56,25 +57,16 @@ test("every allowed PlayStyle has presentation text, with canonical key and Plus
 })
 
 for (const locale of ["pt", "en"] as const) {
-  test(`${locale}: GK shows persisted general subattributes and neutral face codes, not fabricated GK fields`, () => {
-    const player = mapDatabasePlayer(catalogPlayer({ position: "GOL" }))
-    player.attributes.pace.overall = 84
-    player.attributes.pace.acceleration = 45
-    player.attributes.pace.sprintSpeed = 50
-    const html = renderToStaticMarkup(createElement(Attributes, { locale, attributes: player.attributes, isGoalkeeper: true }))
-    assert.match(html, /PAC<\/dt><dd>84<\/dd>/)
-    assert.match(html, /<strong>45<\/strong>/)
-    assert.match(html, /<strong>50<\/strong>/)
-    assert.match(html, locale === "pt" ? /Aceleração/ : /Acceleration/)
+  test(`${locale}: GK uses a dedicated empty state without relabeling persisted outfield columns`, () => {
+    const html = renderToStaticMarkup(createElement(GoalkeeperAttributes, { locale }))
     assert.match(html, locale === "pt" ? /ainda não estão persistidos/ : /not yet persisted/)
-    assert.equal((html.match(/<details open=""/g) ?? []).length, 6)
-    assert.doesNotMatch(html, /Diving|Mergulho|Handling|Manejo/)
+    assert.match(html, locale === "pt" ? /Atributos específicos de goleiro/ : /Goalkeeper-specific attributes/)
+    assert.doesNotMatch(html, /PAC|SHO|PAS|DRI|DEF|PHY|Aceleração|Acceleration|Diving|Mergulho|Handling|Manejo/)
   })
-  test(`${locale}: missing attributes never produce fake zero or a bar; valid zero survives`, () => {
-    const missing = renderToStaticMarkup(createElement(Attributes, { locale, attributes: null, isGoalkeeper: true }))
-    assert.doesNotMatch(missing, /<strong>0<\/strong>|<dd>0<\/dd>|width:/)
-    assert.match(missing, /<dd>—<\/dd>/)
-    const partial = renderToStaticMarkup(createElement(Attributes, { locale, attributes: { pace: { acceleration: 0, sprintSpeed: null, overall: NaN } }, isGoalkeeper: true }))
+  test(`${locale}: outfield missing attributes never produce fake zero or a bar; valid zero survives`, () => {
+    const missing = renderToStaticMarkup(createElement(Attributes, { locale, attributes: null }))
+    assert.doesNotMatch(missing, /<strong>0<\/strong>|width:/)
+    const partial = renderToStaticMarkup(createElement(Attributes, { locale, attributes: { pace: { acceleration: 0, sprintSpeed: null, overall: NaN } } }))
     assert.match(partial, /<strong>0<\/strong>/)
     assert.doesNotMatch(partial, /NaN|undefined|null/)
   })

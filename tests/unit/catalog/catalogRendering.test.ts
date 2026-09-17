@@ -31,6 +31,7 @@ function detailPage(profile: PlayerProfile | null) {
     "../../../components/PlayerPositions": marker("outfield-positions"),
     "../../../components/ScoutAnalysis": marker("outfield-analysis"),
     "../../../components/PlayerAttributes": marker("persisted-attributes"),
+    "../../../components/PlayerGoalkeeperAttributes": marker("goalkeeper-attributes"),
     "../../../components/PlayerPlayStyles": marker("playstyles"),
     "../../../components/PlayerActions": () => null,
   })
@@ -50,14 +51,15 @@ test("incomplete player renders explicit feedback without entering attribute com
   assert.doesNotMatch(html, /outfield-|data-section/)
 })
 
-test("goalkeeper retains general sections but never enters outfield analysis", async () => {
+test("goalkeeper uses its dedicated factual empty state and never enters outfield attributes or analysis", async () => {
   const page = detailPage(mapDatabasePlayerProfile(catalogPlayer({ position: "GOL" })))
   const html = renderToStaticMarkup(await page.render())
   assert.match(html, /data-section="header"/)
   assert.match(html, /data-section="quick-profile"/)
   assert.match(html, /data-section="playstyles"/)
   assert.match(html, /Análise específica para goleiros em desenvolvimento/)
-  assert.match(html, /data-section="persisted-attributes"/)
+  assert.match(html, /data-section="goalkeeper-attributes"/)
+  assert.doesNotMatch(html, /data-section="persisted-attributes"/)
   assert.doesNotMatch(html, /outfield-/)
 })
 
@@ -85,8 +87,8 @@ test("card keeps market absences honest and actions outside its main link", () =
   assert.doesNotMatch(html, /TENDÊNCIA|Estável|OVR ATUAL|OVR FUTSCOUT/)
   assert.match(html, /<button[^>]*>Favoritar<\/button><a/)
   assert.doesNotMatch(html, /<a\b[^>]*>[^]*<button/)
-  const dynamic = renderToStaticMarkup(createElement(Card, { ...props, dynamicOverall: 82 }))
-  assert.match(dynamic, /OVR FUTSCOUT/)
+  assert.doesNotMatch(html, /OVR FUTSCOUT|Forma/)
+  assert.match(html, /Salário<\/span> <strong>—<\/strong>/)
 })
 
 test("header labels the base EA overall and does not invent market stability", () => {
