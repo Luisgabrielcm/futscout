@@ -8,6 +8,15 @@ import type {
   NormalizedPlayer,
 } from "../types/normalizedPlayer"
 
+import {
+  EA_CATALOG_PROVENANCE_SCHEMA_VERSION,
+  normalizedPlayerSnapshot,
+  planEaSemanticSync,
+  type EaCatalogBatchProvenance,
+  type EaSemanticSnapshot,
+  type EaSemanticSyncPlan,
+} from "../lib/eaCatalogSemanticSync"
+
 /* ========================================
    TIPOS
 ======================================== */
@@ -21,6 +30,10 @@ type SyncPlayersOptions = {
   onError?: (
     context: SyncPlayerErrorContext
   ) => Promise<void> | void
+
+  provenance?: EaCatalogBatchProvenance
+
+  dryRun?: boolean
 }
 
 /* ========================================
@@ -31,6 +44,15 @@ type ExistingPlayerReference = {
   id: string
   externalId: string | null
   slug: string
+  clubId?: string | null
+  semanticSnapshot?: EaSemanticSnapshot
+}
+
+type EaPlayerSyncResult = EaSemanticSyncPlan & {
+  playerId: string | null
+  clubExternalId: string | null
+  leagueExternalId: string | null
+  leagueName: string | null
 }
 
 /* ========================================
@@ -358,6 +380,50 @@ async function preloadPlayers(
 
             slug:
               true,
+
+            clubId: true,
+
+            name: true,
+            dateOfBirth: true,
+            nationality: true,
+            position: true,
+            secondaryPosition: true,
+            secondaryPositions: true,
+            preferredFoot: true,
+            height: true,
+            skillMoves: true,
+            weakFootAbility: true,
+            imageUrl: true,
+            officialOverall: true,
+            potential: true,
+
+            club: {
+              select: {
+                externalId: true,
+                name: true,
+                imageUrl: true,
+                league: {
+                  select: {
+                    externalId: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+
+            attributes: true,
+
+            playStyles: {
+              select: {
+                level: true,
+                playStyle: {
+                  select: {
+                    code: true,
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         }),
 
@@ -380,18 +446,78 @@ async function preloadPlayers(
     const player
     of existingPlayers
   ) {
+    const attributeValues = player.attributes
+      ? Object.fromEntries(
+          Object.entries(player.attributes)
+            .filter(([key]) => !["id", "playerId", "createdAt", "updatedAt"].includes(key))
+            .map(([key, value]) => [key, typeof value === "number" ? value : null])
+        )
+      : {}
+
+    const semanticSnapshot: EaSemanticSnapshot | undefined = player.externalId
+      ? {
+          externalId: player.externalId,
+          name: player.name,
+          dateOfBirth: player.dateOfBirth?.toISOString() ?? null,
+          nationality: player.nationality,
+          position: player.position,
+          secondaryPosition: player.secondaryPosition,
+          secondaryPositions: [...(player.secondaryPositions ?? [])].sort(),
+          preferredFoot: player.preferredFoot,
+          height: player.height,
+          skillMoves: player.skillMoves,
+          weakFootAbility: player.weakFootAbility,
+          imageUrl: player.imageUrl,
+          officialOverall: player.officialOverall,
+          potential: player.potential,
+          club: player.club
+            ? {
+                externalId: player.club.externalId,
+                name: player.club.name,
+                imageUrl: player.club.imageUrl,
+              }
+            : null,
+          league: player.club?.league
+            ? {
+                externalId: player.club.league.externalId,
+                name: player.club.league.name,
+              }
+            : null,
+          attributes: attributeValues,
+          playStyles: (player.playStyles ?? [])
+            .map(({ level, playStyle }) => ({
+              code: playStyle.code,
+              name: playStyle.name,
+              level: level === "plus" ? "plus" as const : "normal" as const,
+            }))
+            .sort((left, right) =>
+              left.code.localeCompare(right.code) ||
+              left.level.localeCompare(right.level) ||
+              (left.name ?? "").localeCompare(right.name ?? "")
+            ),
+        }
+      : undefined
+
+    const reference: ExistingPlayerReference = {
+      id: player.id,
+      externalId: player.externalId,
+      slug: player.slug,
+      clubId: player.clubId,
+      semanticSnapshot,
+    }
+
     if (
       player.externalId
     ) {
       byExternalId.set(
         player.externalId,
-        player
+        reference
       )
     }
 
     bySlug.set(
       player.slug,
-      player
+      reference
     )
   }
 
@@ -1374,35 +1500,38 @@ async function syncPlayStyles(
 
 export async function syncPlayer(
   player: NormalizedPlayer,
-  lookupCache?: PlayerLookupCache
+  lookupCache?: PlayerLookupCache,
+  plan?: EaSemanticSyncPlan
 ) {
-  const league =
-    await syncLeague(
-      player
+  const existing = lookupCache?.byExternalId.get(player.externalId)
+  const changed = (prefix: string) =>
+    !plan || plan.action === "CREATE" || plan.changedFields.some((field) =>
+      field === prefix || field.startsWith(`${prefix}.`)
     )
 
-  const club =
-    await syncClub(
-      player,
-      league?.id
-    )
+  const leagueOrClubChanged = changed("league") || changed("club")
+  const league = leagueOrClubChanged ? await syncLeague(player) : null
+  const club = leagueOrClubChanged ? await syncClub(player, league?.id) : null
+  const playerChanged = changed("club") || !plan || plan.action === "CREATE" ||
+    plan.changedFields.some((field) => !["attributes", "playStyles", "club", "league"].some((scope) =>
+      field === scope || field.startsWith(`${scope}.`)
+    ))
 
-  const databasePlayer =
-    await syncPlayerCore(
-      player,
-      club?.id,
-      lookupCache
-    )
+  const databasePlayer = playerChanged
+    ? await syncPlayerCore(player, club?.id ?? existing?.clubId ?? undefined, lookupCache)
+    : existing
 
-  await syncAttributes(
-    databasePlayer.id,
-    player
-  )
+  if (!databasePlayer) {
+    throw new Error(`PLAYER_STATE_MISSING:${player.externalId}`)
+  }
 
-  await syncPlayStyles(
-    databasePlayer.id,
-    player
-  )
+  if (changed("attributes")) {
+    await syncAttributes(databasePlayer.id, player)
+  }
+
+  if (changed("playStyles")) {
+    await syncPlayStyles(databasePlayer.id, player)
+  }
 
   return databasePlayer
 }
@@ -1419,6 +1548,13 @@ export async function syncPlayers(
     processed: 0,
     success: 0,
     failed: 0,
+    created: 0,
+    updated: 0,
+    noOp: 0,
+    conflicts: 0,
+    invalid: 0,
+    dryRun: options.dryRun === true,
+    items: [] as EaPlayerSyncResult[],
   }
 
   if (
@@ -1447,16 +1583,78 @@ export async function syncPlayers(
     result.processed++
 
     try {
-      await syncPlayer(
-        player,
-        lookupCache
+      const incomingSnapshot = normalizedPlayerSnapshot(player)
+      const existing = lookupCache.byExternalId.get(player.externalId)
+      const plan = planEaSemanticSync(
+        incomingSnapshot,
+        existing?.semanticSnapshot ?? null
       )
 
-      result.success++
+      if (options.dryRun) {
+        result.items.push({
+          ...plan,
+          playerId: existing?.id ?? null,
+          clubExternalId: player.club?.externalId ?? null,
+          leagueExternalId: player.league?.externalId ?? null,
+          leagueName: player.league?.name ?? null,
+        })
 
-      console.log(
-        `✅ ${player.name} sincronizado`
-      )
+        if (plan.action === "CREATE") result.created++
+        if (plan.action === "UPDATE") result.updated++
+        if (plan.action === "NO_OP") result.noOp++
+        if (plan.action === "CONFLICT") result.conflicts++
+        if (plan.action === "INVALID") result.invalid++
+
+        continue
+      }
+
+      if (plan.action === "INVALID" || plan.action === "CONFLICT") {
+        throw new Error(plan.reason ?? plan.action)
+      }
+
+      let playerId = existing?.id ?? null
+
+      if (plan.action === "NO_OP") {
+        result.noOp++
+        result.success++
+
+        console.log(
+          `⏭️ ${player.name} sem mudança semântica`
+        )
+      } else {
+        const databasePlayer = await syncPlayer(
+          player,
+          lookupCache,
+          plan
+        )
+
+        playerId = databasePlayer.id
+
+        const cached = lookupCache.byExternalId.get(player.externalId)
+        if (cached) {
+          cached.semanticSnapshot = incomingSnapshot
+        }
+
+        if (plan.action === "CREATE") {
+          result.created++
+        } else {
+          result.updated++
+        }
+
+        result.success++
+
+        console.log(
+          `✅ ${player.name} sincronizado`
+        )
+      }
+
+      result.items.push({
+        ...plan,
+        playerId,
+        clubExternalId: player.club?.externalId ?? null,
+        leagueExternalId: player.league?.externalId ?? null,
+        leagueName: player.league?.name ?? null,
+      })
     } catch (error) {
       result.failed++
 
@@ -1489,6 +1687,46 @@ export async function syncPlayers(
         }
       }
     }
+  }
+
+  if (!options.dryRun && options.provenance && result.failed === 0) {
+    const provenance = options.provenance
+
+    await databaseRetry(
+      () => prisma.$transaction((tx) =>
+        tx.eaCatalogObservation.create({
+          data: {
+            provider: provenance.provider,
+            endpoint: provenance.endpoint,
+            eaGameVersion: provenance.eaGameVersion,
+            gameVersionEvidence: provenance.gameVersionEvidence,
+            gameVersionEvidenceUrl: provenance.gameVersionEvidenceUrl,
+            catalogVersion: provenance.catalogVersion,
+            sourceUpdatedAt: provenance.sourceUpdatedAt,
+            observedAt: provenance.observedAt,
+            responseDate: provenance.responseDate,
+            etag: provenance.etag,
+            locale: provenance.locale,
+            gender: provenance.gender,
+            schemaVersion: EA_CATALOG_PROVENANCE_SCHEMA_VERSION,
+            players: {
+              create: result.items.map((item) => ({
+                playerId: item.playerId,
+                externalId: item.externalId,
+                clubExternalId: item.clubExternalId,
+                leagueExternalId: item.leagueExternalId,
+                leagueName: item.leagueName,
+                payloadHash: item.payloadHash,
+                action: item.action,
+                changedFields: item.changedFields,
+              })),
+            },
+          },
+          select: { id: true },
+        })
+      ),
+      `Registrar provenance EA de ${result.items.length} jogador(es)`
+    )
   }
 
   return result

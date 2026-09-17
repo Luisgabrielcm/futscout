@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import type { NormalizedPlayer } from "../../../types/normalizedPlayer"
 import { separatePlayerClubDimensions } from "../../../lib/currentClubPresentation"
+import * as semanticSync from "../../../lib/eaCatalogSemanticSync"
 
 test("actual EA sync with fake storage keeps real-life B intact while EA/catalog becomes A", async () => {
   const realState = Object.freeze({ playerId: "player", clubId: "real-B", providerTeamId: 202, status: "APPROVED" })
@@ -22,6 +23,7 @@ test("actual EA sync with fake storage keeps real-life B intact while EA/catalog
   const failures: unknown[] = []
   const eaSync = loadCatalogModule<{ syncPlayers(players: NormalizedPlayer[], options: { onError(context: { error: unknown }): void }): Promise<{ success: number; failed: number }> }>("services/syncPlayers.ts", {
     "../lib/prisma": { prisma }, "../lib/databaseRetry": { databaseRetry: <T>(fn: () => Promise<T>) => fn() },
+    "../lib/eaCatalogSemanticSync": semanticSync,
   })
   const result = await eaSync.syncPlayers([{ externalId: "ea-id", source: "ea", name: "Example", position: "MC", secondaryPositions: [],
     officialOverall: 80, attributes: Object.fromEntries(("pace acceleration sprintSpeed shooting positioning finishing shotPower longShots volleys penalties " +

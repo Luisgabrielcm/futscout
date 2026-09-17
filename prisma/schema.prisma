@@ -40,6 +40,67 @@ enum BrandAssetStatus {
   ERROR
 }
 
+enum EaGameVersionEvidence {
+  OFFICIAL_PAGE_CONTEXT
+  PAYLOAD
+}
+
+enum EaSemanticSyncAction {
+  CREATE
+  UPDATE
+  NO_OP
+  CONFLICT
+  INVALID
+}
+
+// One immutable source-request observation. Game version evidence explicitly
+// distinguishes official page context from metadata carried by the JSON payload.
+model EaCatalogObservation {
+  id                     String                 @id @default(cuid())
+  provider               String
+  endpoint               String
+  eaGameVersion          String?
+  gameVersionEvidence    EaGameVersionEvidence?
+  gameVersionEvidenceUrl String?
+  catalogVersion         String?
+  sourceUpdatedAt        DateTime?
+  observedAt             DateTime
+  responseDate           DateTime?
+  etag                   String?
+  locale                 String
+  gender                 Int
+  schemaVersion          Int                    @default(1)
+  createdAt              DateTime               @default(now())
+
+  players EaPlayerCatalogObservation[]
+
+  @@index([provider, eaGameVersion, observedAt(sort: Desc)])
+  @@index([observedAt])
+}
+
+// Per-player result of an observed EA catalog payload. A NO_OP row records new
+// provenance without touching Player, Club, League or their updatedAt columns.
+model EaPlayerCatalogObservation {
+  id                 String               @id @default(cuid())
+  observationId      String
+  observation        EaCatalogObservation @relation(fields: [observationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  playerId           String?
+  player             Player?              @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  externalId         String
+  clubExternalId     String?
+  leagueExternalId   String?
+  leagueName         String?
+  payloadHash        String
+  action             EaSemanticSyncAction
+  changedFields      String[]              @default([])
+  createdAt          DateTime              @default(now())
+
+  @@unique([observationId, externalId])
+  @@index([playerId, payloadHash])
+  @@index([externalId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+}
+
 /**
  * Provider identity is deliberately separate from the visual asset.
  * entityId references either Club.id or League.id according to entityType.
@@ -269,6 +330,7 @@ model Player {
   currentClubState     PlayerCurrentClubState?
   approvedCurrentClub PlayerApprovedCurrentClub?
   currentClubProposals PlayerCurrentClubProposal[]
+  eaCatalogObservations EaPlayerCatalogObservation[]
 
   /**
    * MATCHER API-FOOTBALL

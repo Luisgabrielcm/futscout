@@ -662,11 +662,10 @@ export function mapEARatingsPlayer(
         player
       ),
 
-    /* ====================================
-       CONTROLE DA FONTE
-    ==================================== */
-
-    sourceUpdatedAt:
-      new Date().toISOString(),
+    /*
+      A resposta atual da EA não fornece sourceUpdatedAt.
+      observedAt pertence à provenance da request e nunca deve
+      ser apresentado como se fosse atualização da fonte.
+    */
   }
 }

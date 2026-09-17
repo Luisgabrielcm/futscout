@@ -595,6 +595,9 @@ async function main() {
       await syncPlayers(
         normalizedPlayers,
         {
+          provenance:
+            batch.provenance,
+
           onError:
             async ({
               player,

@@ -3,6 +3,10 @@ import type {
   EARatingsResponse,
 } from "../types/eaRatingsPlayer"
 
+import type {
+  EaCatalogBatchProvenance,
+} from "../lib/eaCatalogSemanticSync"
+
 const EA_RATINGS_URL =
   "https://drop-api.ea.com/rating/ea-sports-fc"
 
@@ -16,6 +20,18 @@ type GetPlayersOptions = {
 export type EARatingsBatch = {
   players: EARatingsPlayer[]
   totalItems: number
+  provenance: EaCatalogBatchProvenance
+}
+
+type EARatingsFetchResult = {
+  response: EARatingsResponse
+  provenance: EaCatalogBatchProvenance
+}
+
+export const EA_RATINGS_VERSION_CONTEXT = {
+  eaGameVersion: "FC27",
+  evidence: "OFFICIAL_PAGE_CONTEXT" as const,
+  evidenceUrl: "https://www.ea.com/games/ea-sports-fc/ratings",
 }
 
 export class EARatingsProvider {
@@ -25,7 +41,7 @@ export class EARatingsProvider {
 
   private async fetchRatings(
     options: GetPlayersOptions = {}
-  ): Promise<EARatingsResponse> {
+  ): Promise<EARatingsFetchResult> {
     const {
       limit = 10,
       offset = 0,
@@ -75,9 +91,31 @@ export class EARatingsProvider {
       )
     }
 
-    return (
-      await response.json()
-    ) as EARatingsResponse
+    const observedAt = new Date()
+    const responseDateValue = response.headers.get("date")
+    const responseDate = responseDateValue && Number.isFinite(Date.parse(responseDateValue))
+      ? new Date(responseDateValue)
+      : null
+
+    return {
+      response: (
+        await response.json()
+      ) as EARatingsResponse,
+      provenance: {
+        provider: "ea-ratings",
+        endpoint: EA_RATINGS_URL,
+        eaGameVersion: EA_RATINGS_VERSION_CONTEXT.eaGameVersion,
+        gameVersionEvidence: EA_RATINGS_VERSION_CONTEXT.evidence,
+        gameVersionEvidenceUrl: EA_RATINGS_VERSION_CONTEXT.evidenceUrl,
+        catalogVersion: null,
+        sourceUpdatedAt: null,
+        observedAt,
+        responseDate,
+        etag: response.headers.get("etag"),
+        locale,
+        gender,
+      },
+    }
   }
 
   /* ========================================
@@ -85,10 +123,12 @@ export class EARatingsProvider {
   ======================================== */
 
   async inspectPlayer(): Promise<EARatingsResponse> {
-    return this.fetchRatings({
+    const result = await this.fetchRatings({
       limit: 1,
       offset: 0,
     })
+
+    return result.response
   }
 
   /* ========================================
@@ -103,7 +143,7 @@ export class EARatingsProvider {
         options
       )
 
-    return response.items ?? []
+    return response.response.items ?? []
   }
 
   /* ========================================
@@ -113,17 +153,20 @@ export class EARatingsProvider {
   async getPlayersBatch(
     options: GetPlayersOptions = {}
   ): Promise<EARatingsBatch> {
-    const response =
+    const result =
       await this.fetchRatings(
         options
       )
 
     return {
       players:
-        response.items ?? [],
+        result.response.items ?? [],
 
       totalItems:
-        response.totalItems ?? 0,
+        result.response.totalItems ?? 0,
+
+      provenance:
+        result.provenance,
     }
   }
 
@@ -132,14 +175,14 @@ export class EARatingsProvider {
   ======================================== */
 
   async getTotalPlayers(): Promise<number> {
-    const response =
+    const result =
       await this.fetchRatings({
         limit: 1,
         offset: 0,
       })
 
     return (
-      response.totalItems ?? 0
+      result.response.totalItems ?? 0
     )
   }
 }
