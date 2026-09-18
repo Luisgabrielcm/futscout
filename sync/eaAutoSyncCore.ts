@@ -8,6 +8,7 @@ import {
   type EaSemanticSyncPlan,
 } from "../lib/eaCatalogSemanticSync"
 import type { NormalizedPlayer } from "../types/normalizedPlayer"
+import type { EaAutoSyncSourceAudit } from "./eaAutoSyncSourceAudit"
 
 export type EaAutoSyncMode = "dry-run" | "write"
 
@@ -60,14 +61,20 @@ export type EaAutoSyncError = {
 
 export type EaAutoSyncBatchReport = {
   offset: number
+  limit: number
   received: number
   totalItems: number
+  observedAt: Date
+  responseDate: Date | null
+  etag: string | null
+  lastModified: Date | null
   batchHash: string | null
   catalogSignal: EaCatalogChangeSignal
   etagAvailable: boolean
   lastModifiedAvailable: boolean
   actions: Record<EaSemanticSyncAction, number>
   changedFields: Record<string, string[]>
+  sourceAudit: EaAutoSyncSourceAudit | null
   valid: boolean
 }
 
@@ -108,6 +115,7 @@ export type EaAutoSyncDependencies<SourcePlayer> = {
     gender: number
   }): Promise<EaAutoSyncSourceBatch<SourcePlayer>>
   normalizePlayer(player: SourcePlayer): NormalizedPlayer
+  inspectSourceBatch?(players: SourcePlayer[]): EaAutoSyncSourceAudit
   processBatch(
     players: NormalizedPlayer[],
     options: { dryRun: boolean; provenance: EaCatalogBatchProvenance }
@@ -319,15 +327,21 @@ export async function runEaAutoSync<SourcePlayer>(
       (config.mode === "dry-run" || processed.success === normalized.length)
 
     report.batches.push({
-      offset,
+      offset: batch.provenance.requestOffset,
+      limit: batch.provenance.requestLimit,
       received: batch.players.length,
       totalItems: batch.totalItems,
+      observedAt: batch.provenance.observedAt,
+      responseDate: batch.provenance.responseDate,
+      etag: batch.provenance.etag,
+      lastModified: batch.provenance.lastModified,
       batchHash,
       catalogSignal,
       etagAvailable: batch.provenance.etag !== null,
       lastModifiedAvailable: batch.provenance.lastModified !== null,
       actions,
       changedFields: Object.fromEntries(processed.items.map((item) => [item.externalId, item.changedFields])),
+      sourceAudit: dependencies.inspectSourceBatch?.(batch.players) ?? null,
       valid,
     })
 

@@ -102,6 +102,16 @@ test("100% NO_OP dry-run reports provenance and never writes checkpoint", async 
     loadPreviousBatchSignal: async () => ({
       etag: "catalog-etag", lastModified: null, totalItems: 2, batchHash: "previous",
     }),
+    inspectSourceBatch: () => ({
+      positions: [],
+      coverage: {
+        potential: 0,
+        salary: { players: 0, paths: [] },
+        contract: { players: 0, paths: [] },
+        loan: { players: 0, paths: [] },
+        goalkeeperSpecificAttributes: { players: 0, fields: [] },
+      },
+    }),
     onWriteStart: async () => { writeStarts++ },
     updateCheckpoint: async () => { checkpoints++ },
     createRunId: () => "run-no-op",
@@ -115,6 +125,38 @@ test("100% NO_OP dry-run reports provenance and never writes checkpoint", async 
   assert.equal(report.checkpoint.advanced, false)
   assert.equal(checkpoints, 0)
   assert.equal(writeStarts, 0)
+  assert.equal(report.requests, 1)
+  assert.equal(report.batches.length, 1)
+  assert.equal(report.batches[0].offset, 0)
+  assert.equal(report.batches[0].limit, 2)
+  assert.equal(report.batches[0].totalItems, 2)
+  assert.equal(report.batches[0].observedAt.toISOString(), "2026-09-17T12:00:00.000Z")
+  assert.equal(report.batches[0].responseDate?.toISOString(), "2026-09-17T12:00:00.000Z")
+  assert.equal(report.batches[0].etag, "catalog-etag")
+  assert.equal(report.batches[0].lastModified, null)
+  assert.notEqual(report.batches[0].sourceAudit, null)
+})
+
+test("reports unavailable HTTP metadata as null without inventing values", async () => {
+  const report = await runEaAutoSync(config, {
+    fetchBatch: async () => ({
+      players: [player()],
+      totalItems: 1,
+      provenance: {
+        ...provenance(0, 2, 1),
+        responseDate: null,
+        etag: null,
+        lastModified: null,
+      },
+    }),
+    normalizePlayer: (value) => value,
+    processBatch: async () => processed(["NO_OP"]),
+  })
+
+  assert.equal(report.batches[0].responseDate, null)
+  assert.equal(report.batches[0].etag, null)
+  assert.equal(report.batches[0].lastModified, null)
+  assert.equal(report.batches[0].sourceAudit, null)
 })
 
 test("write mode advances checkpoint only after a valid semantic UPDATE", async () => {

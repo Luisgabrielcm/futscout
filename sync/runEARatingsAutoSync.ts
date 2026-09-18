@@ -6,7 +6,9 @@ import { normalizePlayer } from "../normalizers/normalizePlayer"
 import { EARatingsProvider } from "../providers/eaRatingsProvider"
 import { syncPlayers } from "../services/syncPlayers"
 import type { EARatingsPlayer } from "../types/eaRatingsPlayer"
-import { runEaAutoSync, type EaAutoSyncMode } from "./eaAutoSyncCore"
+import { runEaAutoSync } from "./eaAutoSyncCore"
+import { parseEaAutoSyncRunnerOptions } from "./eaAutoSyncRunnerOptions"
+import { auditEaRatingsSourceBatch } from "./eaAutoSyncSourceAudit"
 import {
   EA_RATINGS_SYNC_KEY,
   getOrCreateSyncState,
@@ -19,40 +21,32 @@ import { registerSyncError, resolveSyncErrorsByExternalId } from "./syncError"
 
 const provider = new EARatingsProvider()
 
-function positiveInteger(value: string | undefined, fallback: number, name: string) {
-  const parsed = Number(value ?? fallback)
-  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`${name}_INVALID`)
-  return parsed
-}
-
-function modeFromArguments(arguments_: string[]): EaAutoSyncMode {
-  const write = arguments_.includes("--write")
-  const dryRun = arguments_.includes("--dry-run")
-  if (write === dryRun) throw new Error("Use exatamente um modo: --dry-run ou --write")
-  if (write && process.env.EA_AUTO_SYNC_WRITE_ENABLED !== "true") {
-    throw new Error("EA_AUTO_SYNC_WRITE_DISABLED")
-  }
-  return write ? "write" : "dry-run"
-}
-
 async function main() {
-  const mode = modeFromArguments(process.argv.slice(2))
-  const batchSize = positiveInteger(process.env.EA_AUTO_SYNC_BATCH_SIZE, 50, "EA_AUTO_SYNC_BATCH_SIZE")
-  const maxBatches = positiveInteger(process.env.EA_AUTO_SYNC_MAX_BATCHES, 1, "EA_AUTO_SYNC_MAX_BATCHES")
+  const arguments_ = process.argv.slice(2)
   const locale = process.env.EA_AUTO_SYNC_LOCALE?.trim() || "en"
   const gender = Number(process.env.EA_AUTO_SYNC_GENDER ?? 0)
   if (!Number.isInteger(gender)) throw new Error("EA_AUTO_SYNC_GENDER_INVALID")
 
-  const state = mode === "write"
-    ? await getOrCreateSyncState()
-    : await prisma.syncState.findUnique({ where: { key: EA_RATINGS_SYNC_KEY } })
-  const initialOffset = state?.offset ?? 0
+  const existingState = await prisma.syncState.findUnique({ where: { key: EA_RATINGS_SYNC_KEY } })
+  let runnerOptions = parseEaAutoSyncRunnerOptions(
+    arguments_,
+    process.env,
+    existingState?.offset ?? 0,
+  )
+
+  if (runnerOptions.mode === "write" && !existingState) {
+    const createdState = await getOrCreateSyncState()
+    runnerOptions = { ...runnerOptions, initialOffset: createdState.offset }
+  }
+
+  const { mode, initialOffset, batchSize, maxBatches } = runnerOptions
   let activeOffset = initialOffset
 
   const report = await runEaAutoSync<EARatingsPlayer>({
     mode, initialOffset, batchSize, maxBatches, locale, gender,
   }, {
     fetchBatch: (input) => provider.getPlayersBatch(input),
+    inspectSourceBatch: auditEaRatingsSourceBatch,
     normalizePlayer: (player) => normalizePlayer(mapEARatingsPlayer(player)),
     processBatch: (players, options) => syncPlayers(players, {
       ...options,
