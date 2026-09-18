@@ -62,6 +62,12 @@ function processed(actions: EaSemanticSyncAction[], changedFields: string[][] = 
       action,
       payloadHash: `${index}`.padStart(64, "0"),
       changedFields: changedFields[index] ?? [],
+      changes: (changedFields[index] ?? []).map((field) => ({
+        field,
+        before: "before",
+        after: "after",
+        reason: "SOURCE_VALUE_CHANGED" as const,
+      })),
       reason: action === "CONFLICT" ? "IDENTITY_CONFLICT" : null,
       playerId: action === "CREATE" ? null : `player-${index}`,
     } satisfies EaSemanticSyncPlan & { playerId: string | null }
@@ -106,10 +112,18 @@ test("100% NO_OP dry-run reports provenance and never writes checkpoint", async 
       positions: [],
       coverage: {
         potential: 0,
+        players: 2,
+        officialOverall: 2,
+        lineAttributes: { players: 2, fields: {} },
+        primaryPosition: 2,
+        secondaryPositions: 0,
+        playStyles: { players: 0, normal: 0, plus: 0 },
+        club: 2,
+        league: 2,
         salary: { players: 0, paths: [] },
         contract: { players: 0, paths: [] },
         loan: { players: 0, paths: [] },
-        goalkeeperSpecificAttributes: { players: 0, fields: [] },
+        goalkeeperSpecificAttributes: { players: 0, fields: [], fieldPlayers: {} },
       },
     }),
     onWriteStart: async () => { writeStarts++ },
@@ -178,6 +192,12 @@ test("write mode advances checkpoint only after a valid semantic UPDATE", async 
   assert.deepEqual(order, ["start", "process", "accepted", "checkpoint:1", "completed"])
   assert.equal(report.actions.UPDATE, 1)
   assert.deepEqual(report.batches[0].changedFields["1"], ["officialOverall"])
+  assert.deepEqual(report.batches[0].changes["1"], [{
+    field: "officialOverall",
+    before: "before",
+    after: "after",
+    reason: "SOURCE_VALUE_CHANGED",
+  }])
   assert.equal(report.checkpoint.persistedOffset, 1)
 })
 

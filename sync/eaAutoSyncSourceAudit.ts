@@ -9,12 +9,41 @@ export type EaAutoSyncSourceAudit = {
     alternateOccurrences: number
   }>
   coverage: {
+    players: number
+    officialOverall: number
+    lineAttributes: { players: number; fields: Record<string, number> }
+    primaryPosition: number
+    secondaryPositions: number
+    playStyles: { players: number; normal: number; plus: number }
+    club: number
+    league: number
     potential: number
     salary: { players: number; paths: string[] }
     contract: { players: number; paths: string[] }
     loan: { players: number; paths: string[] }
-    goalkeeperSpecificAttributes: { players: number; fields: string[] }
+    goalkeeperSpecificAttributes: {
+      players: number
+      fields: string[]
+      fieldPlayers: Record<string, number>
+    }
   }
+}
+
+const lineAttributeNames = [
+  "pac", "sho", "pas", "dri", "def", "phy",
+  "acceleration", "sprintSpeed", "positioning", "finishing", "shotPower",
+  "longShots", "volleys", "penalties", "vision", "crossing", "freeKickAccuracy",
+  "shortPassing", "longPassing", "curve", "agility", "balance", "reactions",
+  "ballControl", "dribbling", "composure", "interceptions", "headingAccuracy",
+  "defensiveAwareness", "standingTackle", "slidingTackle", "jumping", "stamina",
+  "strength", "aggression",
+] as const
+
+function numericStat(value: unknown): boolean {
+  if (typeof value === "number") return Number.isFinite(value)
+  if (!value || typeof value !== "object") return false
+  const numeric = (value as { value?: unknown }).value
+  return typeof numeric === "number" && Number.isFinite(numeric)
 }
 
 function presentPaths(value: unknown, pattern: RegExp, prefix = ""): string[] {
@@ -74,6 +103,22 @@ export function auditEaRatingsSourceBatch(players: EARatingsPlayer[]): EaAutoSyn
       .map(([key]) => `stats.${key}`)
     )
 
+  const goalkeeperFieldPlayers = Object.fromEntries(
+    [...new Set(goalkeeperFieldsByPlayer.flat())]
+      .sort()
+      .map((field) => [field, goalkeeperFieldsByPlayer.filter((fields) => fields.includes(field)).length])
+  )
+
+  const lineFields = Object.fromEntries(lineAttributeNames.map((field) => [
+    field,
+    players.filter((player) => numericStat(player.stats?.[field])).length,
+  ]))
+
+  const playStyles = players.map((player) => (player.playerAbilities ?? []).filter((ability) =>
+    (ability.type?.id === "playStyle" || ability.type?.id === "playStylePlus") &&
+    Boolean((ability.label ?? ability.name)?.trim())
+  ))
+
   return {
     positions: [...positions.entries()]
       .map(([sourceCode, occurrences]) => {
@@ -92,6 +137,33 @@ export function auditEaRatingsSourceBatch(players: EARatingsPlayer[]): EaAutoSyn
       })
       .sort((left, right) => left.sourceCode.localeCompare(right.sourceCode)),
     coverage: {
+      players: players.length,
+      officialOverall: players.filter((player) =>
+        typeof player.overallRating === "number" && Number.isFinite(player.overallRating)
+      ).length,
+      lineAttributes: {
+        players: players.filter((player) =>
+          lineAttributeNames.some((field) => numericStat(player.stats?.[field]))
+        ).length,
+        fields: lineFields,
+      },
+      primaryPosition: players.filter((player) =>
+        Boolean(player.position?.label?.trim() || player.position?.id !== undefined)
+      ).length,
+      secondaryPositions: players.filter((player) =>
+        (player.alternatePositions ?? []).some((position) =>
+          Boolean(position.label?.trim() || position.id !== undefined)
+        )
+      ).length,
+      playStyles: {
+        players: playStyles.filter((items) => items.length > 0).length,
+        normal: playStyles.flat().filter((ability) => ability.type?.id === "playStyle").length,
+        plus: playStyles.flat().filter((ability) => ability.type?.id === "playStylePlus").length,
+      },
+      club: players.filter((player) =>
+        player.team?.id !== undefined && Boolean((player.team.label ?? player.team.name)?.trim())
+      ).length,
+      league: players.filter((player) => Boolean(player.leagueName?.trim())).length,
       potential: players.filter((player) =>
         typeof player.potential === "number" && Number.isFinite(player.potential)
       ).length,
@@ -101,6 +173,7 @@ export function auditEaRatingsSourceBatch(players: EARatingsPlayer[]): EaAutoSyn
       goalkeeperSpecificAttributes: {
         players: goalkeeperFieldsByPlayer.filter((fields) => fields.length > 0).length,
         fields: [...new Set(goalkeeperFieldsByPlayer.flat())].sort(),
+        fieldPlayers: goalkeeperFieldPlayers,
       },
     },
   }

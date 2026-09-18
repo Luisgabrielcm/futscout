@@ -74,6 +74,7 @@ export type EaAutoSyncBatchReport = {
   lastModifiedAvailable: boolean
   actions: Record<EaSemanticSyncAction, number>
   changedFields: Record<string, string[]>
+  changes: Record<string, EaSemanticSyncPlan["changes"]>
   sourceAudit: EaAutoSyncSourceAudit | null
   valid: boolean
 }
@@ -341,6 +342,7 @@ export async function runEaAutoSync<SourcePlayer>(
       lastModifiedAvailable: batch.provenance.lastModified !== null,
       actions,
       changedFields: Object.fromEntries(processed.items.map((item) => [item.externalId, item.changedFields])),
+      changes: Object.fromEntries(processed.items.map((item) => [item.externalId, item.changes])),
       sourceAudit: dependencies.inspectSourceBatch?.(batch.players) ?? null,
       valid,
     })

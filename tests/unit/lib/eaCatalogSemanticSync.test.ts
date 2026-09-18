@@ -102,6 +102,12 @@ test("present valid potential still updates while absent potential never clears"
   )
 
   assert.deepEqual(changed.changedFields, ["potential"])
+  assert.deepEqual(changed.changes, [{
+    field: "potential",
+    before: 90,
+    after: 91,
+    reason: "SOURCE_VALUE_CHANGED",
+  }])
   assert.equal(missing.action, "NO_OP")
 })
 
@@ -168,6 +174,11 @@ test("rating, attribute and league changes are semantic updates", () => {
     secondaryPositions: ["VOL"],
   })), current)
   assert.deepEqual(position.changedFields, ["position", "secondaryPosition", "secondaryPositions"])
+  assert.deepEqual(position.changes, [
+    { field: "position", before: "VOL", after: "MC", reason: "NORMALIZED_POSITION_CHANGED" },
+    { field: "secondaryPosition", before: "MC", after: "VOL", reason: "NORMALIZED_POSITION_CHANGED" },
+    { field: "secondaryPositions", before: ["MC"], after: ["VOL"], reason: "CANONICAL_POSITION_SET_CHANGED" },
+  ])
 
   const playStyles = planEaSemanticSync(normalizedPlayerSnapshot(player({
     playStyles: [{ code: "power-shot", name: "Power Shot", level: "normal" }],

@@ -62,7 +62,20 @@ export type EaSemanticSyncPlan = {
   action: EaSemanticSyncAction
   payloadHash: string
   changedFields: string[]
+  changes: EaSemanticChange[]
   reason: string | null
+}
+
+export type EaSemanticChange = {
+  field: string
+  before: unknown
+  after: unknown
+  reason:
+    | "SOURCE_VALUE_CHANGED"
+    | "NORMALIZED_POSITION_CHANGED"
+    | "CANONICAL_POSITION_SET_CHANGED"
+    | "CANONICAL_PLAYSTYLE_SET_CHANGED"
+    | "SOURCE_IDENTITY_CHANGED"
 }
 
 function canonical(value: unknown): unknown {
@@ -245,6 +258,42 @@ function changedPaths(current: unknown, incoming: unknown, path = ""): string[] 
   return [path]
 }
 
+function valueAtPath(value: unknown, path: string): unknown {
+  return path.split(".").reduce<unknown>((current, key) => {
+    if (!current || typeof current !== "object") return undefined
+    return (current as Record<string, unknown>)[key]
+  }, value)
+}
+
+function changeReason(field: string): EaSemanticChange["reason"] {
+  if (field === "position" || field === "secondaryPosition") {
+    return "NORMALIZED_POSITION_CHANGED"
+  }
+  if (field === "secondaryPositions") {
+    return "CANONICAL_POSITION_SET_CHANGED"
+  }
+  if (field === "playStyles") {
+    return "CANONICAL_PLAYSTYLE_SET_CHANGED"
+  }
+  if (field === "club" || field.startsWith("club.") || field === "league" || field.startsWith("league.")) {
+    return "SOURCE_IDENTITY_CHANGED"
+  }
+  return "SOURCE_VALUE_CHANGED"
+}
+
+function semanticChanges(
+  current: EaSemanticSnapshot,
+  incoming: EaSemanticSnapshot,
+  fields: string[],
+): EaSemanticChange[] {
+  return fields.map((field) => ({
+    field,
+    before: valueAtPath(current, field),
+    after: valueAtPath(incoming, field),
+    reason: changeReason(field),
+  }))
+}
+
 export function planEaSemanticSync(
   incoming: EaSemanticSnapshot,
   current: EaSemanticSnapshot | null
@@ -262,6 +311,7 @@ export function planEaSemanticSync(
       action: "INVALID",
       payloadHash,
       changedFields: [],
+      changes: [],
       reason: "INVALID_NORMALIZED_PLAYER",
     }
   }
@@ -272,6 +322,7 @@ export function planEaSemanticSync(
       action: "CREATE",
       payloadHash,
       changedFields: ["player"],
+      changes: [],
       reason: null,
     }
   }
@@ -282,6 +333,7 @@ export function planEaSemanticSync(
       action: "CONFLICT",
       payloadHash,
       changedFields: ["externalId"],
+      changes: [],
       reason: "EXTERNAL_ID_CONFLICT",
     }
   }
@@ -294,6 +346,7 @@ export function planEaSemanticSync(
     action: changedFields.length === 0 ? "NO_OP" : "UPDATE",
     payloadHash,
     changedFields,
+    changes: semanticChanges(current, comparableIncoming, changedFields),
     reason: null,
   }
 }
