@@ -19,7 +19,16 @@ test("audits real position codes and source field coverage without inference", (
       id: 2,
       position: { label: "LM" },
       alternatePositions: [{ label: "RM" }],
+      stats: { gkHandling: { value: 5 } },
       loanClub: { id: 20 },
+    },
+    {
+      id: 3,
+      position: { label: "Goalkeeper" },
+      stats: {
+        gkDiving: { value: 80 },
+        gkHandling: { value: 81 },
+      },
     },
   ] as unknown as EARatingsPlayer[]
 
@@ -27,6 +36,7 @@ test("audits real position codes and source field coverage without inference", (
 
   assert.deepEqual(audit.positions, [
     { sourceCode: "CF", normalizedCode: "SA", primaryOccurrences: 0, alternateOccurrences: 1 },
+    { sourceCode: "Goalkeeper", normalizedCode: "GOL", primaryOccurrences: 1, alternateOccurrences: 0 },
     { sourceCode: "LM", normalizedCode: "ME", primaryOccurrences: 1, alternateOccurrences: 0 },
     { sourceCode: "RM", normalizedCode: "MD", primaryOccurrences: 1, alternateOccurrences: 1 },
   ])
@@ -36,7 +46,23 @@ test("audits real position codes and source field coverage without inference", (
   assert.deepEqual(audit.coverage.loan, { players: 1, paths: ["loanClub"] })
   assert.deepEqual(audit.coverage.goalkeeperSpecificAttributes, {
     players: 1,
-    fields: ["stats.gkDiving"],
+    fields: ["stats.gkDiving", "stats.gkHandling"],
+  })
+})
+
+test("ignores goalkeeper-shaped stats on an outfield player", () => {
+  const audit = auditEaRatingsSourceBatch([{
+    id: 1,
+    position: { label: "Center Midfielder" },
+    stats: {
+      gkDiving: { value: 12 },
+      gkHandling: { value: 8 },
+    },
+  }])
+
+  assert.deepEqual(audit.coverage.goalkeeperSpecificAttributes, {
+    players: 0,
+    fields: [],
   })
 })
 

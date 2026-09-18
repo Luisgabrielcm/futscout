@@ -162,6 +162,39 @@ test("league-only change updates League and Club without touching Player", async
   assert.deepEqual(operations, ["league", "club"])
 })
 
+test("Club asset metadata never enters semantic diff or the Club writer", async () => {
+  let clubWrite: Record<string, unknown> | null = null
+  const prisma = {
+    league: { upsert: async () => ({ id: "league" }) },
+    club: {
+      upsert: async (input: Record<string, unknown>) => {
+        clubWrite = input
+        return { id: "club" }
+      },
+    },
+    player: {
+      findMany: async () => [storedRow()],
+      update: async () => ({ id: "player", externalId: "231866", slug: "rodri" }),
+    },
+  }
+
+  const result = await loadSync(prisma).syncPlayers([{
+    ...normalized,
+    club: {
+      externalId: "10",
+      name: "Manchester City FC",
+      imageUrl: "https://example.test/unapproved-crest.png",
+    },
+  }])
+
+  assert.equal(result.updated, 1)
+  assert.deepEqual(result.items[0].changedFields, ["club.name"])
+  assert.ok(clubWrite)
+  const write = clubWrite as { update: Record<string, unknown>; create: Record<string, unknown> }
+  assert.equal("imageUrl" in write.update, false)
+  assert.equal("imageUrl" in write.create, false)
+})
+
 test("automatic CREATE rejects ambiguous legacy slug instead of silently attaching EA identity", async () => {
   const legacy = { ...storedRow(), externalId: null, semanticSnapshot: undefined }
   const prisma = new Proxy({

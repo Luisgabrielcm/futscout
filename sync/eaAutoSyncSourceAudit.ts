@@ -58,11 +58,21 @@ export function auditEaRatingsSourceBatch(players: EARatingsPlayer[]): EaAutoSyn
     }
   }
 
-  const goalkeeperFieldsByPlayer = players.map((player) =>
+  const goalkeeperFieldsByPlayer = players
+    .filter((player) => {
+      const position = player.position?.label?.trim()
+      if (!position) return false
+      try {
+        return normalizePosition(position) === "GOL"
+      } catch {
+        return false
+      }
+    })
+    .map((player) =>
     Object.entries(player.stats ?? {})
       .filter(([key, value]) => /^gk/i.test(key) && value !== null && value !== undefined)
       .map(([key]) => `stats.${key}`)
-  )
+    )
 
   return {
     positions: [...positions.entries()]

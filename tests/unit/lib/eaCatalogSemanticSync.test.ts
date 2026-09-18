@@ -5,6 +5,7 @@ import {
   eaSemanticHash,
   normalizedPlayerSnapshot,
   planEaSemanticSync,
+  resolveEaPatchValue,
 } from "../../../lib/eaCatalogSemanticSync"
 import type { NormalizedPlayer } from "../../../types/normalizedPlayer"
 
@@ -50,6 +51,85 @@ test("semantic hash is stable and excludes observation time", () => {
 
   assert.equal(eaSemanticHash(first), eaSemanticHash(reordered))
   assert.equal("sourceUpdatedAt" in first, false)
+})
+
+test("partial payload fields preserve existing values; clear requires an explicit policy", () => {
+  assert.deepEqual(resolveEaPatchValue(90, undefined), {
+    operation: "PRESERVE",
+    value: 90,
+  })
+  assert.deepEqual(resolveEaPatchValue(90, null), {
+    operation: "PRESERVE",
+    value: 90,
+  })
+  assert.deepEqual(resolveEaPatchValue(90, null, { allowClear: true }), {
+    operation: "CLEAR",
+    value: null,
+  })
+  assert.deepEqual(resolveEaPatchValue(90, 91), {
+    operation: "UPDATE",
+    value: 91,
+  })
+  assert.deepEqual(resolveEaPatchValue("Spain", ""), {
+    operation: "PRESERVE",
+    value: "Spain",
+  })
+})
+
+test("missing potential and optional fields preserve persisted values", () => {
+  const current = normalizedPlayerSnapshot(player())
+  const incoming = normalizedPlayerSnapshot(player({
+    potential: undefined,
+    nationality: " ",
+    imageUrl: undefined,
+    attributes: { ...player().attributes, passing: undefined },
+  }))
+
+  const plan = planEaSemanticSync(incoming, current)
+  assert.equal(plan.action, "NO_OP")
+  assert.deepEqual(plan.changedFields, [])
+})
+
+test("present valid potential still updates while absent potential never clears", () => {
+  const current = normalizedPlayerSnapshot(player({ potential: 90 }))
+  const changed = planEaSemanticSync(
+    normalizedPlayerSnapshot(player({ potential: 91 })),
+    current,
+  )
+  const missing = planEaSemanticSync(
+    normalizedPlayerSnapshot(player({ potential: undefined })),
+    current,
+  )
+
+  assert.deepEqual(changed.changedFields, ["potential"])
+  assert.equal(missing.action, "NO_OP")
+})
+
+test("club artwork is metadata outside the semantic Club domain", () => {
+  const current = normalizedPlayerSnapshot(player({
+    club: { externalId: "10", name: "Manchester City", imageUrl: "https://old.example/crest.png" },
+  }))
+  const incoming = normalizedPlayerSnapshot(player({
+    club: { externalId: "10", name: "Manchester City", imageUrl: "https://new.example/crest.png" },
+  }))
+
+  assert.equal(planEaSemanticSync(incoming, current).action, "NO_OP")
+  assert.equal("imageUrl" in (incoming.club ?? {}), false)
+})
+
+test("equivalent PlayStyle ordering is NO_OP while a real change remains UPDATE", () => {
+  const styles = [
+    { code: "tiki-taka", name: "Tiki Taka", level: "plus" as const },
+    { code: "power-shot", name: "Power Shot", level: "normal" as const },
+  ]
+  const current = normalizedPlayerSnapshot(player({ playStyles: styles }))
+  const reordered = normalizedPlayerSnapshot(player({ playStyles: [...styles].reverse() }))
+  const changed = normalizedPlayerSnapshot(player({
+    playStyles: [{ code: "rapid", name: "Rapid", level: "normal" }],
+  }))
+
+  assert.equal(planEaSemanticSync(reordered, current).action, "NO_OP")
+  assert.deepEqual(planEaSemanticSync(changed, current).changedFields, ["playStyles"])
 })
 
 test("same normalized domain is NO_OP and a real club change is UPDATE", () => {

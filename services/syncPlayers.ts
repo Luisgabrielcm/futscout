@@ -270,9 +270,6 @@ async function syncClub(
 
             leagueId,
 
-            imageUrl:
-              player.club!.imageUrl,
-
             ...(player.club!
               .externalId
               ? {
@@ -295,9 +292,6 @@ async function syncClub(
               player.club!
                 .externalId,
 
-            imageUrl:
-              player.club!
-                .imageUrl,
           },
 
           select: {
@@ -404,7 +398,6 @@ async function preloadPlayers(
               select: {
                 externalId: true,
                 name: true,
-                imageUrl: true,
                 league: {
                   select: {
                     externalId: true,
@@ -477,7 +470,6 @@ async function preloadPlayers(
             ? {
                 externalId: player.club.externalId,
                 name: player.club.name,
-                imageUrl: player.club.imageUrl,
               }
             : null,
           league: player.club?.league

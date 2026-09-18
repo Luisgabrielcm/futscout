@@ -33,29 +33,28 @@ export type EaCatalogBatchProvenance = {
 export type EaSemanticSnapshot = {
   externalId: string
   name: string
-  dateOfBirth: string | null
-  nationality: string | null
+  dateOfBirth: string | null | undefined
+  nationality: string | null | undefined
   position: string
-  secondaryPosition: string | null
+  secondaryPosition: string | null | undefined
   secondaryPositions: string[]
-  preferredFoot: string | null
-  height: number | null
-  skillMoves: number | null
-  weakFootAbility: number | null
-  imageUrl: string | null
+  preferredFoot: string | null | undefined
+  height: number | null | undefined
+  skillMoves: number | null | undefined
+  weakFootAbility: number | null | undefined
+  imageUrl: string | null | undefined
   officialOverall: number
-  potential: number | null
+  potential: number | null | undefined
   club: {
-    externalId: string | null
+    externalId: string | null | undefined
     name: string
-    imageUrl: string | null
-  } | null
+  } | null | undefined
   league: {
-    externalId: string | null
+    externalId: string | null | undefined
     name: string
-  } | null
-  attributes: Record<string, number | null>
-  playStyles: Array<{ code: string; name: string | null; level: "normal" | "plus" }>
+  } | null | undefined
+  attributes: Record<string, number | null | undefined>
+  playStyles: Array<{ code: string; name: string | null | undefined; level: "normal" | "plus" }>
 }
 
 export type EaSemanticSyncPlan = {
@@ -101,48 +100,111 @@ export function eaCatalogBatchHash(snapshots: EaSemanticSnapshot[]): string {
     .digest("hex")
 }
 
-const nullable = <T>(value: T | null | undefined): T | null => value ?? null
+export type EaPatchOperation = "PRESERVE" | "UPDATE" | "CLEAR"
+
+export type EaPatchResolution<T> = {
+  operation: EaPatchOperation
+  value: T | null | undefined
+}
+
+export function resolveEaPatchValue<T>(
+  current: T | null | undefined,
+  incoming: T | null | undefined,
+  options: { allowClear?: boolean } = {}
+): EaPatchResolution<T> {
+  if (
+    incoming === undefined ||
+    (typeof incoming === "string" && incoming.trim() === "") ||
+    Object.is(current, incoming)
+  ) {
+    return { operation: "PRESERVE", value: current }
+  }
+
+  if (incoming === null) {
+    return options.allowClear
+      ? { operation: "CLEAR", value: null }
+      : { operation: "PRESERVE", value: current }
+  }
+
+  return { operation: "UPDATE", value: incoming }
+}
+
+// No nullable EA field is currently authorized to clear persisted domain data.
+// A future clear must opt in by exact path after its source contract is reviewed.
+const EA_CLEARABLE_PATHS = new Set<string>()
+
+function reconcileEaPartialValue(current: unknown, incoming: unknown, path = ""): unknown {
+  if (incoming === undefined || incoming === null) {
+    return resolveEaPatchValue(current, incoming, {
+      allowClear: EA_CLEARABLE_PATHS.has(path),
+    }).value
+  }
+
+  if (Array.isArray(incoming)) {
+    return incoming
+  }
+
+  if (typeof incoming === "object") {
+    const currentRecord = current && typeof current === "object" && !Array.isArray(current)
+      ? current as Record<string, unknown>
+      : {}
+    const incomingRecord = incoming as Record<string, unknown>
+    const keys = new Set([...Object.keys(currentRecord), ...Object.keys(incomingRecord)])
+
+    return Object.fromEntries([...keys].map((key) => [
+      key,
+      reconcileEaPartialValue(
+        currentRecord[key],
+        incomingRecord[key],
+        path ? `${path}.${key}` : key
+      ),
+    ]))
+  }
+
+  return resolveEaPatchValue(current, incoming, {
+    allowClear: EA_CLEARABLE_PATHS.has(path),
+  }).value
+}
 
 export function normalizedPlayerSnapshot(player: NormalizedPlayer): EaSemanticSnapshot {
   const attributes = Object.fromEntries(
     Object.entries(player.attributes)
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, value]) => [key, value ?? null])
+      .map(([key, value]) => [key, value])
   )
 
   return {
     externalId: player.externalId,
     name: player.name,
-    dateOfBirth: player.dateOfBirth?.toISOString() ?? null,
-    nationality: nullable(player.nationality),
+    dateOfBirth: player.dateOfBirth?.toISOString(),
+    nationality: player.nationality,
     position: player.position,
-    secondaryPosition: nullable(player.secondaryPosition),
+    secondaryPosition: player.secondaryPosition,
     secondaryPositions: [...player.secondaryPositions].sort(),
-    preferredFoot: nullable(player.preferredFoot),
-    height: nullable(player.height),
-    skillMoves: nullable(player.skillMoves),
-    weakFootAbility: nullable(player.weakFootAbility),
-    imageUrl: nullable(player.imageUrl),
+    preferredFoot: player.preferredFoot,
+    height: player.height,
+    skillMoves: player.skillMoves,
+    weakFootAbility: player.weakFootAbility,
+    imageUrl: player.imageUrl,
     officialOverall: player.officialOverall,
-    potential: nullable(player.potential),
+    potential: player.potential,
     club: player.club
       ? {
-          externalId: nullable(player.club.externalId),
+          externalId: player.club.externalId,
           name: player.club.name,
-          imageUrl: nullable(player.club.imageUrl),
         }
-      : null,
+      : undefined,
     league: player.league
       ? {
-          externalId: nullable(player.league.externalId),
+          externalId: player.league.externalId,
           name: player.league.name,
         }
-      : null,
+      : undefined,
     attributes,
     playStyles: player.playStyles
       .map((playStyle) => ({
         code: playStyle.code,
-        name: nullable(playStyle.name),
+        name: playStyle.name,
         level: playStyle.level,
       }))
       .sort((left, right) =>
@@ -224,7 +286,8 @@ export function planEaSemanticSync(
     }
   }
 
-  const changedFields = changedPaths(current, incoming)
+  const comparableIncoming = reconcileEaPartialValue(current, incoming) as EaSemanticSnapshot
+  const changedFields = changedPaths(current, comparableIncoming)
 
   return {
     externalId: incoming.externalId,
