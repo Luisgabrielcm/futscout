@@ -32,6 +32,7 @@ function detailPage(profile: PlayerProfile | null) {
     "../../../components/ScoutAnalysis": marker("outfield-analysis"),
     "../../../components/PlayerAttributes": marker("persisted-attributes"),
     "../../../components/PlayerGoalkeeperAttributes": marker("goalkeeper-attributes"),
+    "../../../components/GoalkeeperScoutAnalysis": marker("goalkeeper-analysis"),
     "../../../components/PlayerPlayStyles": marker("playstyles"),
     "../../../components/PlayerActions": () => null,
   })
@@ -57,7 +58,7 @@ test("goalkeeper uses its dedicated factual empty state and never enters outfiel
   assert.match(html, /data-section="header"/)
   assert.match(html, /data-section="quick-profile"/)
   assert.match(html, /data-section="playstyles"/)
-  assert.match(html, /Análise específica para goleiros em desenvolvimento/)
+  assert.match(html, /data-section="goalkeeper-analysis"/)
   assert.match(html, /data-section="goalkeeper-attributes"/)
   assert.doesNotMatch(html, /data-section="persisted-attributes"/)
   assert.doesNotMatch(html, /outfield-/)

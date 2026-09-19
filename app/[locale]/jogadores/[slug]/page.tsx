@@ -15,6 +15,7 @@ import PlayerPlayStyles from "../../../components/PlayerPlayStyles"
 import PlayerPositions from "../../../components/PlayerPositions"
 import PlayerQuickProfile from "../../../components/PlayerQuickProfile"
 import ScoutAnalysis from "../../../components/ScoutAnalysis"
+import GoalkeeperScoutAnalysis from "../../../components/GoalkeeperScoutAnalysis"
 
 type PlayerPageProps = { params: Promise<{ slug: string; locale?: string }> }
 
@@ -58,16 +59,15 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
         <div><dt>{visualText(locale, "catalogClub")}</dt><dd>{player.club?.name ?? "—"}</dd></div>
         <div><dt>{visualText(locale, "catalogLeague")}</dt><dd>{player.league ?? "—"}</dd></div>
       </dl>
-      {isGoalkeeper ? <section className="playersEmpty">
-        <h2>{t(locale, "Análise FutScout")}</h2>
-        <p>{t(locale, "Análise específica para goleiros em desenvolvimento.")}</p>
-      </section> : <PlayerPositions locale={locale} player={player} />}
+      {isGoalkeeper
+        ? <GoalkeeperScoutAnalysis locale={locale} attributes={player.goalkeeperAttributes ?? null} />
+        : <PlayerPositions locale={locale} player={player} />}
     </section>
 
     <section id="attributes" className="profileSection" data-domain="ea" aria-label={visualText(locale, "attributes")}>
       <span className="sectionEyebrow">EA SPORTS FC</span>
       {isGoalkeeper
-        ? <PlayerGoalkeeperAttributes locale={locale} />
+        ? <PlayerGoalkeeperAttributes locale={locale} attributes={player.goalkeeperAttributes ?? null} />
         : <PlayerAttributes locale={locale} attributes={player.attributes} />}
     </section>
     <div id="playstyles" className="profileSection" data-domain="ea">

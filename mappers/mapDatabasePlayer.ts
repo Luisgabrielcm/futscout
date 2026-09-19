@@ -4,6 +4,7 @@ import type {
   PlayerPlayStyle,
   PlayerPosition,
 } from "../types/player"
+import type { PlayerGoalkeeperAttributes } from "../types/goalkeeperAttributes"
 
 /* ========================================
    DATABASE PLAYER
@@ -124,6 +125,16 @@ export type DatabasePlayer = {
     stamina: number
     strength: number
     aggression: number
+  } | null
+
+  goalkeeperAttributes?: {
+    diving: number
+    handling: number
+    kicking: number
+    positioning: number
+    reflexes: number
+    provider: string
+    observedAt: Date
   } | null
 
   playStyles: {
@@ -361,6 +372,21 @@ function mapPlayStyles(
 export type PlayerProfile =
   | { status: "ready"; player: Player }
   | { status: "incomplete"; name: string }
+
+function mapGoalkeeperAttributes(
+  attributes: DatabasePlayer["goalkeeperAttributes"],
+): PlayerGoalkeeperAttributes | null {
+  if (!attributes) return null
+  return {
+    diving: attributes.diving,
+    handling: attributes.handling,
+    kicking: attributes.kicking,
+    positioning: attributes.positioning,
+    reflexes: attributes.reflexes,
+    provider: attributes.provider,
+    observedAt: attributes.observedAt.toISOString(),
+  }
+}
 
 // Keep the complete catalog DTO strict; do not invent attributes for a partial row.
 export function mapDatabasePlayerProfile(databasePlayer: DatabasePlayer): PlayerProfile {
@@ -645,5 +671,8 @@ export function mapDatabasePlayer(
           attributes.aggression,
       },
     },
+
+    goalkeeperAttributes:
+      mapGoalkeeperAttributes(databasePlayer.goalkeeperAttributes),
   }
 }

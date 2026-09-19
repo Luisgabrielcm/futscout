@@ -31,7 +31,7 @@ for (const locale of ["pt", "en"] as const) {
       "../../../components/PlayerHeader": marker("EA_HEADER"), "../../../components/PlayerActions": marker("ACTIONS"),
       "../../../components/PlayerQuickProfile": marker("QUICK"), "../../../components/PlayerPositions": marker("POSITIONS"),
       "../../../components/PlayerAttributes": marker("ATTRIBUTES"), "../../../components/PlayerGoalkeeperAttributes": marker("GK_ATTRIBUTES"), "../../../components/PlayerPlayStyles": marker("PLAYSTYLES"),
-      "../../../components/ScoutAnalysis": marker("ANALYSIS"),
+      "../../../components/ScoutAnalysis": marker("ANALYSIS"), "../../../components/GoalkeeperScoutAnalysis": marker("GK_ANALYSIS"),
     })
     const html = renderToStaticMarkup(await page.default({ params: Promise.resolve({ locale, slug: "rodri" }) }))
     const nav = html.match(/<nav class="playerExperienceNav"[\s\S]*?<\/nav>/)?.[0] ?? ""

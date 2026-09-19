@@ -1,6 +1,7 @@
 import type {
   PlayerPosition,
 } from "./player"
+import type { GoalkeeperAttributePatch } from "./goalkeeperAttributes"
 
 /* ========================================
    PLAYSTYLE NORMALIZADO
@@ -197,6 +198,9 @@ export type NormalizedPlayer = {
    */
 
   attributes: NormalizedPlayerAttributes
+
+  /** Present only when the EA primary position normalizes to GOL. */
+  goalkeeperAttributes?: GoalkeeperAttributePatch
 
   /**
    * PLAYSTYLES

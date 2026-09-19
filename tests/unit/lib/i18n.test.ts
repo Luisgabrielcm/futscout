@@ -57,7 +57,7 @@ for (const locale of ["pt", "en"] as const) {
       "next/link": link, "next/navigation": { notFound: () => { throw new Error("missing") } },
       "../../../../services/playerService": { getPlayerBySlug: async () => ({ status: "ready", player }) },
     }
-    for (const component of ["PlayerAttributes", "PlayerGoalkeeperAttributes", "PlayerHeader", "PlayerPlayStyles", "PlayerPositions", "PlayerQuickProfile", "ScoutAnalysis", "PlayerActions"]) {
+    for (const component of ["PlayerAttributes", "PlayerGoalkeeperAttributes", "GoalkeeperScoutAnalysis", "PlayerHeader", "PlayerPlayStyles", "PlayerPositions", "PlayerQuickProfile", "ScoutAnalysis", "PlayerActions"]) {
       dependencies["../../../components/" + component] = empty
     }
     const page = loadCatalogModule<typeof import("../../../app/[locale]/jogadores/[slug]/page")>("app/[locale]/jogadores/[slug]/page.tsx", dependencies)

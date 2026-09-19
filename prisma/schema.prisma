@@ -78,6 +78,7 @@ model EaCatalogObservation {
   createdAt              DateTime               @default(now())
 
   players EaPlayerCatalogObservation[]
+  goalkeeperAttributes PlayerGoalkeeperAttributes[] @relation("GoalkeeperAttributeSource")
 
   @@index([provider, eaGameVersion, observedAt(sort: Desc)])
   @@index([provider, endpoint, locale, gender, requestOffset, requestLimit, observedAt(sort: Desc)])
@@ -321,6 +322,7 @@ model Player {
    */
 
   attributes PlayerAttributes?
+  goalkeeperAttributes PlayerGoalkeeperAttributes?
   playStyles PlayerPlayStyle[]
 
   /**
@@ -560,6 +562,36 @@ model PlayerAttributes {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/**
+ * Five EA goalkeeper ratings, kept separate from outfield PlayerAttributes.
+ * The source currently exposes no independently identified goalkeeper speed.
+ */
+model PlayerGoalkeeperAttributes {
+  id       String @id @default(cuid())
+  playerId String @unique
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  diving      Int
+  handling    Int
+  kicking     Int
+  positioning Int
+  reflexes    Int
+
+  provider            String
+  sourceObservationId String?
+  sourceObservation   EaCatalogObservation? @relation("GoalkeeperAttributeSource", fields: [sourceObservationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  sourceUpdatedAt     DateTime?
+  observedAt          DateTime
+  payloadHash         String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([provider, observedAt(sort: Desc)])
+  @@index([sourceObservationId])
+  @@index([payloadHash])
 }
 
 /**

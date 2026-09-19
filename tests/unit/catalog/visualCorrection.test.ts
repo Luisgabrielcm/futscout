@@ -141,7 +141,7 @@ test("profile navigation exposes only EA and real-life experiences while EA sect
     "../../../components/PlayerHeader": marker, "../../../components/PlayerActions": marker,
     "../../../components/PlayerQuickProfile": marker, "../../../components/PlayerPositions": marker,
     "../../../components/PlayerAttributes": marker, "../../../components/PlayerGoalkeeperAttributes": marker, "../../../components/PlayerPlayStyles": marker,
-    "../../../components/ScoutAnalysis": marker,
+    "../../../components/ScoutAnalysis": marker, "../../../components/GoalkeeperScoutAnalysis": marker,
   })
   for (const locale of ["pt", "en"] as const) {
     const html = renderToStaticMarkup(await Page({ params: Promise.resolve({ locale, slug: "fixture" }) }))

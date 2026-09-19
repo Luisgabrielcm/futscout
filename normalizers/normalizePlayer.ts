@@ -464,6 +464,11 @@ export function normalizePlayer(
           .aggression,
     },
 
+    goalkeeperAttributes:
+      position === "GOL"
+        ? player.goalkeeperAttributes
+        : undefined,
+
     /* ====================================
        PLAYSTYLES
     ==================================== */

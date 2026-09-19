@@ -8,6 +8,8 @@ import type {
   ExternalPlayer,
 } from "../types/externalPlayer"
 import { getVisualAssetSrc } from "../lib/visualAssets"
+import { normalizePosition } from "../normalizers/normalizePosition"
+import type { GoalkeeperAttributePatch } from "../types/goalkeeperAttributes"
 
 /* ========================================
    STAT VALUE
@@ -490,6 +492,28 @@ function getAttributes(
   }
 }
 
+function getGoalkeeperAttributes(player: EARatingsPlayer): GoalkeeperAttributePatch | undefined {
+  const sourcePosition = player.position?.label ??
+    (player.position?.id === undefined ? undefined : String(player.position.id))
+
+  if (!sourcePosition) return undefined
+
+  try {
+    if (normalizePosition(sourcePosition) !== "GOL") return undefined
+  } catch {
+    return undefined
+  }
+
+  const stats = player.stats ?? {}
+  return {
+    diving: statValue(stats.gkDiving),
+    handling: statValue(stats.gkHandling),
+    kicking: statValue(stats.gkKicking),
+    positioning: statValue(stats.gkPositioning),
+    reflexes: statValue(stats.gkReflexes),
+  }
+}
+
 /* ========================================
    EA RATINGS -> EXTERNAL PLAYER
 ======================================== */
@@ -652,6 +676,9 @@ export function mapEARatingsPlayer(
       getAttributes(
         player.stats
       ),
+
+    goalkeeperAttributes:
+      getGoalkeeperAttributes(player),
 
     /* ====================================
        PLAYSTYLES

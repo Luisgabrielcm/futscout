@@ -34,6 +34,8 @@ const playerInclude = {
 
   attributes: true,
 
+  goalkeeperAttributes: true,
+
   playStyles: {
     include: {
       playStyle: true,

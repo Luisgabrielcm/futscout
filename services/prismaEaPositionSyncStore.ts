@@ -15,7 +15,7 @@ import type {
 } from "./eaPositionSync"
 
 const protectedTables = [
-  "Club", "League", "PlayerAttributes", "PlayerPlayStyle", "PlayerTransferObservation",
+  "Club", "League", "PlayerAttributes", "PlayerGoalkeeperAttributes", "PlayerPlayStyle", "PlayerTransferObservation",
   "PlayerCurrentClubState", "PlayerCurrentClubProposal", "PlayerApprovedCurrentClub",
   "BrandAssetIdentity", "BrandAsset",
 ] as const

@@ -1,3 +1,5 @@
+import type { PlayerGoalkeeperAttributes } from "./goalkeeperAttributes"
+
 /* ========================================
    POSIÇÕES
 ======================================== */
@@ -278,4 +280,6 @@ export type Player = {
   ====================================== */
 
   attributes: PlayerAttributes
+
+  goalkeeperAttributes?: PlayerGoalkeeperAttributes | null
 }

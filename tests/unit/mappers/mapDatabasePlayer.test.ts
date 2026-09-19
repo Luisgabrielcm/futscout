@@ -49,4 +49,21 @@ test("goalkeeper general information is preserved without inventing keeper stati
   assert.equal(profile.player.nationality, "Brasil")
   assert.equal(profile.player.baseOverall, 85)
   assert.equal(Object.hasOwn(profile.player.attributes, "goalkeeping"), false)
+  assert.equal(profile.player.goalkeeperAttributes, null)
+})
+
+test("dedicated goalkeeper attributes cross the database mapper without touching outfield groups", () => {
+  const profile = mapDatabasePlayerProfile(catalogPlayer({
+    position: "GOL",
+    goalkeeperAttributes: {
+      diving: 88, handling: 86, kicking: 84, positioning: 89, reflexes: 90,
+      provider: "ea-ratings", observedAt: new Date("2026-09-19T00:00:00.000Z"),
+    },
+  }))
+  if (profile.status !== "ready") assert.fail("expected ready profile")
+  assert.deepEqual(profile.player.goalkeeperAttributes, {
+    diving: 88, handling: 86, kicking: 84, positioning: 89, reflexes: 90,
+    provider: "ea-ratings", observedAt: "2026-09-19T00:00:00.000Z",
+  })
+  assert.equal(Object.hasOwn(profile.player.attributes, "goalkeeping"), false)
 })

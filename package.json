@@ -12,6 +12,7 @@
     "test:matcher": "tsx --test tests/unit/services/apiFootballPlayerMatcher.test.ts",
     "ea:sync:auto:dry-run": "tsx sync/runEARatingsAutoSync.ts --dry-run",
     "ea:sync:auto:write": "tsx sync/runEARatingsAutoSync.ts --write",
+    "ea:gk:audit": "tsx sync/runEAGoalkeeperAttributesAudit.ts --dry-run",
     "postinstall": "prisma generate"
   },
   "dependencies": {

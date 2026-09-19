@@ -4,6 +4,8 @@ export type ExternalPlayerPlayStyle = {
   level: "normal" | "plus"
 }
 
+import type { GoalkeeperAttributePatch } from "./goalkeeperAttributes"
+
 export type ExternalPlayer = {
   /* IDENTIFICAÇÃO */
 
@@ -93,6 +95,8 @@ export type ExternalPlayer = {
     strength?: number
     aggression?: number
   }
+
+  goalkeeperAttributes?: GoalkeeperAttributePatch
 
   /* PLAYSTYLES */
 
