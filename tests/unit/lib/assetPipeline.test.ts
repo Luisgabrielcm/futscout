@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 import {
   assetIdentityKey,
+  brandAssetPublicationPolicyFromEnvironment,
   deduplicateAssetReferences,
   normalizeAssetReference,
   resolveAssetByIdentity,
@@ -20,6 +21,9 @@ const club: AssetReference = {
   rightsStatus: "APPROVED",
   status: "ACTIVE",
 }
+
+const publicationDisabled = { reviewPublicationEnabled: false } as const
+const publicationEnabled = { reviewPublicationEnabled: true } as const
 
 test("asset registry resolves only an exact provider identity and asset type", () => {
   const league: AssetReference = {
@@ -46,17 +50,30 @@ test("rights gate chooses only the URL allowed by the explicit policy", () => {
   assert.equal(resolveAssetSource(club, "club"), "/clubs/manchester-city.svg")
   assert.equal(resolveAssetSource({ ...club, rightsStatus: "REMOTE_ONLY" }, "club"), club.sourceUrl)
   assert.equal(resolveAssetSource({ ...club, rightsStatus: "CACHE_ALLOWED" }, "club"), club.storageUrl)
-  assert.equal(resolveAssetSource({ ...club, rightsStatus: "REVIEW_REQUIRED" }, "club"), null)
-  assert.equal(resolveAssetSource({ ...club, rightsStatus: "BLOCKED" }, "club"), null)
+  assert.equal(resolveAssetSource({ ...club, rightsStatus: "REVIEW_REQUIRED" }, "club", publicationDisabled), null)
+  assert.equal(resolveAssetSource({ ...club, rightsStatus: "BLOCKED" }, "club", publicationEnabled), null)
+})
+
+test("controlled publication defaults off and enables only remote REVIEW_REQUIRED assets", () => {
+  const review = { ...club, storageUrl: "/clubs/must-not-be-used.svg", rightsStatus: "REVIEW_REQUIRED" as const }
+  assert.deepEqual(brandAssetPublicationPolicyFromEnvironment(undefined), publicationDisabled)
+  assert.deepEqual(brandAssetPublicationPolicyFromEnvironment("false"), publicationDisabled)
+  assert.deepEqual(brandAssetPublicationPolicyFromEnvironment("true"), publicationEnabled)
+  assert.deepEqual(brandAssetPublicationPolicyFromEnvironment("TRUE"), publicationDisabled)
+  assert.equal(resolveAssetSource(review, "club", publicationDisabled), null)
+  assert.equal(resolveAssetSource(review, "club", publicationEnabled), club.sourceUrl)
+  assert.equal(resolveAssetSource({ ...review, rightsStatus: "BLOCKED" }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...review, operationalDecision: "REVOKED" }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...review, sourceUrl: "javascript:bad" }, "club", publicationEnabled), null)
 })
 
 test("owner-authorized remote use is separate from REVIEW_REQUIRED evidence", () => {
   const authorized: AssetReference = { ...club, storageUrl: null, rightsStatus: "REVIEW_REQUIRED",
     operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE", operationalAuthorizedAt: "2026-09-21T18:00:00.000Z",
     operationalDecisionRef: "owner-decision:brand-assets-phase-j" }
-  assert.equal(resolveAssetSource(authorized, "club"), club.sourceUrl)
-  assert.equal(resolveAssetSource({ ...authorized, operationalDecisionRef: null }, "club"), null)
-  assert.equal(resolveAssetSource({ ...authorized, operationalAuthorizedAt: null }, "club"), null)
+  assert.equal(resolveAssetSource(authorized, "club", publicationDisabled), club.sourceUrl)
+  assert.equal(resolveAssetSource({ ...authorized, operationalDecisionRef: null }, "club", publicationDisabled), null)
+  assert.equal(resolveAssetSource({ ...authorized, operationalAuthorizedAt: null }, "club", publicationDisabled), null)
   assert.equal(resolveAssetSource({ ...authorized, operationalDecision: "REVOKED" }, "club"), null)
   assert.equal(resolveAssetSource({ ...authorized, rightsStatus: "BLOCKED" }, "club"), null)
 })

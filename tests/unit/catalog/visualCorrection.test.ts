@@ -69,6 +69,28 @@ test("ClubLogo and LeagueLogo enforce the central rights gate without knowing th
   assert.match(stillBlocked, /brandAssetFallback-club/)
 })
 
+test("ClubLogo and LeagueLogo honor the reversible server publication flag in PT/EN", () => {
+  const previous = process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED
+  process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED = "true"
+  try {
+    const base: AssetReference = {
+      identity: { entityType: "club", provider: "fixture-provider", providerEntityId: "50", assetType: "CREST" },
+      entityId: "fixture-club", sourceUrl: "https://media.example.test/teams/50.png", storageUrl: null,
+      version: 1, fetchedAt: "2026-09-21T18:00:00.000Z", rightsStatus: "REVIEW_REQUIRED", status: "ACTIVE",
+    }
+    const league: AssetReference = { ...base,
+      identity: { entityType: "league", provider: "fixture-provider", providerEntityId: "39", assetType: "LOGO" },
+      entityId: "fixture-league", sourceUrl: "https://media.example.test/leagues/39.png" }
+    const clubHtml = renderToStaticMarkup(createElement(ClubLogo, { locale: "pt", name: "Fixture Club", asset: base }))
+    const leagueHtml = renderToStaticMarkup(createElement(LeagueLogo, { locale: "en", name: "Fixture League", asset: league }))
+    assert.match(clubHtml, /media\.example\.test\/teams\/50\.png/)
+    assert.match(leagueHtml, /media\.example\.test\/leagues\/39\.png/)
+  } finally {
+    if (previous === undefined) delete process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED
+    else process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED = previous
+  }
+})
+
 test("club absence and wrong-context image use a neutral shield, never another club's initial", () => {
   for (const src of [null, "/player-shields/1.png", "/players/1.png", "/leagues/1.png"]) {
     const html = renderToStaticMarkup(createElement(Badge, { name: "Fixture Club", src }))

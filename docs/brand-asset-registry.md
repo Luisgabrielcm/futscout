@@ -55,6 +55,13 @@ separate and complete `OWNER_AUTHORIZED_REMOTE_USE` decision passes the
 frontend gate. Technical availability of a public URL is not proof of
 trademark or redistribution rights.
 
+For a controlled beta, the server-side
+`BRAND_ASSET_REVIEW_PUBLICATION_ENABLED` switch may additionally permit an
+`ACTIVE` and technically valid `REVIEW_REQUIRED` asset to use only its remote
+`sourceUrl`. The default is `false`. Turning it off restores the fallback
+without changing Registry data. `BLOCKED` and `REVOKED` remain absolute, and
+the switch never changes or represents the documentary `rightsStatus`.
+
 ## Initial evidence, not persisted
 
 Clubs with already verified API-Football identity:

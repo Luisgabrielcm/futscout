@@ -27,11 +27,9 @@ function asset(entityType: "club" | "league", rightsStatus: AssetReference["righ
   }
 }
 
-function ownerAuthorizedAsset(entityType: "club" | "league"): AssetReference {
+function reviewRequiredRemoteAsset(entityType: "club" | "league"): AssetReference {
   return { ...asset(entityType, "REVIEW_REQUIRED"), storageUrl: null,
-    sourceUrl: `https://media.example.test/${entityType === "club" ? "teams/50" : "leagues/39"}.png`,
-    operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE", operationalAuthorizedAt: "2026-09-21T18:00:00.000Z",
-    operationalDecisionRef: "owner-decision:brand-assets-phase-j" }
+    sourceUrl: `https://media.example.test/${entityType === "club" ? "teams/50" : "leagues/39"}.png` }
 }
 
 test("club card composes crest, league logo, registered count and FutScout rating in PT/EN", () => {
@@ -70,20 +68,27 @@ test("player cards consume a registry crest and never require a provider URL in 
   assert.doesNotMatch(componentSources, /media\.api-sports\.io|api-football\.com/)
 })
 
-test("owner-authorized REVIEW_REQUIRED assets reach club and player cards in PT/EN", () => {
-  for (const locale of ["pt", "en"] as const) {
-    const clubAsset = ownerAuthorizedAsset("club"), leagueAsset = ownerAuthorizedAsset("league")
-    const clubHtml = renderToStaticMarkup(createElement(directory.ClubCard, { locale, club: {
-      name: "Fixture City", slug: "fixture-city", imageUrl: null, asset: clubAsset,
-      league: { name: "Fixture League", asset: leagueAsset }, _count: { players: 1 },
-      rating: { overall: 80, goalkeeper: 75, rated: 1, total: 1 },
-    } }))
-    const playerHtml = renderToStaticMarkup(createElement(PlayerCard, { locale, name: "Fixture Player",
-      slug: "fixture-player", age: 20, position: "MD", club: "Fixture City", clubAsset,
-      baseOverall: 80, potential: null, marketValue: null }))
-    assert.match(clubHtml, /media\.example\.test\/teams\/50\.png/)
-    assert.match(clubHtml, /media\.example\.test\/leagues\/39\.png/)
-    assert.match(playerHtml, /media\.example\.test\/teams\/50\.png/)
+test("controlled publication flag lets REVIEW_REQUIRED assets reach club and player cards in PT/EN", () => {
+  const previous = process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED
+  process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED = "true"
+  try {
+    for (const locale of ["pt", "en"] as const) {
+      const clubAsset = reviewRequiredRemoteAsset("club"), leagueAsset = reviewRequiredRemoteAsset("league")
+      const clubHtml = renderToStaticMarkup(createElement(directory.ClubCard, { locale, club: {
+        name: "Fixture City", slug: "fixture-city", imageUrl: null, asset: clubAsset,
+        league: { name: "Fixture League", asset: leagueAsset }, _count: { players: 1 },
+        rating: { overall: 80, goalkeeper: 75, rated: 1, total: 1 },
+      } }))
+      const playerHtml = renderToStaticMarkup(createElement(PlayerCard, { locale, name: "Fixture Player",
+        slug: "fixture-player", age: 20, position: "MD", club: "Fixture City", clubAsset,
+        baseOverall: 80, potential: null, marketValue: null }))
+      assert.match(clubHtml, /media\.example\.test\/teams\/50\.png/)
+      assert.match(clubHtml, /media\.example\.test\/leagues\/39\.png/)
+      assert.match(playerHtml, /media\.example\.test\/teams\/50\.png/)
+    }
+  } finally {
+    if (previous === undefined) delete process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED
+    else process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED = previous
   }
 })
 
