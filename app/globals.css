@@ -575,8 +575,9 @@ body, body *, body *::before, body *::after { text-shadow: none; -webkit-text-st
 .transferTimeline { list-style: none; padding: 0; }
 .transferTimeline li { display: flex; flex-wrap: wrap; gap: 12px 24px; border-bottom: 1px solid var(--border); padding: 16px 0; }
 .transferTimeline li > span { color: var(--gray); font-size: 13px; }
-.leagueLogo { width: 48px; height: 48px; object-fit: contain; }
-.leagueLogoUnavailable { display: none; }
+.leagueLogo { width: 48px; height: 48px; object-fit: contain; flex: 0 0 auto; }
+.leagueLogo-small { width: 24px; height: 24px; }
+.leagueLogo-large { width: 72px; height: 72px; }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (max-width: 600px) {
   .playersPagination { gap: 8px; padding: 12px; }
@@ -3648,6 +3649,8 @@ body, body *, body *::before, body *::after { text-shadow: none; -webkit-text-st
 .directoryCard:hover { border-color: var(--green); }
 .directoryCard h3 { font-size: 20px; color: var(--white); }
 .directoryCard p { color: var(--gray); }
+.directoryCardLeague, .entityLeagueLink, .comparisonClub { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.directoryCardLeague span, .entityLeagueLink span { overflow: hidden; text-overflow: ellipsis; }
 .directoryCard > span:last-child { color: var(--beige); font-size: 14px; }
 
 .directoryBadge {
@@ -4047,7 +4050,12 @@ a[href]:focus-visible { outline: 2px solid var(--green); outline-offset: 4px; bo
 .playerHistoryPage .entityBreadcrumb { flex-wrap: wrap; }
 .playerHistoryPage .transferTimeline li { overflow-wrap: anywhere; min-width: 0; }
 .clubBadge > img, .clubBadge > .clubBadgeFallback { width: 100%; height: 100%; object-fit: contain; }
-.clubBadgeFallback { display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-style: italic; color: var(--gray); background: var(--surface-light); border: 1px solid var(--border); border-radius: 6px; }
+.clubBadgeFallback { display: inline-flex; align-items: center; justify-content: center; color: var(--beige-light); background: color-mix(in srgb, var(--surface-light) 86%, var(--green) 14%); border: 1px solid var(--border); border-radius: 8px; }
+.brandAssetFallback { display: inline-flex; align-items: center; justify-content: center; color: var(--beige-light); background: color-mix(in srgb, var(--surface-light) 88%, var(--green) 12%); border: 1px solid var(--border); }
+.brandAssetFallback-club { border-radius: 8px; }
+.brandAssetFallback-league { border-radius: 50%; }
+.brandAssetFallbackIcon { width: 66%; height: 66%; fill: none; stroke: currentColor; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round; }
+.comparisonClub { justify-content: center; }
 .playerCard { padding: 16px; }
 .playerCard .playerPhotoArea { margin-top: 8px; }
 .playerCard .playerPhotoGlow { width: 120px; height: 120px; }

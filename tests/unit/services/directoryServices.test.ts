@@ -10,7 +10,7 @@ import { catalogPlayer } from "../../fixtures/catalogPlayer"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 
 const club = { id: "club-id", name: "Clube Teste", slug: "clube-teste", imageUrl: null,
-  league: { name: "Liga Teste", slug: "liga-teste" }, _count: { players: 30 } }
+  league: { id: "league-id", name: "Liga Teste", slug: "liga-teste" }, _count: { players: 30 } }
 const league = { id: "league-id", name: "Liga Teste", slug: "liga-teste", country: "Não informado", _count: { clubs: 25 } }
 const plain = (value: unknown) => JSON.parse(JSON.stringify(value))
 
@@ -41,14 +41,17 @@ function fixture(missing = false) {
   const playerService = loadCatalogModule<typeof import("../../../services/playerService")>("services/playerService.ts", {
     "server-only": {}, "../lib/prisma": { prisma }, "../lib/playerCatalogParams": params,
     "../lib/playerCatalogOrder": order, "../mappers/mapDatabasePlayer": mapper,
+    "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
   })
   const clubService = loadCatalogModule<typeof import("../../../services/clubService")>("services/clubService.ts", {
     "server-only": {}, react: { cache }, "../lib/prisma": { prisma },
     "../lib/directoryCatalogParams": directory, "./playerService": playerService,
+    "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
   })
   const leagueService = loadCatalogModule<typeof import("../../../services/leagueService")>("services/leagueService.ts", {
     "server-only": {}, react: { cache }, "../lib/prisma": { prisma },
     "../lib/directoryCatalogParams": directory, "./playerService": playerService, "./clubService": clubService,
+    "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
   })
   return { clubService, leagueService, clubs, leagues, players, clubLookups, leagueLookups, counts }
 }
@@ -70,7 +73,7 @@ test("clubs search and league use identical count/list predicates with relation 
   assert.deepEqual(plain(f.clubs[0].where), { name: { contains: "Teste", mode: "insensitive" }, league: { is: { slug: "liga-teste" } } })
   assert.deepEqual(plain(f.counts[0]), { where: plain(f.clubs[0].where) })
   assert.deepEqual(plain(f.clubs[0].select?._count), { select: { players: true } })
-  assert.deepEqual(plain(f.clubs[0].select?.league), { select: { name: true, slug: true } })
+  assert.deepEqual(plain(f.clubs[0].select?.league), { select: { id: true, name: true, slug: true } })
   assert.equal(f.clubs[0].select?.apiFootballId, undefined)
   assert.equal(f.clubs[0].select?.players, undefined)
 })
@@ -85,7 +88,8 @@ test("club service validates malformed navigation independently", async () => {
 
 test("club detail uses the unique slug and returns null for absent records", async () => {
   const f = fixture()
-  assert.equal(await f.clubService.getClubBySlug("clube-teste"), club)
+  assert.deepEqual(plain(await f.clubService.getClubBySlug("clube-teste")), plain({ ...club, asset: null,
+    league: { ...club.league, asset: null } }))
   assert.deepEqual(plain(f.clubLookups[0].where), { slug: "clube-teste" })
   assert.equal(await fixture(true).clubService.getClubBySlug("absent"), null)
 })
@@ -105,7 +109,7 @@ test("club roster keeps scope, pagination and the existing catalog attribute con
 test("league listing is paginated with stable order and club counts, without loading clubs", async () => {
   const f = fixture()
   const result = await f.leagueService.getLeagueCatalog({ page: 2 })
-  assert.equal(result.leagues[0], league)
+  assert.deepEqual(plain(result.leagues[0]), plain({ ...league, asset: null }))
   assert.equal(result.totalPages, 2)
   assert.equal(f.leagues[0].take, 24)
   assert.equal(f.leagues[0].skip, 24)
@@ -124,7 +128,7 @@ test("league search is case insensitive and malformed page falls back", async ()
 
 test("league unique slug lookup returns null for missing league", async () => {
   const f = fixture()
-  assert.equal(await f.leagueService.getLeagueBySlug("liga-teste"), league)
+  assert.deepEqual(plain(await f.leagueService.getLeagueBySlug("liga-teste")), plain({ ...league, asset: null }))
   assert.deepEqual(plain(f.leagueLookups[0].where), { slug: "liga-teste" })
   assert.equal(await fixture(true).leagueService.getLeagueBySlug("absent"), null)
 })

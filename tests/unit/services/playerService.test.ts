@@ -20,6 +20,7 @@ function serviceFixture(row: mapper.DatabasePlayer | null = null) {
       "../mappers/mapDatabasePlayer": mapper,
       "../lib/playerCatalogParams": params,
       "../lib/playerCatalogOrder": order,
+      "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
     },
   )
   return { service, reads }

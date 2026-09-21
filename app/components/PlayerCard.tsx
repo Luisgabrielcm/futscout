@@ -14,6 +14,7 @@ import {
 import PlayerImage from "./PlayerImage"
 import PlayerActions from "./PlayerActions"
 import ClubBadge from "./ClubBadge"
+import type { AssetReference } from "../../lib/assetPipeline"
 
 type PlayerCardProps = {
   locale?: Locale
@@ -27,6 +28,7 @@ type PlayerCardProps = {
   secondaryPositions?: string[]
   nationality?: string | null
   clubImageUrl?: string | null
+  clubAsset?: AssetReference | null
   salary?: VerifiedSalary | null
 
   club: string | null
@@ -60,6 +62,7 @@ export default function PlayerCard({ locale = "pt",
   secondaryPositions = [],
   nationality = null,
   clubImageUrl,
+  clubAsset,
   salary,
 
   club,
@@ -151,7 +154,7 @@ export default function PlayerCard({ locale = "pt",
           </h3>
 
           <p className="cardClub">
-            {club && <ClubBadge locale={locale} src={clubImageUrl} name={club} size="small" className="cardClubBadge" />}
+            {club && <ClubBadge locale={locale} asset={clubAsset} src={clubAsset ? null : clubImageUrl} name={club} size="small" className="cardClubBadge" />}
             <span>{playerClub}</span> •{" "}
             {playerAge}
           </p>

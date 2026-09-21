@@ -19,6 +19,20 @@ import type {
 import type {
   Prisma,
 } from "../app/generated/prisma/client"
+import { getBrandAssetsForEntities } from "./brandAssetReadService"
+
+async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapDatabasePlayer>[0][]): Promise<Player[]> {
+  const assets = await getBrandAssetsForEntities({
+    clubIds: databasePlayers.flatMap(player => player.club?.id ? [player.club.id] : []),
+    leagueIds: databasePlayers.flatMap(player => player.club?.league.id ? [player.club.league.id] : []),
+  })
+  return databasePlayers.map(databasePlayer => {
+    const player = mapDatabasePlayer(databasePlayer)
+    if (player.club && databasePlayer.club?.id) player.club.asset = assets.clubs.get(databasePlayer.club.id) ?? null
+    if (databasePlayer.club?.league.id) player.leagueAsset = assets.leagues.get(databasePlayer.club.league.id) ?? null
+    return player
+  })
+}
 
 
 /* ========================================
@@ -355,10 +369,7 @@ export async function getPlayers(
     )
 
   return {
-    players:
-      databasePlayers.map(
-        mapDatabasePlayer
-      ),
+    players: await mapPlayersWithBrandAssets(databasePlayers),
 
     total,
 
@@ -407,9 +418,7 @@ export async function getAllPlayers(): Promise<
       },
     })
 
-  return databasePlayers.map(
-    mapDatabasePlayer
-  )
+  return mapPlayersWithBrandAssets(databasePlayers)
 }
 
 /* ========================================
@@ -435,9 +444,10 @@ export async function getPlayerBySlug(
     return null
   }
 
-  return mapDatabasePlayerProfile(
-    databasePlayer
-  )
+  const profile = mapDatabasePlayerProfile(databasePlayer)
+  if (profile.status === "incomplete") return profile
+  const [player] = await mapPlayersWithBrandAssets([databasePlayer])
+  return { status: "ready", player }
 }
 
 /* ========================================
@@ -648,12 +658,5 @@ export async function getFeaturedPlayers(): Promise<
     )
   }
 
-  return uniquePlayers
-    .slice(
-      0,
-      20
-    )
-    .map(
-      mapDatabasePlayer
-    )
+  return mapPlayersWithBrandAssets(uniquePlayers.slice(0, 20))
 }

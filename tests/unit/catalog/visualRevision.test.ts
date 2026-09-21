@@ -191,12 +191,17 @@ test("prepared transfer presentation keeps raw fee separate and does not infer s
   assert.match(html, /não representam salário nem valor de mercado/)
   assert.equal(displayCareerDate("2026-02-30", "en"), "—")
 })
-test("league logo is optional, never initials or a club/player asset", () => {
+test("league fallback is visible and never uses initials or a club/player asset", () => {
   const league = { name: "Fixture League", slug: "fixture", country: "England", _count: { clubs: 10 } }
   const missing = renderToStaticMarkup(React.createElement(LeagueCard, { league }))
   assert.match(missing, /Fixture League/)
   assert.doesNotMatch(missing, /<img|directoryBadge/)
-  const withLogo = renderToStaticMarkup(React.createElement(LeagueCard, { league: { ...league, logoUrl: "/leagues/fixture.svg" } }))
+  assert.match(missing, /brandAssetFallback-league/)
+  const withLogo = renderToStaticMarkup(React.createElement(LeagueCard, { league: { ...league, asset: {
+    identity: { entityType: "league", provider: "fixture", providerEntityId: "39", assetType: "LOGO" },
+    entityId: "fixture-league", sourceUrl: "/leagues/fixture.svg", version: 1,
+    fetchedAt: "2026-09-16T12:00:00.000Z", rightsStatus: "APPROVED", status: "ACTIVE",
+  } } }))
   assert.match(withLogo, /src="\/leagues\/fixture.svg"/)
   for (const src of ["/players/1.png", "/player-portraits/1.png", "/player-shields/1.png", "/portraits/1.png"]) {
     assert.equal(getVisualAssetSrc(src, "club"), null)

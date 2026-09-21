@@ -36,6 +36,11 @@ test("header renders each player's own supplied image and club badge", () => {
     const player = mapDatabasePlayer(catalogPlayer({ name, imageUrl: src,
       club: { name: "Clube Teste", imageUrl: "/clubs/fixture.svg", league: { name: "Liga Teste" } },
     }))
+    player.club!.asset = {
+      identity: { entityType: "club", provider: "fixture", providerEntityId: "1", assetType: "CREST" },
+      entityId: "club-1", sourceUrl: "/clubs/fixture.svg", version: 1,
+      fetchedAt: "2026-09-16T12:00:00.000Z", rightsStatus: "APPROVED", status: "ACTIVE",
+    }
     const html = renderToStaticMarkup(createElement(Header, { player }))
     assert.ok(html.includes(`src="${src}"`))
     assert.match(html, /src="\/clubs\/fixture.svg"/)
@@ -51,7 +56,8 @@ test("missing portrait and incorrect club card render neutral initials, not anot
   assert.doesNotMatch(html, /<img|player-shields|bobb|musiala/i)
   assert.match(html, /Jogador de teste — imagem indisponível/)
   assert.match(html, /Clube Teste — imagem indisponível/)
-  assert.match(html, />F<\/span>/)
+  assert.match(html, /brandAssetFallbackIcon/)
+  assert.doesNotMatch(html, />F<\/span>/)
 })
 
 for (const kind of ["player", "club"] as const) {

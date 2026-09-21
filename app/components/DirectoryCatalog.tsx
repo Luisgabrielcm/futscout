@@ -10,6 +10,7 @@ import { CLUB_SORTS } from "../../lib/directoryCatalogParams"
 import { clubText } from "../../lib/i18n/clubExperience"
 import type { ClubRating } from "../../lib/clubRating"
 import LeagueLogo from "./LeagueLogo"
+import type { AssetReference } from "../../lib/assetPipeline"
 export { default as DirectoryPagination } from "./CatalogPagination"
 
 export function DirectoryNav({ locale = "pt" }: LocaleProps = {}) {
@@ -41,19 +42,19 @@ export function DirectorySearch({ locale = "pt", action, search, league, leagues
   </form>
 }
 
-export function DirectoryBadge({ locale = "pt", name, imageUrl }: { locale?: Locale; name: string; imageUrl?: string | null }) {
-  return <ClubBadge locale={locale} src={imageUrl} name={name} size="large" className="directoryBadge" />
+export function DirectoryBadge({ locale = "pt", name, asset }: { locale?: Locale; name: string; asset?: AssetReference | null }) {
+  return <ClubBadge locale={locale} asset={asset} name={name} size="large" className="directoryBadge" />
 }
 
 export function ClubCard({ locale = "pt", club }: { locale?: Locale; club: {
-  name: string; slug: string; imageUrl: string | null
-  league: { name: string }; _count: { players: number }
+  name: string; slug: string; imageUrl: string | null; asset?: AssetReference | null
+  league: { name: string; asset?: AssetReference | null }; _count: { players: number }
   rating?: ClubRating
 } }) {
   return <Link href={localizedHref(locale, `/clubes/${encodeURIComponent(club.slug)}`)} className="directoryCard">
-    <DirectoryBadge locale={locale} name={club.name} imageUrl={club.imageUrl} />
+    <DirectoryBadge locale={locale} name={club.name} asset={club.asset} />
     <h3>{club.name}</h3>
-    <p>{club.league.name}</p>
+    <p className="directoryCardLeague"><LeagueLogo locale={locale} name={club.league.name} asset={club.league.asset} size="small" /><span>{club.league.name}</span></p>
     <span>{club._count.players} {t(locale, "jogadores cadastrados")}</span>
     {club.rating && <p className="clubCardRating" title={clubText(locale, "method")}>{clubText(locale, "rating")}: <strong>{club.rating.overall?.toLocaleString(localeTags[locale], { minimumFractionDigits: 1, maximumFractionDigits: 1 }) ?? "—"}</strong>
       <small>{clubText(locale, "coverage")}: {club.rating.rated}/{club.rating.total}</small>
@@ -62,11 +63,11 @@ export function ClubCard({ locale = "pt", club }: { locale?: Locale; club: {
 }
 
 export function LeagueCard({ locale = "pt", league }: { locale?: Locale; league: {
-  name: string; slug: string; country: string; logoUrl?: string | null; _count: { clubs: number }
+  name: string; slug: string; country: string; logoUrl?: string | null; asset?: AssetReference | null; _count: { clubs: number }
 } }) {
   const country = displayCountry(league.country)
   return <Link href={localizedHref(locale, `/ligas/${encodeURIComponent(league.slug)}`)} className="directoryCard">
-    <LeagueLogo locale={locale} name={league.name} logoUrl={league.logoUrl} />
+    <LeagueLogo locale={locale} name={league.name} asset={league.asset} size="medium" />
     <h3>{league.name}</h3>
     {country && <p>{displayNationality(country, locale)}</p>}
     <span>{league._count.clubs} {t(locale, "clubes cadastrados")}</span>
@@ -76,6 +77,6 @@ export function LeagueCard({ locale = "pt", league }: { locale?: Locale; league:
 export function DirectoryPlayers({ locale = "pt", players, empty }: { locale?: Locale; players: Player[]; empty: string }) {
   if (!players.length) return <p className="playersEmpty">{empty}</p>
   return <div className="playersPageGrid">
-    {players.map((player) => <PlayerCard locale={locale} key={player.id} {...player} club={player.club?.name ?? null} clubImageUrl={player.club?.imageUrl} />)}
+    {players.map((player) => <PlayerCard locale={locale} key={player.id} {...player} club={player.club?.name ?? null} clubAsset={player.club?.asset} />)}
   </div>
 }

@@ -6,6 +6,7 @@ import PlayerActions from "./PlayerActions"
 import type { SelectedPlayer } from "../../types/playerSelection"
 import { comparisonAttribute, higherValue } from "../../lib/playerComparison"
 import { formatCurrency } from "../../utils/formatCurrency"
+import ClubBadge from "./ClubBadge"
 
 export default function PlayerComparison({ locale = "pt", players }: { locale?: Locale; players: [SelectedPlayer, SelectedPlayer] }) {
   const [left, right] = players
@@ -31,7 +32,7 @@ export default function PlayerComparison({ locale = "pt", players }: { locale?: 
         {players.map((player) => <th scope="col" key={player.id}>
           <PlayerImage locale={locale} src={player.image} alt={player.name} className="comparisonPhoto" fallbackClassName="comparisonPhoto directoryBadgeFallback" />
           <Link href={localizedHref(locale, `/jogadores/${encodeURIComponent(player.slug)}`)}>{player.name}</Link>
-          <span>{player.club ?? t(locale, "Sem clube")}</span><span>{player.position}</span>
+          <span className="comparisonClub">{player.club && <ClubBadge locale={locale} name={player.club} asset={player.clubAsset} size="small" />}{player.club ?? t(locale, "Sem clube")}</span><span>{player.position}</span>
         </th>)}
       </tr></thead>
       <tbody>{rows.map(({ label, values, currency }) => {

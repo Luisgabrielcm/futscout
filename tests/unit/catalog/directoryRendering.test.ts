@@ -166,12 +166,14 @@ test("league detail sanitizes both page parameters without applying list search 
   assert.deepEqual(f.calls.map(({ input }) => (input as { page: number }).page), [1, 1])
 })
 
-test("directory card uses existing image fallback and does not invent a league logo", () => {
+test("directory cards use neutral brand fallbacks without inventing artwork", () => {
   const clubHtml = renderToStaticMarkup(createElement(components.ClubCard, { club }))
   const leagueHtml = renderToStaticMarkup(createElement(components.LeagueCard, { league }))
-  assert.match(clubHtml, /clubBadgeFallback[^>]*>F<\/span>/)
+  assert.match(clubHtml, /brandAssetFallback-club/)
+  assert.doesNotMatch(clubHtml, />F<\/span>/)
   assert.match(leagueHtml, /<h3>Liga Teste<\/h3>/)
   assert.doesNotMatch(leagueHtml, /<img|directoryBadgeFallback|Não informado/)
+  assert.match(leagueHtml, /brandAssetFallback-league/)
 })
 
 test("directory badge falls back after an image load error without retrying/proxying", () => {

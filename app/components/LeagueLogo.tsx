@@ -1,11 +1,13 @@
 import type { Locale } from "../../lib/i18n"
 import { resolveAssetSource, type AssetReference } from "../../lib/assetPipeline"
 import PlayerImage from "./PlayerImage"
+import BrandAssetFallback from "./BrandAssetFallback"
 
-// Optional supplied artwork only; callers keep the league name visible.
-export default function LeagueLogo({ locale, name, logoUrl, asset }: { locale: Locale; name: string; logoUrl?: string | null; asset?: AssetReference | null }) {
+export default function LeagueLogo({ locale, name, logoUrl, asset, size = "medium" }: { locale: Locale; name: string; logoUrl?: string | null; asset?: AssetReference | null; size?: "small" | "medium" | "large" }) {
   const src = resolveAssetSource(asset ?? logoUrl, "league")
-  if (!src) return null
-  return <PlayerImage locale={locale} src={src} alt={name} kind="league" width={48} height={48}
-    className="leagueLogo" fallbackClassName="leagueLogoUnavailable" fallbackText="" />
+  const pixels = size === "small" ? 24 : size === "large" ? 72 : 48
+  return <PlayerImage locale={locale} src={src ?? undefined} alt={name} kind="league" width={pixels} height={pixels}
+    className={`leagueLogo leagueLogo-${size}`}
+    fallbackClassName={`leagueLogo leagueLogo-${size} brandAssetFallback brandAssetFallback-league`}
+    fallback={<BrandAssetFallback kind="league" />} />
 }

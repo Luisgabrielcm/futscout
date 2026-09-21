@@ -5,10 +5,11 @@ import type { Prisma } from "../app/generated/prisma/client"
 import { directoryPagination, parseDirectoryParams, type DirectoryInput } from "../lib/directoryCatalogParams"
 import { getPlayers } from "./playerService"
 import { calculateClubRating, compareRatedClubs } from "../lib/clubRating"
+import { getBrandAssetsForEntities } from "./brandAssetReadService"
 
 const clubSelect = {
   id: true, name: true, slug: true, imageUrl: true,
-  league: { select: { name: true, slug: true } },
+  league: { select: { id: true, name: true, slug: true } },
   _count: { select: { players: true } },
 } satisfies Prisma.ClubSelect
 
@@ -26,7 +27,9 @@ export async function getClubs(input: DirectoryInput = {}) {
     }),
   ])
   const ratings = await getClubRatings(clubs.map(club => ({ id: club.id, total: club._count.players })))
-  const rated = clubs.map(club => ({ ...club, rating: ratings.get(club.id)! }))
+  const assets = await getBrandAssetsForEntities({ clubIds: clubs.map(club => club.id), leagueIds: clubs.map(club => club.league.id) })
+  const rated = clubs.map(club => ({ ...club, asset: assets.clubs.get(club.id) ?? null,
+    league: { ...club.league, asset: assets.leagues.get(club.league.id) ?? null }, rating: ratings.get(club.id)! }))
   // Rank compact club metadata + DB aggregates, never all player rows or a single page.
   const result = sort === "best" ? rated.sort(compareRatedClubs).slice((page - 1) * pageSize, page * pageSize) : rated
   return { clubs: result, ...directoryPagination(total, page) }
@@ -51,9 +54,13 @@ export function getClubRoster(clubId: string) {
 }
 
 // Request-local memoization shares the detail lookup with generateMetadata.
-export const getClubBySlug = cache(async (slug: string) =>
-  prisma.club.findUnique({ where: { slug }, select: clubSelect }),
-)
+export const getClubBySlug = cache(async (slug: string) => {
+  const club = await prisma.club.findUnique({ where: { slug }, select: clubSelect })
+  if (!club) return null
+  const assets = await getBrandAssetsForEntities({ clubIds: [club.id], leagueIds: [club.league.id] })
+  return { ...club, asset: assets.clubs.get(club.id) ?? null,
+    league: { ...club.league, asset: assets.leagues.get(club.league.id) ?? null } }
+})
 
 export function getClubPlayers(clubId: string, input: Pick<DirectoryInput, "page"> = {}) {
   const { page, pageSize } = parseDirectoryParams(input)

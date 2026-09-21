@@ -14,6 +14,7 @@ test("overview shares one compact roster query for XI and full position panel wi
     "server-only": {}, react: { cache }, "../lib/prisma": { prisma: { player: {
       findMany: async (args: Prisma.PlayerFindManyArgs) => { queries.push(args); return rows },
     } } }, "../lib/directoryCatalogParams": directory, "./playerService": {},
+    "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
   })
   const result = await service.getClubRoster("one-club")
   assert.equal(queries.length, 1)
@@ -29,13 +30,14 @@ test("overview shares one compact roster query for XI and full position panel wi
 test("best clubs sorts across all matching club metadata BEFORE pagination, ties deterministic", async () => {
   const queries: Prisma.ClubFindManyArgs[] = []
   const aggregate: Prisma.PlayerGroupByArgs[] = []
-  const clubs = Array.from({ length: 25 }, (_, i) => ({ id: String(i), name: `Club ${String(i).padStart(2, "0")}`, slug: String(i), imageUrl: null, league: { name: "League", slug: "league" }, _count: { players: 1 } }))
+  const clubs = Array.from({ length: 25 }, (_, i) => ({ id: String(i), name: `Club ${String(i).padStart(2, "0")}`, slug: String(i), imageUrl: null, league: { id: "league", name: "League", slug: "league" }, _count: { players: 1 } }))
   const prisma = { club: {
     count: async () => 25,
     findMany: async (args: Prisma.ClubFindManyArgs) => { queries.push(args); return clubs },
   }, player: { groupBy: async (args: Prisma.PlayerGroupByArgs) => { aggregate.push(args); return clubs.map((club, i) => ({ clubId: club.id, position: "MC", _sum: { officialOverall: i }, _count: { _all: 1 } })) } } }
   const service = loadCatalogModule<typeof import("../../../services/clubService")>("services/clubService.ts", {
     "server-only": {}, react: { cache }, "../lib/prisma": { prisma }, "../lib/directoryCatalogParams": directory, "./playerService": {},
+    "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
   })
   const result = await service.getClubs({ sort: "best", page: 2, league: "league" })
   assert.deepEqual(JSON.parse(JSON.stringify(result.clubs.map(c => c.id))), ["0"])
@@ -67,6 +69,7 @@ test("player filters compose secondary positions, search, nationality and PlaySt
       count: async (args: Prisma.PlayerCountArgs) => { counts.push(args); return 0 },
       findMany: async (args: Prisma.PlayerFindManyArgs) => { lists.push(args); return [] },
     } } }, "../lib/playerCatalogOrder": order, "../mappers/mapDatabasePlayer": mapper,
+    "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
   })
   await service.getPlayers({ search: "Player", position: "MC", playStyle: "tiki-taka", playStyleLevel: "plus", page: 2 }, { nationalities: ["Spain"] })
   const where = JSON.parse(JSON.stringify(lists[0].where))

@@ -77,10 +77,7 @@ export default function PlayerHeader({ locale = "pt",
     player.club?.name ??
     t(locale, "Sem clube")
 
-  const clubImageUrl =
-    player.club?.imageUrl ??
-    null
-  const clubIdentity = <><ClubBadge locale={locale} src={clubImageUrl} name={clubName} className="playerHeaderClubBadge" /><span>{clubName}</span></>
+  const clubIdentity = <><ClubBadge locale={locale} asset={player.club?.asset} name={clubName} className="playerHeaderClubBadge" /><span>{clubName}</span></>
 
   /* ========================================
      RENDER
@@ -126,7 +123,7 @@ export default function PlayerHeader({ locale = "pt",
           >
             <span className="catalogContextLabel">EA FC</span>
             {clubHref ? <Link href={clubHref} className="playerClubLink">{clubIdentity}</Link> : <div className="playerClubLink">{clubIdentity}</div>}
-            {player.league && (leagueHref ? <Link className="playerHeaderLeague" href={leagueHref}><LeagueLogo locale={locale} name={player.league} logoUrl={player.leagueLogoUrl} />{player.league}</Link> : <span className="playerHeaderLeague"><LeagueLogo locale={locale} name={player.league} logoUrl={player.leagueLogoUrl} />{player.league}</span>)}
+            {player.league && (leagueHref ? <Link className="playerHeaderLeague" href={leagueHref}><LeagueLogo locale={locale} name={player.league} asset={player.leagueAsset} size="small" />{player.league}</Link> : <span className="playerHeaderLeague"><LeagueLogo locale={locale} name={player.league} asset={player.leagueAsset} size="small" />{player.league}</span>)}
           </div>
 
           <div

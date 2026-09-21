@@ -25,11 +25,11 @@ export default function PlayerRealLifeHeader({ locale, player }: {
       <span className="sectionEyebrow">{playerExperienceText(locale, "approvedClub")}</span>
       {club ? <>
         <Link href={localizedHref(locale, `/clubes/${encodeURIComponent(club.slug)}`)} className="realClubIdentity">
-          <ClubLogo locale={locale} name={club.name} src={club.imageUrl} size="large" />
+          <ClubLogo locale={locale} name={club.name} asset={club.asset} size="large" />
           <span><strong id="real-club-title">{club.name}</strong><small>{playerExperienceText(locale, "approvedClubNote")}</small></span>
         </Link>
         <Link href={localizedHref(locale, `/ligas/${encodeURIComponent(club.league.slug)}`)} className="realLeagueIdentity">
-          <LeagueLogo locale={locale} name={club.league.name} />
+          <LeagueLogo locale={locale} name={club.league.name} asset={club.league.asset} size="small" />
           <span>{playerExperienceText(locale, "realLeague")}: <strong>{club.league.name}</strong></span>
         </Link>
       </> : <div className="realClubIdentity realClubUnavailable">

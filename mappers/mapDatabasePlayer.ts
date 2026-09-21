@@ -71,6 +71,7 @@ export type DatabasePlayer = {
     | null
 
   club: {
+    id?: string
     slug?: string
     name: string
 
@@ -79,6 +80,7 @@ export type DatabasePlayer = {
       | null
 
     league: {
+      id?: string
       slug?: string
       name: string
     }
@@ -482,6 +484,7 @@ export function mapDatabasePlayer(
     club:
       databasePlayer.club
         ? {
+            id: databasePlayer.club.id,
             slug: databasePlayer.club.slug ?? null,
             name:
               databasePlayer

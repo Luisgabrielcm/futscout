@@ -4,6 +4,7 @@ import { t, type Locale } from "../../lib/i18n"
 
 
 import {
+    type ReactNode,
     useState,
 } from "react"
 import { getVisualAssetSrc, type ImageKind } from "../../lib/visualAssets"
@@ -16,6 +17,7 @@ type PlayerImageProps = {
   fallbackClassName?: string
   kind?: ImageKind
   fallbackText?: string
+  fallback?: ReactNode
   width?: number
   height?: number
   loading?: "lazy" | "eager"
@@ -28,6 +30,7 @@ export default function PlayerImage({ locale = "pt",
   fallbackClassName,
   kind = "player",
   fallbackText,
+  fallback,
   width,
   height,
   loading,
@@ -54,7 +57,7 @@ export default function PlayerImage({ locale = "pt",
           fallbackClassName
         }
       >
-        {fallbackText ?? (alt.trim().charAt(0).toUpperCase() || "?")}
+        {fallback ?? fallbackText ?? (alt.trim().charAt(0).toUpperCase() || "?")}
       </span>
     )
   }

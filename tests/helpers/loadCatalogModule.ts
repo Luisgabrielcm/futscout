@@ -74,7 +74,7 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
     if (Object.hasOwn(presentation, pureName)) return presentation[pureName]
     // Shared UI runs for real, with a strict finite list, never services.
     const component = name.split("/").at(-1)
-    if (!Object.hasOwn(allowed, name) && component && ["PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "PlayerCurrentStatistics", "PlayerExperienceNav", "LeagueLogo", "ClubLogo", "ClubBadge"].includes(component)) {
+    if (!Object.hasOwn(allowed, name) && component && ["PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "PlayerCurrentStatistics", "PlayerExperienceNav", "LeagueLogo", "ClubLogo", "ClubBadge", "BrandAssetFallback"].includes(component)) {
       return loadCatalogModule(`app/components/${component}.tsx`, { react: React })
     }
     if (name === "next/link" && !Object.hasOwn(allowed, name)) return function TestLink({ children, href, ...props }: { children: ReactNode; href: string; prefetch?: boolean }) {

@@ -18,6 +18,7 @@ function fixture() {
       findMany: async (args: Prisma.PlayerFindManyArgs) => { reads.push(args); return [row("a"), row("b")] },
     } } },
     "../lib/playerSelections": selections, "../mappers/mapDatabasePlayer": { calculateAge },
+    "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
   })
   return { service, reads }
 }
@@ -67,9 +68,9 @@ test("selected cards receive existing nationality and alternate positions in the
   assert.equal(f.reads.length, 1)
   assert.equal(f.reads[0].select?.nationality, true)
   assert.equal(f.reads[0].select?.secondaryPositions, true)
-  assert.deepEqual(JSON.parse(JSON.stringify(f.reads[0].select?.club)), { select: { name: true, imageUrl: true } })
+  assert.deepEqual(JSON.parse(JSON.stringify(f.reads[0].select?.club)), { select: { id: true, name: true } })
   assert.equal(result[0].nationality, "Germany")
   assert.deepEqual(Array.from(result[0].secondaryPositions ?? []), ["MEI", "VOL"])
   assert.equal(result[1].nationality, null)
-  assert.equal(result[1].clubImageUrl, null)
+  assert.equal(result[1].clubAsset, null)
 })

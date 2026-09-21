@@ -10,6 +10,7 @@ import { ClubCard, DirectoryNav, DirectoryPagination, DirectoryPlayers } from ".
 import { CLUB_SORTS } from "../../../../lib/directoryCatalogParams"
 import { clubText } from "../../../../lib/i18n/clubExperience"
 import { displayNationality } from "../../../../lib/i18n/countries"
+import LeagueLogo from "../../../components/LeagueLogo"
 
 type Props = { params: Promise<{ slug: string; locale?: string }>; searchParams: Promise<CatalogSearchParams> }
 
@@ -40,6 +41,7 @@ export default async function LeaguePage({ params, searchParams }: Props) {
     <DirectoryNav locale={locale} />
     <Link href={localizedHref(locale, "/ligas")} className="backButton">{t(locale, "← Todas as ligas")}</Link>
     <header className="playersPageHeader directoryHeader">
+      <LeagueLogo locale={locale} name={league.name} asset={league.asset} size="large" />
       <div><h1>{league.name}</h1>{country && <p>{displayNationality(country, locale)}</p>}
         <p>{league._count.clubs} {t(locale, "clubes cadastrados")}</p>
       </div>

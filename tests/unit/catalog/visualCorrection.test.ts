@@ -53,15 +53,17 @@ test("ClubLogo and LeagueLogo enforce the central rights gate without knowing th
   const league = renderToStaticMarkup(createElement(LeagueLogo, { locale: "en", name: "Fixture League", asset: leagueAsset }))
   assert.match(league, /src="\/leagues\/fixture\.svg"/)
   const blockedLeague = renderToStaticMarkup(createElement(LeagueLogo, { locale: "en", name: "Blocked League", asset: { ...leagueAsset, rightsStatus: "REVIEW_REQUIRED" } }))
-  assert.equal(blockedLeague, "")
+  assert.match(blockedLeague, /brandAssetFallback-league/)
+  assert.doesNotMatch(blockedLeague, /<img/)
 })
 
-test("club absence and wrong-context image use neutral FutScout, never another club's initial", () => {
+test("club absence and wrong-context image use a neutral shield, never another club's initial", () => {
   for (const src of [null, "/player-shields/1.png", "/players/1.png", "/leagues/1.png"]) {
     const html = renderToStaticMarkup(createElement(Badge, { name: "Fixture Club", src }))
     assert.doesNotMatch(html, /<img/)
     assert.match(html, /Fixture Club — imagem indisponível/)
-    assert.match(html, />F<\/span>/)
+    assert.match(html, /brandAssetFallbackIcon/)
+    assert.doesNotMatch(html, />F<\/span>/)
   }
 })
 

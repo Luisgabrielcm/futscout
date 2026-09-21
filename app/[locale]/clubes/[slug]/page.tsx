@@ -11,6 +11,7 @@ import { clubText, CLUB_TABS, SQUAD_SORTS } from "../../../../lib/i18n/clubExper
 import { ClubRatingPanel, ClubPitch, SquadSort, SquadList } from "../../../components/ClubExperience"
 import type { CatalogSearchParams } from "../../../../lib/playerCatalogParams"
 import { DirectoryBadge, DirectoryNav, DirectoryPagination } from "../../../components/DirectoryCatalog"
+import LeagueLogo from "../../../components/LeagueLogo"
 
 type Props = { params: Promise<{ slug: string; locale?: string }>; searchParams: Promise<CatalogSearchParams> }
 
@@ -39,9 +40,9 @@ export default async function ClubPage({ params, searchParams }: Props) {
     <DirectoryNav locale={locale} />
     <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}><Link href={localizedHref(locale, "/clubes")} className="backButton">{t(locale, "← Todos os clubes")}</Link><span aria-hidden="true">›</span><span aria-current="page">{club.name}</span></nav>
     <header className="playersPageHeader directoryHeader clubProfileHero">
-      <DirectoryBadge locale={locale} name={club.name} imageUrl={club.imageUrl} />
+      <DirectoryBadge locale={locale} name={club.name} asset={club.asset} />
       <div><span className="sectionEyebrow">FUTSCOUT · {clubText(locale, "squad")}</span><h1>{club.name}</h1>
-        <p><Link href={localizedHref(locale, `/ligas/${encodeURIComponent(club.league.slug)}`)}>{club.league.name}</Link></p>
+        <p><Link className="entityLeagueLink" href={localizedHref(locale, `/ligas/${encodeURIComponent(club.league.slug)}`)}><LeagueLogo locale={locale} name={club.league.name} asset={club.league.asset} size="small" /><span>{club.league.name}</span></Link></p>
         <p>{club._count.players} {t(locale, "jogadores cadastrados")}</p>
       </div>
     </header>
@@ -51,7 +52,7 @@ export default async function ClubPage({ params, searchParams }: Props) {
     {overview && <ClubPitch locale={locale} players={overview[0]} officialLineup={officialLineup} squadHref={`${path}?tab=squad`} information={<section className="clubInfoPanel">
       <h2>{clubText(locale, "information")}</h2><dl>
         <div><dt>{clubText(locale, "name")}</dt><dd>{club.name}</dd></div>
-        <div><dt>{clubText(locale, "league")}</dt><dd><Link href={localizedHref(locale, `/ligas/${encodeURIComponent(club.league.slug)}`)}>{club.league.name}</Link></dd></div>
+        <div><dt>{clubText(locale, "league")}</dt><dd><Link className="entityLeagueLink" href={localizedHref(locale, `/ligas/${encodeURIComponent(club.league.slug)}`)}><LeagueLogo locale={locale} name={club.league.name} asset={club.league.asset} size="small" /><span>{club.league.name}</span></Link></dd></div>
         <div><dt>{clubText(locale, "country")}</dt><dd>—</dd></div>
         <div><dt>{clubText(locale, "registered")}</dt><dd>{club._count.players}</dd></div>
       </dl>

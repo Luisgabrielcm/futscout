@@ -1,4 +1,5 @@
 import type { PlayerGoalkeeperAttributes } from "./goalkeeperAttributes"
+import type { AssetReference } from "../lib/assetPipeline"
 
 /* ========================================
    POSIÇÕES
@@ -51,10 +52,12 @@ export type PlayerPlayStyle = {
 ======================================== */
 
 export type PlayerClub = {
+  id?: string
   slug?: string | null
   name: string
 
   imageUrl: string | null
+  asset?: AssetReference | null
 }
 
 /* ========================================
@@ -238,7 +241,7 @@ export type Player = {
 
   league: string | null
   leagueSlug?: string | null
-  // Optional supplied artwork; the current public reader does not provide it.
+  leagueAsset?: AssetReference | null
   leagueLogoUrl?: string | null
 
   /* ======================================

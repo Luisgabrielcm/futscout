@@ -35,6 +35,7 @@ function contractFixture(row: mapper.DatabasePlayer) {
       "../mappers/mapDatabasePlayer": mapper,
       "../lib/playerCatalogParams": params,
       "../lib/playerCatalogOrder": order,
+      "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
     },
   )
   const { default: Card } = loadCatalogModule<typeof import("../../../app/components/PlayerCard")>(
