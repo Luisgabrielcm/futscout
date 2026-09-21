@@ -13,6 +13,8 @@
     "ea:sync:auto:dry-run": "tsx sync/runEARatingsAutoSync.ts --dry-run",
     "ea:sync:auto:write": "tsx sync/runEARatingsAutoSync.ts --write",
     "ea:gk:audit": "tsx sync/runEAGoalkeeperAttributesAudit.ts --dry-run",
+    "ea:gk:sync:dry-run": "tsx sync/runEAGoalkeeperAttributesSync.ts --dry-run",
+    "ea:gk:sync:write": "tsx sync/runEAGoalkeeperAttributesSync.ts --write",
     "postinstall": "prisma generate"
   },
   "dependencies": {
