@@ -40,6 +40,9 @@ export async function getBrandAssetsForEntities(input: Readonly<{
           version: true,
           fetchedAt: true,
           rightsStatus: true,
+          operationalDecision: true,
+          operationalAuthorizedAt: true,
+          operationalDecisionRef: true,
           status: true,
         },
       },
@@ -66,6 +69,9 @@ export async function getBrandAssetsForEntities(input: Readonly<{
       version: asset.version,
       fetchedAt: asset.fetchedAt.toISOString(),
       rightsStatus: asset.rightsStatus,
+      operationalDecision: asset.operationalDecision,
+      operationalAuthorizedAt: asset.operationalAuthorizedAt?.toISOString() ?? null,
+      operationalDecisionRef: asset.operationalDecisionRef,
       status: asset.status,
     }
     if (identity.entityType === "CLUB") clubs.set(identity.entityId, reference)

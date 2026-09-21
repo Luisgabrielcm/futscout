@@ -6,8 +6,11 @@ import type { BrandAssetAudit, BrandAssetCandidate, BrandAssetPilotIdentity, Bra
 const decodeIdentity = (row: { id: string; entityType: string; entityId: string; provider: string; providerEntityId: string;
   status: string; version: number }): BrandIdentityRow => row as BrandIdentityRow
 const decodeAsset = (row: { id: string; identityId: string; assetType: string; sourceUrl: string; storageUrl: string | null;
-  contentHash: string | null; version: number; fetchedAt: Date; rightsStatus: string; status: string }): BrandAssetRow => ({
+  contentHash: string | null; version: number; fetchedAt: Date; rightsStatus: string; operationalDecision: string;
+  operationalAuthorizedAt: Date | null; operationalDecisionRef: string | null; status: string }): BrandAssetRow => ({
     ...row, assetType: row.assetType as BrandAssetType, fetchedAt: row.fetchedAt.toISOString(),
+    operationalDecision: row.operationalDecision as BrandAssetRow["operationalDecision"],
+    operationalAuthorizedAt: row.operationalAuthorizedAt?.toISOString() ?? null,
     rightsStatus: row.rightsStatus as BrandAssetRow["rightsStatus"], status: row.status as BrandAssetRow["status"],
   })
 
@@ -46,13 +49,15 @@ function transactionPort(tx: Prisma.TransactionClient) {
     async latestAsset(identityId: string, assetType: BrandAssetType) {
       const row = await tx.brandAsset.findFirst({ where: { identityId, assetType }, orderBy: { version: "desc" }, select: {
         id: true, identityId: true, assetType: true, sourceUrl: true, storageUrl: true, contentHash: true, version: true,
-        fetchedAt: true, rightsStatus: true, status: true } })
+        fetchedAt: true, rightsStatus: true, operationalDecision: true, operationalAuthorizedAt: true,
+        operationalDecisionRef: true, status: true } })
       return row ? decodeAsset(row) : null
     },
     async activeAsset(identityId: string, assetType: BrandAssetType) {
       const row = await tx.brandAsset.findFirst({ where: { identityId, assetType, status: "ACTIVE" }, select: {
         id: true, identityId: true, assetType: true, sourceUrl: true, storageUrl: true, contentHash: true, version: true,
-        fetchedAt: true, rightsStatus: true, status: true } })
+        fetchedAt: true, rightsStatus: true, operationalDecision: true, operationalAuthorizedAt: true,
+        operationalDecisionRef: true, status: true } })
       return row ? decodeAsset(row) : null
     },
     async createIdentity(input: BrandAssetCandidate) {
@@ -67,8 +72,11 @@ function transactionPort(tx: Prisma.TransactionClient) {
     async createAsset(identityId: string, version: number, input: BrandAssetCandidate) {
       const row = await tx.brandAsset.create({ data: { identityId, assetType: input.assetType, sourceUrl: input.sourceUrl,
         storageUrl: input.storageUrl, contentHash: input.contentHash, version, fetchedAt: new Date(input.fetchedAt),
-        rightsStatus: input.rightsStatus, status: "ACTIVE" }, select: { id: true, identityId: true, assetType: true,
-        sourceUrl: true, storageUrl: true, contentHash: true, version: true, fetchedAt: true, rightsStatus: true, status: true } })
+        rightsStatus: input.rightsStatus, operationalDecision: input.operationalDecision,
+        operationalAuthorizedAt: input.operationalAuthorizedAt === null ? null : new Date(input.operationalAuthorizedAt),
+        operationalDecisionRef: input.operationalDecisionRef, status: "ACTIVE" }, select: { id: true, identityId: true, assetType: true,
+        sourceUrl: true, storageUrl: true, contentHash: true, version: true, fetchedAt: true, rightsStatus: true,
+        operationalDecision: true, operationalAuthorizedAt: true, operationalDecisionRef: true, status: true } })
       return decodeAsset(row)
     },
   }

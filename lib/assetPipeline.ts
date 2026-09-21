@@ -15,6 +15,11 @@ export type AssetStatus =
   | "REMOVED"
   | "ERROR"
 
+export type AssetOperationalDecision =
+  | "NOT_AUTHORIZED"
+  | "OWNER_AUTHORIZED_REMOTE_USE"
+  | "REVOKED"
+
 export type BrandAssetEntityType = Extract<ImageKind, "club" | "league">
 export type BrandAssetType = "CREST" | "LOGO"
 
@@ -34,6 +39,9 @@ export type AssetReference = Readonly<{
   version: number
   fetchedAt: string
   rightsStatus: AssetRightsStatus
+  operationalDecision?: AssetOperationalDecision
+  operationalAuthorizedAt?: string | null
+  operationalDecisionRef?: string | null
   status: AssetStatus
 }>
 
@@ -53,10 +61,16 @@ export function resolveAssetByIdentity(identity: AssetIdentity | null | undefine
 
 function permittedAssetUrl(reference: AssetReference): string | null {
   if (reference.status !== "ACTIVE") return null
-  if (reference.rightsStatus === "REVIEW_REQUIRED" || reference.rightsStatus === "BLOCKED") return null
+  if (reference.rightsStatus === "BLOCKED" || reference.operationalDecision === "REVOKED") return null
 
   const sourceUrl = getVisualAssetSrc(reference.sourceUrl, reference.identity.entityType)
   const storageUrl = getVisualAssetSrc(reference.storageUrl, reference.identity.entityType)
+  if (reference.rightsStatus === "REVIEW_REQUIRED") {
+    const authorizedAt = reference.operationalAuthorizedAt
+    const authorizationRef = reference.operationalDecisionRef?.trim()
+    return reference.operationalDecision === "OWNER_AUTHORIZED_REMOTE_USE" &&
+      authorizedAt && Number.isFinite(Date.parse(authorizedAt)) && authorizationRef ? sourceUrl : null
+  }
   if (reference.rightsStatus === "REMOTE_ONLY") return sourceUrl
   return storageUrl ?? sourceUrl
 }

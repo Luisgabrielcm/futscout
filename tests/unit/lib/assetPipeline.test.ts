@@ -50,6 +50,17 @@ test("rights gate chooses only the URL allowed by the explicit policy", () => {
   assert.equal(resolveAssetSource({ ...club, rightsStatus: "BLOCKED" }, "club"), null)
 })
 
+test("owner-authorized remote use is separate from REVIEW_REQUIRED evidence", () => {
+  const authorized: AssetReference = { ...club, storageUrl: null, rightsStatus: "REVIEW_REQUIRED",
+    operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE", operationalAuthorizedAt: "2026-09-21T18:00:00.000Z",
+    operationalDecisionRef: "owner-decision:brand-assets-phase-j" }
+  assert.equal(resolveAssetSource(authorized, "club"), club.sourceUrl)
+  assert.equal(resolveAssetSource({ ...authorized, operationalDecisionRef: null }, "club"), null)
+  assert.equal(resolveAssetSource({ ...authorized, operationalAuthorizedAt: null }, "club"), null)
+  assert.equal(resolveAssetSource({ ...authorized, operationalDecision: "REVOKED" }, "club"), null)
+  assert.equal(resolveAssetSource({ ...authorized, rightsStatus: "BLOCKED" }, "club"), null)
+})
+
 test("non-active, malformed and wrong-context assets retain the FutScout fallback", () => {
   assert.equal(resolveAssetSource({ ...club, status: "VALIDATED" }, "club"), null)
   assert.equal(resolveAssetSource({ ...club, sourceUrl: "javascript:bad", storageUrl: null }, "club"), null)

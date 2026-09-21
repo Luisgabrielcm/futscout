@@ -14,13 +14,16 @@ function candidate(index = 0, changes: Partial<BrandAssetCandidate> = {}): Brand
   const folder = identity.entityType === "CLUB" ? "teams" : "leagues"
   return { ...identity, identityStatus: "VERIFIED", sourceUrl: `https://media.api-sports.io/football/${folder}/${identity.providerEntityId}.png`,
     storageUrl: null, contentHash: "a".repeat(64), fetchedAt: "2026-09-17T14:00:00.000Z",
-    rightsStatus: "APPROVED", deliveryStatus: "VALIDATED", ...changes }
+    rightsStatus: "APPROVED", operationalDecision: "NOT_AUTHORIZED", operationalAuthorizedAt: null,
+    operationalDecisionRef: null, deliveryStatus: "VALIDATED", ...changes }
 }
 
 function currentPilot() {
-  return BRAND_ASSET_PILOT_ALLOWLIST.map((identity, index) => candidate(index, {
-    identityStatus: identity.entityType === "CLUB" ? "VERIFIED" : "REVIEW_REQUIRED",
-    rightsStatus: "REVIEW_REQUIRED", deliveryStatus: "UNVERIFIED", contentHash: null,
+  return BRAND_ASSET_PILOT_ALLOWLIST.map((_identity, index) => candidate(index, {
+    identityStatus: "VERIFIED",
+    rightsStatus: "REVIEW_REQUIRED", operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE",
+    operationalAuthorizedAt: "2026-09-17T14:30:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j",
+    deliveryStatus: "UNVERIFIED", contentHash: null,
   }))
 }
 
@@ -73,7 +76,9 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
         if (options.failAsset) throw new Error("FAKE_SECOND_INSERT_FAILURE")
         const row: BrandAssetRow = { id: `asset-${draft.assets.length + 1}`, identityId, assetType: input.assetType,
           sourceUrl: input.sourceUrl, storageUrl: input.storageUrl, contentHash: input.contentHash, version,
-          fetchedAt: input.fetchedAt, rightsStatus: input.rightsStatus, status: "ACTIVE" }
+          fetchedAt: input.fetchedAt, rightsStatus: input.rightsStatus, operationalDecision: input.operationalDecision,
+          operationalAuthorizedAt: input.operationalAuthorizedAt, operationalDecisionRef: input.operationalDecisionRef,
+          status: "ACTIVE" }
         draft.assets.push(row); return row
       },
     })
@@ -87,13 +92,13 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
 
 const emptyExpected = { identity: null, latestAsset: null, activeAssetId: null }
 
-test("closed six-candidate dry-run preserves order and makes all current evidence NOT_WRITABLE", () => {
+test("closed six-candidate dry-run records owner authorization but stays blocked by unverified delivery", () => {
   const result = prepareBrandAssetPilotDryRun(currentPilot(), now)
   assert.equal(result.length, 6)
   assert.deepEqual(result.map(row => row.identity), [...BRAND_ASSET_PILOT_ALLOWLIST])
   assert.ok(result.every(row => !row.writable && row.action === "NOT_WRITABLE" && row.rightsStatus === "REVIEW_REQUIRED" &&
-    row.deliveryStatus === "UNVERIFIED" && row.blockers.includes("RIGHTS_REVIEW_REQUIRED") &&
-    row.blockers.includes("DELIVERY_NOT_VALIDATED")))
+    row.operationalDecision === "OWNER_AUTHORIZED_REMOTE_USE" && row.deliveryStatus === "UNVERIFIED" &&
+    !row.blockers.includes("RIGHTS_REVIEW_REQUIRED") && row.blockers.includes("DELIVERY_NOT_VALIDATED")))
 })
 
 test("allow-list rejects a seventh candidate, replacement, reordering and Club/League type mismatch", () => {
@@ -143,7 +148,9 @@ function existingState(overrides: Partial<BrandAssetRow> = {}) {
     entityId: input.entityId, provider: input.provider, providerEntityId: input.providerEntityId, status: "VERIFIED", version: 1 }
   const asset: BrandAssetRow = { id: "asset-existing", identityId: identity.id, assetType: input.assetType,
     sourceUrl: "https://media.api-sports.io/football/teams/541-old.png", storageUrl: null, contentHash: "b".repeat(64),
-    version: 1, fetchedAt: "2026-09-16T14:00:00.000Z", rightsStatus: "APPROVED", status: "ACTIVE", ...overrides }
+    version: 1, fetchedAt: "2026-09-16T14:00:00.000Z", rightsStatus: "APPROVED",
+    operationalDecision: "NOT_AUTHORIZED", operationalAuthorizedAt: null, operationalDecisionRef: null,
+    status: "ACTIVE", ...overrides }
   return { input, identity, asset }
 }
 
@@ -174,6 +181,27 @@ for (const changes of [
     { candidate: candidate(0, changes), expected: emptyExpected }, () => now)
   assert.equal(result.status, "NOT_WRITABLE"); assert.equal(result.transactionState, "NOT_STARTED")
   assert.equal(f.transactions(), 0); assert.deepEqual(f.state(), { identities: [], assets: [] })
+})
+
+test("delivered REVIEW_REQUIRED asset becomes writable only with explicit owner remote authorization", async () => {
+  const input = candidate(0, { rightsStatus: "REVIEW_REQUIRED", operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE",
+    operationalAuthorizedAt: "2026-09-17T14:30:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j" })
+  const f = fakeStore(), result = await persistBrandAssetAtomically(f.store,
+    { candidate: input, expected: emptyExpected }, () => now)
+  assert.equal(result.status, "CREATED")
+  assert.equal(f.state().assets[0].rightsStatus, "REVIEW_REQUIRED")
+  assert.equal(f.state().assets[0].operationalDecision, "OWNER_AUTHORIZED_REMOTE_USE")
+  assert.equal(f.state().assets[0].storageUrl, null)
+})
+
+test("BLOCKED remains absolute even with owner authorization", async () => {
+  const f = fakeStore(), result = await persistBrandAssetAtomically(f.store, { candidate: candidate(0, {
+    rightsStatus: "BLOCKED", operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE",
+    operationalAuthorizedAt: "2026-09-17T14:30:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j",
+  }), expected: emptyExpected }, () => now)
+  assert.equal(result.status, "NOT_WRITABLE")
+  assert.match(result.reason, /RIGHTS_BLOCKED/)
+  assert.equal(f.transactions(), 0)
 })
 
 test("failure on the second insert rolls the identity back and never retries", async () => {

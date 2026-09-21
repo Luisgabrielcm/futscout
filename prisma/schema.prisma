@@ -31,6 +31,14 @@ enum BrandAssetRightsStatus {
   BLOCKED
 }
 
+// Product-owner authorization is deliberately separate from legal/source
+// rights evidence. It never converts REVIEW_REQUIRED into APPROVED.
+enum BrandAssetOperationalDecision {
+  NOT_AUTHORIZED
+  OWNER_AUTHORIZED_REMOTE_USE
+  REVOKED
+}
+
 enum BrandAssetStatus {
   DISCOVERED
   VALIDATED
@@ -135,23 +143,27 @@ model BrandAssetIdentity {
 }
 
 model BrandAsset {
-  id           String                 @id @default(cuid())
-  identityId   String
-  identity     BrandAssetIdentity     @relation(fields: [identityId], references: [id], onDelete: Restrict)
-  assetType    BrandAssetType
-  sourceUrl    String
-  storageUrl   String?
-  contentHash  String?
-  version      Int                    @default(1)
-  fetchedAt    DateTime
-  rightsStatus BrandAssetRightsStatus @default(REVIEW_REQUIRED)
-  status       BrandAssetStatus       @default(DISCOVERED)
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
+  id                      String                        @id @default(cuid())
+  identityId              String
+  identity                BrandAssetIdentity            @relation(fields: [identityId], references: [id], onDelete: Restrict)
+  assetType               BrandAssetType
+  sourceUrl               String
+  storageUrl              String?
+  contentHash             String?
+  version                 Int                           @default(1)
+  fetchedAt               DateTime
+  rightsStatus            BrandAssetRightsStatus        @default(REVIEW_REQUIRED)
+  operationalDecision     BrandAssetOperationalDecision @default(NOT_AUTHORIZED)
+  operationalAuthorizedAt DateTime?
+  operationalDecisionRef  String?
+  status                  BrandAssetStatus              @default(DISCOVERED)
+  createdAt               DateTime                      @default(now())
+  updatedAt               DateTime                      @updatedAt
 
   @@unique([identityId, assetType, version])
   @@index([identityId, assetType, status])
   @@index([rightsStatus, status])
+  @@index([operationalDecision, status])
   @@index([contentHash])
 }
 

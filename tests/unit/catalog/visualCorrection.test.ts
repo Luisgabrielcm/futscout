@@ -55,6 +55,18 @@ test("ClubLogo and LeagueLogo enforce the central rights gate without knowing th
   const blockedLeague = renderToStaticMarkup(createElement(LeagueLogo, { locale: "en", name: "Blocked League", asset: { ...leagueAsset, rightsStatus: "REVIEW_REQUIRED" } }))
   assert.match(blockedLeague, /brandAssetFallback-league/)
   assert.doesNotMatch(blockedLeague, /<img/)
+
+  const authorization = { operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE" as const,
+    operationalAuthorizedAt: "2026-09-21T18:00:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j" }
+  const authorizedClub = renderToStaticMarkup(createElement(ClubLogo, { locale: "pt", name: "Authorized Club",
+    asset: { ...base, storageUrl: null, rightsStatus: "REVIEW_REQUIRED", ...authorization } }))
+  const authorizedLeague = renderToStaticMarkup(createElement(LeagueLogo, { locale: "en", name: "Authorized League",
+    asset: { ...leagueAsset, storageUrl: null, rightsStatus: "REVIEW_REQUIRED", ...authorization } }))
+  assert.match(authorizedClub, /src="https:\/\/media\.example\.test\/teams\/50\.png"/)
+  assert.match(authorizedLeague, /src="https:\/\/media\.example\.test\/leagues\/39\.png"/)
+  const stillBlocked = renderToStaticMarkup(createElement(ClubLogo, { locale: "en", name: "Blocked Club",
+    asset: { ...base, storageUrl: null, rightsStatus: "BLOCKED", ...authorization } }))
+  assert.match(stillBlocked, /brandAssetFallback-club/)
 })
 
 test("club absence and wrong-context image use a neutral shield, never another club's initial", () => {

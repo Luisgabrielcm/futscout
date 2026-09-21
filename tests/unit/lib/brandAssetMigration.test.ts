@@ -4,6 +4,8 @@ import { test } from "node:test"
 
 const migration = readFileSync("prisma/migrations/20260918000000_brand_asset_registry/migration.sql", "utf8")
 const schema = readFileSync("prisma/schema.prisma", "utf8")
+const operationalMigration = readFileSync(
+  "prisma/migrations/20260921180000_brand_asset_operational_decision/migration.sql", "utf8")
 
 test("brand asset migration is additive, prepared-only and contains no data mutation", () => {
   assert.match(migration, /PREPARED ONLY/)
@@ -29,4 +31,16 @@ test("schema separates provider identity, asset lifecycle and rights policy", ()
   assert.match(migration, /BrandAsset_one_active_per_identity_type_key/)
   assert.match(migration, /futscout_validate_brand_asset_identity/)
   assert.match(migration, /futscout_validate_brand_asset_type/)
+})
+
+test("operational authorization migration is additive and keeps rights evidence separate", () => {
+  assert.match(operationalMigration, /PREPARED ONLY/)
+  assert.match(operationalMigration, /BrandAssetOperationalDecision/)
+  assert.match(operationalMigration, /OWNER_AUTHORIZED_REMOTE_USE/)
+  assert.match(operationalMigration, /operationalAuthorizedAt/)
+  assert.match(operationalMigration, /operationalDecisionRef/)
+  assert.doesNotMatch(operationalMigration, /(?:^|\n)\s*(?:INSERT INTO|UPDATE |DELETE FROM|TRUNCATE TABLE)/i)
+  assert.doesNotMatch(operationalMigration, /ALTER TABLE "(?:Club|League|Player)"/)
+  assert.doesNotMatch(operationalMigration, /DROP (?:TABLE|COLUMN|TYPE|INDEX)/i)
+  assert.match(schema, /enum BrandAssetOperationalDecision/)
 })

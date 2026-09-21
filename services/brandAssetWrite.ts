@@ -4,6 +4,7 @@ import { getVisualAssetSrc } from "../lib/visualAssets"
 export type BrandEntityType = "CLUB" | "LEAGUE"
 export type BrandAssetType = "CREST" | "LOGO"
 export type BrandRightsStatus = "APPROVED" | "REMOTE_ONLY" | "CACHE_ALLOWED" | "REVIEW_REQUIRED" | "BLOCKED"
+export type BrandOperationalDecision = "NOT_AUTHORIZED" | "OWNER_AUTHORIZED_REMOTE_USE" | "REVOKED"
 export type BrandDeliveryStatus = "VALIDATED" | "UNVERIFIED" | "FAILED"
 export type BrandIdentityStatus = "VERIFIED" | "REVIEW_REQUIRED" | "BLOCKED"
 export type BrandAssetLifecycle = "DISCOVERED" | "VALIDATED" | "ACTIVE" | "STALE" | "REMOVED" | "ERROR"
@@ -32,6 +33,9 @@ export type BrandAssetCandidate = BrandAssetPilotIdentity & Readonly<{
   contentHash: string | null
   fetchedAt: string
   rightsStatus: BrandRightsStatus
+  operationalDecision: BrandOperationalDecision
+  operationalAuthorizedAt: string | null
+  operationalDecisionRef: string | null
   deliveryStatus: BrandDeliveryStatus
 }>
 
@@ -39,6 +43,7 @@ export type BrandAssetDryRunRow = Readonly<{
   identity: BrandAssetPilotIdentity
   sourceUrl: string
   rightsStatus: BrandRightsStatus
+  operationalDecision: BrandOperationalDecision
   deliveryStatus: BrandDeliveryStatus
   plannedStatus: Exclude<BrandAssetLifecycle, "STALE" | "REMOVED" | "ERROR">
   action: "CREATE_ACTIVE" | "NOT_WRITABLE"
@@ -55,19 +60,32 @@ function validateCandidate(candidate: BrandAssetCandidate, now: Date) {
   const compatible = candidate.entityType === "CLUB" ? candidate.assetType === "CREST" : candidate.assetType === "LOGO"
   if (!compatible || candidate.provider !== "api-football" || !getVisualAssetSrc(candidate.sourceUrl, kind(candidate.entityType)) ||
       (candidate.storageUrl !== null && !getVisualAssetSrc(candidate.storageUrl, kind(candidate.entityType))) ||
-      !Number.isFinite(Date.parse(candidate.fetchedAt)) || Date.parse(candidate.fetchedAt) > now.getTime()) {
+      !Number.isFinite(Date.parse(candidate.fetchedAt)) || Date.parse(candidate.fetchedAt) > now.getTime() ||
+      (candidate.operationalAuthorizedAt !== null && (!Number.isFinite(Date.parse(candidate.operationalAuthorizedAt)) ||
+        Date.parse(candidate.operationalAuthorizedAt) > now.getTime()))) {
     throw new Error("BRAND_ASSET_CANDIDATE_INVALID")
   }
 }
 
 function blockers(candidate: BrandAssetCandidate) {
   const values: string[] = []
+  const decisionRef = candidate.operationalDecisionRef?.trim() ?? ""
+  const operationallyAuthorized = candidate.operationalDecision === "OWNER_AUTHORIZED_REMOTE_USE" &&
+    candidate.operationalAuthorizedAt !== null && decisionRef.length > 0
   if (candidate.identityStatus !== "VERIFIED") values.push("IDENTITY_NOT_VERIFIED")
-  if (candidate.rightsStatus === "REVIEW_REQUIRED") values.push("RIGHTS_REVIEW_REQUIRED")
+  if (candidate.operationalDecision === "REVOKED") values.push("OPERATIONAL_AUTHORIZATION_REVOKED")
+  if (candidate.rightsStatus === "REVIEW_REQUIRED" && !operationallyAuthorized) values.push("RIGHTS_REVIEW_REQUIRED")
   if (candidate.rightsStatus === "BLOCKED") values.push("RIGHTS_BLOCKED")
+  if (candidate.operationalDecision === "NOT_AUTHORIZED" &&
+      (candidate.operationalAuthorizedAt !== null || candidate.operationalDecisionRef !== null)) {
+    values.push("OPERATIONAL_AUTHORIZATION_INVALID")
+  }
+  if (candidate.operationalDecision !== "NOT_AUTHORIZED" &&
+      (candidate.operationalAuthorizedAt === null || !decisionRef)) values.push("OPERATIONAL_AUTHORIZATION_INVALID")
   if (candidate.deliveryStatus !== "VALIDATED" || !validHash(candidate.contentHash)) values.push("DELIVERY_NOT_VALIDATED")
   if (candidate.rightsStatus === "REMOTE_ONLY" && candidate.storageUrl !== null) values.push("REMOTE_ONLY_STORAGE_FORBIDDEN")
   if (candidate.rightsStatus === "CACHE_ALLOWED" && candidate.storageUrl === null) values.push("CACHE_STORAGE_REQUIRED")
+  if (operationallyAuthorized && candidate.storageUrl !== null) values.push("OWNER_AUTHORIZED_REMOTE_STORAGE_FORBIDDEN")
   return values
 }
 
@@ -79,7 +97,8 @@ export function prepareBrandAssetPilotDryRun(candidates: readonly BrandAssetCand
     const blocked = blockers(candidate)
     const writable = blocked.length === 0
     return { identity: BRAND_ASSET_PILOT_ALLOWLIST.find(item => identityKey(item) === identityKey(candidate))!,
-      sourceUrl: candidate.sourceUrl, rightsStatus: candidate.rightsStatus, deliveryStatus: candidate.deliveryStatus,
+      sourceUrl: candidate.sourceUrl, rightsStatus: candidate.rightsStatus,
+      operationalDecision: candidate.operationalDecision, deliveryStatus: candidate.deliveryStatus,
       plannedStatus: writable ? "ACTIVE" : candidate.deliveryStatus === "VALIDATED" ? "VALIDATED" : "DISCOVERED",
       action: writable ? "CREATE_ACTIVE" : "NOT_WRITABLE", blockers: blocked, writable }
   })
@@ -91,7 +110,9 @@ export type BrandIdentityRow = Readonly<{
 }>
 export type BrandAssetRow = Readonly<{
   id: string; identityId: string; assetType: BrandAssetType; sourceUrl: string; storageUrl: string | null
-  contentHash: string | null; version: number; fetchedAt: string; rightsStatus: BrandRightsStatus; status: BrandAssetLifecycle
+  contentHash: string | null; version: number; fetchedAt: string; rightsStatus: BrandRightsStatus
+  operationalDecision: BrandOperationalDecision; operationalAuthorizedAt: string | null; operationalDecisionRef: string | null
+  status: BrandAssetLifecycle
 }>
 export type BrandExpectedState = Readonly<{
   identity: BrandIdentityRow | null
@@ -145,7 +166,9 @@ function expectedRegistryDelta(before: BrandAssetAudit, after: BrandAssetAudit, 
 }
 const sameAsset = (row: BrandAssetRow, candidate: BrandAssetCandidate) => row.assetType === candidate.assetType &&
   row.sourceUrl === candidate.sourceUrl && row.storageUrl === candidate.storageUrl && row.contentHash === candidate.contentHash &&
-  row.rightsStatus === candidate.rightsStatus && row.status === "ACTIVE"
+  row.rightsStatus === candidate.rightsStatus && row.operationalDecision === candidate.operationalDecision &&
+  row.operationalAuthorizedAt === candidate.operationalAuthorizedAt &&
+  row.operationalDecisionRef === candidate.operationalDecisionRef && row.status === "ACTIVE"
 
 // No env, network, retry loop or singleton. A future authorized runner must supply the store and fresh expected state.
 export async function persistBrandAssetAtomically(store: BrandAssetWriteStore, request: BrandAssetWriteRequest,

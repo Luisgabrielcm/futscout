@@ -44,9 +44,16 @@ rightsStatus, status
 - `REVIEW_REQUIRED`: retain metadata for review, never render.
 - `BLOCKED`: do not fetch, cache, publish or render.
 
-Only an `ACTIVE` asset with `APPROVED`, `REMOTE_ONLY` or `CACHE_ALLOWED`
-passes the frontend gate. Technical availability of a public URL is not proof
-of trademark or redistribution rights.
+Operational product authorization is stored separately from legal/source
+evidence. `OWNER_AUTHORIZED_REMOTE_USE` may allow an `ACTIVE` remote reference
+whose rights evidence remains `REVIEW_REQUIRED`, but it does not reclassify or
+erase that evidence. It requires an authorization timestamp and reference,
+never permits a storage/CDN copy, and can be revoked. `BLOCKED` always wins.
+
+Only an `ACTIVE` asset with `APPROVED`, `REMOTE_ONLY`, `CACHE_ALLOWED`, or the
+separate and complete `OWNER_AUTHORIZED_REMOTE_USE` decision passes the
+frontend gate. Technical availability of a public URL is not proof of
+trademark or redistribution rights.
 
 ## Initial evidence, not persisted
 
