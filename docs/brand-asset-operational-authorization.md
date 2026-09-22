@@ -149,3 +149,24 @@ No fuzzy association, automatic replacement or placeholder substitution is
 permitted. The documentary and rollback contract remains unchanged:
 `REVIEW_REQUIRED`, `DISPLAY_ALLOWED`, `OWNER_AUTHORIZED_REMOTE_USE`, remote-only
 delivery, individual revocation, absolute `BLOCKED`, and the global kill switch.
+
+## Controlled expansion to 398 covered clubs
+
+Decision date: 2026-09-22
+
+The owner authorized every additional Club that could be resolved conservatively
+from the remaining catalogue through an exact normalized identity, either inside
+its API-Football league roster or through an exact team search. This batch adds
+198 Clubs and brings controlled crest coverage to 398 Clubs. All 198 remote
+deliveries were validated through the Production image path before write.
+
+The empty duplicate Bayer Leverkusen catalogue record was rejected because API-
+Football provider ID 168 is already owned by the populated Bayer Leverkusen
+record. Ambiguous aliases, reserve teams and fictional EA placeholders remain
+outside the batch. No occupied provider ID is reused and no fuzzy result is
+promoted.
+
+The operational contract remains `REVIEW_REQUIRED`, `DISPLAY_ALLOWED`,
+`OWNER_AUTHORIZED_REMOTE_USE`, `storageUrl = null`, per-asset revocation,
+absolute `BLOCKED`, and the global publication kill switch. The documentary
+rights conclusion is unchanged.
