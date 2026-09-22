@@ -647,34 +647,20 @@ Solicitar autorização antes.
 
 ## 25. Estado atual do desenvolvimento
 
-O desenvolvimento está atualmente na fase de estabilização da integração API-Football.
+O FutScout está em fase de preparação e validação da beta pública e internacional.
+A fundação de dados e o pipeline de sincronização EA já possuem implementação consolidada.
 
-Implementações recentes:
+Estado implementado:
 
-- `Club.apiFootballId`;
-- `Player.apiFootballId`;
-- matcher de clubes;
-- matcher de jogadores;
-- `ApiFootballPlayerMatchAttempt`;
-- política de retry;
-- `ApiFootballTeamRosterCache`;
-- cache memória → PostgreSQL → API;
-- sincronização de estatísticas reais;
-- transferências;
-- títulos.
+- integração API-Football com matchers de clubes e jogadores, controle de tentativas, cache persistente de elencos, tratamento de rate limit, matching direcionado, modos cache-only e fail-fast e sincronização de dados reais;
+- catálogo público de jogadores, clubes e ligas;
+- favoritos e comparação de jogadores;
+- melhorias de UX responsiva e mobile nos perfis;
+- internacionalização PT-BR/EN, SEO, sitemap e CI preparados para a beta.
 
-Ponto atual:
+O runtime público usa PostgreSQL pela conexão pooled `DATABASE_URL` e serve o catálogo com dados já persistidos. As sincronizações EA e API-Football são operações separadas do runtime público e não devem ser necessárias para atender às páginas do catálogo.
 
-o cache persistente de elencos foi implementado e conectado ao matcher.
-
-Próxima etapa:
-
-1. validar migrations recentes no PostgreSQL;
-2. testar cache persistente;
-3. uniformizar rate limit;
-4. estabilizar matcher;
-5. criar auditorias;
-6. só depois aumentar escala da sincronização.
+A integração API-Football continua evolutiva, mas não representa sozinha o estágio atual do projeto nem bloqueia automaticamente a beta.
 
 ---
 
