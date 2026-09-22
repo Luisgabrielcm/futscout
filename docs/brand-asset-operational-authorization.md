@@ -112,3 +112,24 @@ These assets retain `REVIEW_REQUIRED`, `DISPLAY_ALLOWED`,
 The documentary rights conclusion is unchanged. Provider identities must be
 persisted by exact ID with a protected audit before registry writes; no name
 matching or placeholder clubs are authorized.
+
+## Controlled expansion to 100 covered clubs
+
+Decision date: 2026-09-22
+
+The owner authorized a further 60 exact Club identities, bringing the total
+controlled crest coverage to 100 Clubs. The cohort prioritizes the remaining
+real clubs from the Premier League, LaLiga, Serie A, Bundesliga and Ligue 1,
+then Galatasaray, Fenerbahçe, Beşiktaş, FC Porto, Sporting CP, SL Benfica,
+SC Braga and Al Nassr. Every provider identity was checked by exact numeric ID;
+all 60 remote PNG deliveries and SHA-256 hashes were validated before write.
+
+`Lombardia FC`, `Milano FC`, `Bergamo Calcio` and `Latium` remain excluded:
+they are EA catalogue placeholders and must not be associated with real clubs.
+The empty mock Bayer Leverkusen record is also excluded. No fuzzy matching or
+automatic substitution is permitted.
+
+The rights and rollback contract is unchanged: `REVIEW_REQUIRED`,
+`DISPLAY_ALLOWED`, `OWNER_AUTHORIZED_REMOTE_USE`, `storageUrl = null`,
+individual revocation, absolute `BLOCKED`, and the global publication kill
+switch all remain in force.
