@@ -276,9 +276,12 @@ Conexão:
 
 `@prisma/adapter-pg`
 
-Variável principal:
+Conexões PostgreSQL:
 
-`DIRECT_URL`
+- `DATABASE_URL`: conexão pooled usada pelo runtime da aplicação, inclusive o runtime público;
+- `DIRECT_URL`: conexão direta reservada para Prisma CLI e operações administrativas.
+
+O runtime público deve usar `DATABASE_URL` e não deve usar `DIRECT_URL` como fallback automático.
 
 Antes de migrations:
 
