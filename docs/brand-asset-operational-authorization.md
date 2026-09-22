@@ -52,7 +52,7 @@ phase.
 
 For an urgent provider-wide or entity-specific response, use
 `BRAND_ASSET_BLOCKED_PROVIDERS` or `BRAND_ASSET_BLOCKED_ENTITY_IDS`. The global
-`BRAND_ASSET_REVIEW_PUBLICATION_ENABLED=false` switch disables every
+`BRAND_ASSET_PUBLICATION_ENABLED=false` switch disables every
 risk-accepted `REVIEW_REQUIRED` asset.
 
 This phase does not apply the prepared migration, insert registry rows,

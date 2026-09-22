@@ -33,7 +33,7 @@ The flattened registry contract exposed to application code is equivalent to:
 ```text
 entityType, entityId, provider, providerEntityId, assetType,
 sourceUrl, storageUrl?, contentHash?, version, fetchedAt,
-rightsStatus, operationalDecision, operatorRiskAccepted, riskAcceptedAt,
+rightsStatus, displayPolicy, operationalDecision, operatorRiskAccepted, riskAcceptedAt,
 riskAcceptedBy, riskReason, sourceTermsUrl, revocable, status
 ```
 
@@ -42,7 +42,7 @@ riskAcceptedBy, riskReason, sourceTermsUrl, revocable, status
 - `APPROVED`: approved local/licensed use; prefer storage, then source.
 - `REMOTE_ONLY`: render only the approved remote source; never use storage.
 - `CACHE_ALLOWED`: an approved cached copy may be used; prefer storage.
-- `REVIEW_REQUIRED`: retain metadata for review, never render.
+- `REVIEW_REQUIRED`: documentary rights remain pending; rendering is decided independently.
 - `BLOCKED`: do not fetch, cache, publish or render.
 
 Operational product authorization is stored separately from legal/source
@@ -51,13 +51,15 @@ whose rights evidence remains `REVIEW_REQUIRED`, but it does not reclassify or
 erase that evidence. It requires an authorization timestamp and reference,
 never permits a storage/CDN copy, and can be revoked. `BLOCKED` always wins.
 
-Only an `ACTIVE` asset with `APPROVED`, `REMOTE_ONLY`, `CACHE_ALLOWED`, or the
-separate and complete `OWNER_AUTHORIZED_REMOTE_USE` decision passes the
-frontend gate. Technical availability of a public URL is not proof of
-trademark or redistribution rights.
+`displayPolicy` is the independent operational decision: `DISPLAY_ALLOWED`
+permits an otherwise valid asset to reach the renderer, while
+`DISPLAY_BLOCKED` forces the fallback. `BLOCKED` rights evidence and `REVOKED`
+operator decisions always win. Technical availability of a public URL is not
+proof of trademark or redistribution rights.
 
 For a controlled beta, the server-side
-`BRAND_ASSET_REVIEW_PUBLICATION_ENABLED` switch may permit an `ACTIVE` and
+`BRAND_ASSET_PUBLICATION_ENABLED` switch may permit an `ACTIVE`,
+`DISPLAY_ALLOWED` and
 technically valid `REVIEW_REQUIRED` asset to use only its remote `sourceUrl`,
 but the switch is necessary and never sufficient by itself. The individual
 asset must also carry a complete, revocable operator-risk acceptance record.
@@ -83,8 +85,9 @@ League evidence:
 - UEFA Champions League: 2, but no local League currently exists
 
 The first real batch may include the four clubs and the first two leagues only
-after identity preflight and rights approval. Champions League remains outside
-the batch until a separate local-entity decision.
+after identity, delivery and explicit display-policy preflight. Documentary
+rights remain `REVIEW_REQUIRED`; Champions League remains outside the batch
+until a separate local-entity decision.
 
 ## Scalable ingestion
 

@@ -39,6 +39,12 @@ enum BrandAssetOperationalDecision {
   REVOKED
 }
 
+// Operational rendering policy is independent from documentary rights status.
+enum BrandAssetDisplayPolicy {
+  DISPLAY_ALLOWED
+  DISPLAY_BLOCKED
+}
+
 enum BrandAssetStatus {
   DISCOVERED
   VALIDATED
@@ -153,6 +159,7 @@ model BrandAsset {
   version                 Int                           @default(1)
   fetchedAt               DateTime
   rightsStatus            BrandAssetRightsStatus        @default(REVIEW_REQUIRED)
+  displayPolicy           BrandAssetDisplayPolicy       @default(DISPLAY_BLOCKED)
   operationalDecision     BrandAssetOperationalDecision @default(NOT_AUTHORIZED)
   operationalAuthorizedAt DateTime?
   operationalDecisionRef  String?
@@ -169,6 +176,7 @@ model BrandAsset {
   @@unique([identityId, assetType, version])
   @@index([identityId, assetType, status])
   @@index([rightsStatus, status])
+  @@index([displayPolicy, status])
   @@index([operationalDecision, status])
   @@index([contentHash])
 }

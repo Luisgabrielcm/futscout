@@ -20,8 +20,10 @@ export type AssetOperationalDecision =
   | "OWNER_AUTHORIZED_REMOTE_USE"
   | "REVOKED"
 
+export type AssetDisplayPolicy = "DISPLAY_ALLOWED" | "DISPLAY_BLOCKED"
+
 export type AssetPublicationPolicy = Readonly<{
-  reviewPublicationEnabled: boolean
+  publicationEnabled: boolean
   blockedProviders: ReadonlySet<string>
   blockedEntityIds: ReadonlySet<string>
 }>
@@ -45,6 +47,7 @@ export type AssetReference = Readonly<{
   version: number
   fetchedAt: string
   rightsStatus: AssetRightsStatus
+  displayPolicy: AssetDisplayPolicy
   operationalDecision?: AssetOperationalDecision
   operationalAuthorizedAt?: string | null
   operationalDecisionRef?: string | null
@@ -60,14 +63,14 @@ export type AssetReference = Readonly<{
 export type AssetRegistry = ReadonlyMap<string, AssetReference>
 
 export function brandAssetPublicationPolicyFromEnvironment(
-  value = process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED,
+  value = process.env.BRAND_ASSET_PUBLICATION_ENABLED,
   blockedProviders = process.env.BRAND_ASSET_BLOCKED_PROVIDERS,
   blockedEntityIds = process.env.BRAND_ASSET_BLOCKED_ENTITY_IDS,
 ): AssetPublicationPolicy {
   const values = (input: string | undefined, normalize = (item: string) => item) => new Set((input ?? "").split(",")
     .map(item => normalize(item.trim())).filter(Boolean))
   return {
-    reviewPublicationEnabled: value === "true",
+    publicationEnabled: value === "true",
     blockedProviders: values(blockedProviders, item => item.toLowerCase()),
     blockedEntityIds: values(blockedEntityIds),
   }
@@ -98,6 +101,7 @@ export function resolveAssetByIdentity(identity: AssetIdentity | null | undefine
 function permittedAssetUrl(reference: AssetReference, policy: AssetPublicationPolicy): string | null {
   if (reference.status !== "ACTIVE") return null
   if (reference.rightsStatus === "BLOCKED" || reference.operationalDecision === "REVOKED") return null
+  if (reference.displayPolicy !== "DISPLAY_ALLOWED") return null
   if (policy.blockedProviders.has(reference.identity.provider.trim().toLowerCase()) ||
       policy.blockedEntityIds.has(reference.entityId)) return null
 
@@ -115,7 +119,7 @@ function permittedAssetUrl(reference: AssetReference, policy: AssetPublicationPo
       operationalAuthorizedAt && Number.isFinite(Date.parse(operationalAuthorizedAt)) &&
       riskAcceptedAt && Number.isFinite(Date.parse(riskAcceptedAt)) &&
       riskAcceptedBy && riskReason && authorizationRef && isHttpsUrl(sourceTermsUrl)
-    return policy.reviewPublicationEnabled && riskAcceptanceComplete ? sourceUrl : null
+    return policy.publicationEnabled && riskAcceptanceComplete ? sourceUrl : null
   }
   if (reference.rightsStatus === "REMOTE_ONLY") return sourceUrl
   return storageUrl ?? sourceUrl

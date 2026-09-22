@@ -8,6 +8,8 @@ const operationalMigration = readFileSync(
   "prisma/migrations/20260921180000_brand_asset_operational_decision/migration.sql", "utf8")
 const riskAcceptanceMigration = readFileSync(
   "prisma/migrations/20260921220000_brand_asset_risk_acceptance/migration.sql", "utf8")
+const displayPolicyMigration = readFileSync(
+  "prisma/migrations/20260922120000_brand_asset_display_policy/migration.sql", "utf8")
 
 test("brand asset migration is additive, prepared-only and contains no data mutation", () => {
   assert.match(migration, /PREPARED ONLY/)
@@ -55,4 +57,16 @@ test("risk acceptance migration is structured, additive and contains no data mut
   assert.doesNotMatch(riskAcceptanceMigration, /DROP (?:TABLE|COLUMN|TYPE|INDEX)/i)
   assert.match(schema, /operatorRiskAccepted\s+Boolean/)
   assert.match(schema, /sourceTermsUrl\s+String\?/)
+})
+
+test("display policy migration is additive and keeps BLOCKED fail-closed", () => {
+  for (const token of ["BrandAssetDisplayPolicy", "DISPLAY_ALLOWED", "DISPLAY_BLOCKED",
+    "BrandAsset_display_policy_consistency_check", "BrandAsset_displayPolicy_status_idx"]) {
+    assert.match(displayPolicyMigration, new RegExp(token))
+  }
+  assert.doesNotMatch(displayPolicyMigration, /(?:^|\n)\s*(?:INSERT INTO|UPDATE |DELETE FROM|TRUNCATE TABLE)/i)
+  assert.doesNotMatch(displayPolicyMigration, /ALTER TABLE "(?:Club|League|Player)"/)
+  assert.doesNotMatch(displayPolicyMigration, /DROP (?:TABLE|COLUMN|TYPE|INDEX)/i)
+  assert.match(schema, /enum BrandAssetDisplayPolicy/)
+  assert.match(schema, /displayPolicy\s+BrandAssetDisplayPolicy/)
 })

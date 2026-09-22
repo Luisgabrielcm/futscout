@@ -7,11 +7,13 @@ const decodeIdentity = (row: { id: string; entityType: string; entityId: string;
   status: string; version: number }): BrandIdentityRow => row as BrandIdentityRow
 const decodeAsset = (row: { id: string; identityId: string; assetType: string; sourceUrl: string; storageUrl: string | null;
   contentHash: string | null; version: number; fetchedAt: Date; rightsStatus: string; operationalDecision: string;
+  displayPolicy: string;
   operationalAuthorizedAt: Date | null; operationalDecisionRef: string | null; operatorRiskAccepted: boolean;
   riskAcceptedAt: Date | null; riskAcceptedBy: string | null; riskReason: string | null; sourceTermsUrl: string | null;
   revocable: boolean; status: string }): BrandAssetRow => ({
     ...row, assetType: row.assetType as BrandAssetType, fetchedAt: row.fetchedAt.toISOString(),
     operationalDecision: row.operationalDecision as BrandAssetRow["operationalDecision"],
+    displayPolicy: row.displayPolicy as BrandAssetRow["displayPolicy"],
     operationalAuthorizedAt: row.operationalAuthorizedAt?.toISOString() ?? null,
     riskAcceptedAt: row.riskAcceptedAt?.toISOString() ?? null,
     rightsStatus: row.rightsStatus as BrandAssetRow["rightsStatus"], status: row.status as BrandAssetRow["status"],
@@ -52,7 +54,7 @@ function transactionPort(tx: Prisma.TransactionClient) {
     async latestAsset(identityId: string, assetType: BrandAssetType) {
       const row = await tx.brandAsset.findFirst({ where: { identityId, assetType }, orderBy: { version: "desc" }, select: {
         id: true, identityId: true, assetType: true, sourceUrl: true, storageUrl: true, contentHash: true, version: true,
-        fetchedAt: true, rightsStatus: true, operationalDecision: true, operationalAuthorizedAt: true,
+        fetchedAt: true, rightsStatus: true, displayPolicy: true, operationalDecision: true, operationalAuthorizedAt: true,
         operationalDecisionRef: true, operatorRiskAccepted: true, riskAcceptedAt: true, riskAcceptedBy: true,
         riskReason: true, sourceTermsUrl: true, revocable: true, status: true } })
       return row ? decodeAsset(row) : null
@@ -60,7 +62,7 @@ function transactionPort(tx: Prisma.TransactionClient) {
     async activeAsset(identityId: string, assetType: BrandAssetType) {
       const row = await tx.brandAsset.findFirst({ where: { identityId, assetType, status: "ACTIVE" }, select: {
         id: true, identityId: true, assetType: true, sourceUrl: true, storageUrl: true, contentHash: true, version: true,
-        fetchedAt: true, rightsStatus: true, operationalDecision: true, operationalAuthorizedAt: true,
+        fetchedAt: true, rightsStatus: true, displayPolicy: true, operationalDecision: true, operationalAuthorizedAt: true,
         operationalDecisionRef: true, operatorRiskAccepted: true, riskAcceptedAt: true, riskAcceptedBy: true,
         riskReason: true, sourceTermsUrl: true, revocable: true, status: true } })
       return row ? decodeAsset(row) : null
@@ -77,14 +79,14 @@ function transactionPort(tx: Prisma.TransactionClient) {
     async createAsset(identityId: string, version: number, input: BrandAssetCandidate) {
       const row = await tx.brandAsset.create({ data: { identityId, assetType: input.assetType, sourceUrl: input.sourceUrl,
         storageUrl: input.storageUrl, contentHash: input.contentHash, version, fetchedAt: new Date(input.fetchedAt),
-        rightsStatus: input.rightsStatus, operationalDecision: input.operationalDecision,
+        rightsStatus: input.rightsStatus, displayPolicy: input.displayPolicy, operationalDecision: input.operationalDecision,
         operationalAuthorizedAt: input.operationalAuthorizedAt === null ? null : new Date(input.operationalAuthorizedAt),
         operationalDecisionRef: input.operationalDecisionRef, operatorRiskAccepted: input.operatorRiskAccepted,
         riskAcceptedAt: input.riskAcceptedAt === null ? null : new Date(input.riskAcceptedAt), riskAcceptedBy: input.riskAcceptedBy,
         riskReason: input.riskReason, sourceTermsUrl: input.sourceTermsUrl, revocable: input.revocable,
         status: "ACTIVE" }, select: { id: true, identityId: true, assetType: true,
         sourceUrl: true, storageUrl: true, contentHash: true, version: true, fetchedAt: true, rightsStatus: true,
-        operationalDecision: true, operationalAuthorizedAt: true, operationalDecisionRef: true,
+        displayPolicy: true, operationalDecision: true, operationalAuthorizedAt: true, operationalDecisionRef: true,
         operatorRiskAccepted: true, riskAcceptedAt: true, riskAcceptedBy: true, riskReason: true,
         sourceTermsUrl: true, revocable: true, status: true } })
       return decodeAsset(row)

@@ -19,12 +19,13 @@ const club: AssetReference = {
   version: 1,
   fetchedAt: "2026-09-16T12:00:00.000Z",
   rightsStatus: "APPROVED",
+  displayPolicy: "DISPLAY_ALLOWED",
   status: "ACTIVE",
 }
 
-const publicationDisabled = { reviewPublicationEnabled: false, blockedProviders: new Set<string>(),
+const publicationDisabled = { publicationEnabled: false, blockedProviders: new Set<string>(),
   blockedEntityIds: new Set<string>() } as const
-const publicationEnabled = { reviewPublicationEnabled: true, blockedProviders: new Set<string>(),
+const publicationEnabled = { publicationEnabled: true, blockedProviders: new Set<string>(),
   blockedEntityIds: new Set<string>() } as const
 
 function riskAcceptedReview(changes: Partial<AssetReference> = {}): AssetReference {
@@ -49,8 +50,8 @@ test("asset registry resolves only an exact provider identity and asset type", (
     [assetIdentityKey(league.identity), league],
   ])
 
-  assert.equal(resolveAssetByIdentity(club.identity, registry), club)
-  assert.equal(resolveAssetByIdentity(league.identity, registry), league)
+  assert.equal(resolveAssetByIdentity(club.identity, registry, publicationEnabled), club)
+  assert.equal(resolveAssetByIdentity(league.identity, registry, publicationEnabled), league)
   assert.equal(resolveAssetByIdentity({ ...club.identity, providerEntityId: 999 }, registry), null)
   assert.equal(resolveAssetByIdentity({ ...club.identity, assetType: "LOGO" }, registry), null)
   const forged = new Map([[assetIdentityKey(club.identity), { ...club, identity: { ...club.identity, providerEntityId: 541 } }]])
@@ -58,14 +59,14 @@ test("asset registry resolves only an exact provider identity and asset type", (
 })
 
 test("rights gate chooses only the URL allowed by the explicit policy", () => {
-  assert.equal(resolveAssetSource(club, "club"), "/clubs/manchester-city.svg")
-  assert.equal(resolveAssetSource({ ...club, rightsStatus: "REMOTE_ONLY" }, "club"), club.sourceUrl)
-  assert.equal(resolveAssetSource({ ...club, rightsStatus: "CACHE_ALLOWED" }, "club"), club.storageUrl)
+  assert.equal(resolveAssetSource(club, "club", publicationEnabled), "/clubs/manchester-city.svg")
+  assert.equal(resolveAssetSource({ ...club, rightsStatus: "REMOTE_ONLY" }, "club", publicationEnabled), club.sourceUrl)
+  assert.equal(resolveAssetSource({ ...club, rightsStatus: "CACHE_ALLOWED" }, "club", publicationEnabled), club.storageUrl)
   assert.equal(resolveAssetSource({ ...club, rightsStatus: "REVIEW_REQUIRED" }, "club", publicationDisabled), null)
   assert.equal(resolveAssetSource({ ...club, rightsStatus: "BLOCKED" }, "club", publicationEnabled), null)
 })
 
-test("controlled publication defaults off and requires complete per-asset risk acceptance", () => {
+test("display policy is independent from rights evidence and publication defaults off", () => {
   const review = { ...club, storageUrl: "/clubs/must-not-be-used.svg", rightsStatus: "REVIEW_REQUIRED" as const }
   assert.deepEqual(brandAssetPublicationPolicyFromEnvironment(undefined), publicationDisabled)
   assert.deepEqual(brandAssetPublicationPolicyFromEnvironment("false"), publicationDisabled)
@@ -75,6 +76,8 @@ test("controlled publication defaults off and requires complete per-asset risk a
   assert.equal(resolveAssetSource(review, "club", publicationEnabled), null)
   assert.equal(resolveAssetSource(riskAcceptedReview(), "club", publicationDisabled), null)
   assert.equal(resolveAssetSource(riskAcceptedReview(), "club", publicationEnabled), club.sourceUrl)
+  assert.equal(resolveAssetSource({ ...riskAcceptedReview(), displayPolicy: "DISPLAY_BLOCKED" }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...club, rightsStatus: "APPROVED", displayPolicy: "DISPLAY_ALLOWED" }, "club", publicationEnabled), club.storageUrl)
   assert.equal(resolveAssetSource({ ...review, rightsStatus: "BLOCKED" }, "club", publicationEnabled), null)
   assert.equal(resolveAssetSource({ ...review, operationalDecision: "REVOKED" }, "club", publicationEnabled), null)
   assert.equal(resolveAssetSource({ ...review, sourceUrl: "javascript:bad" }, "club", publicationEnabled), null)
@@ -88,8 +91,8 @@ test("owner-authorized remote use is separate from REVIEW_REQUIRED evidence", ()
   assert.equal(resolveAssetSource({ ...authorized, riskAcceptedBy: null }, "club", publicationEnabled), null)
   assert.equal(resolveAssetSource({ ...authorized, sourceTermsUrl: "http://insecure.test/terms" }, "club", publicationEnabled), null)
   assert.equal(resolveAssetSource({ ...authorized, revocable: false }, "club", publicationEnabled), null)
-  assert.equal(resolveAssetSource({ ...authorized, operationalDecision: "REVOKED" }, "club"), null)
-  assert.equal(resolveAssetSource({ ...authorized, rightsStatus: "BLOCKED" }, "club"), null)
+  assert.equal(resolveAssetSource({ ...authorized, operationalDecision: "REVOKED" }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...authorized, rightsStatus: "BLOCKED" }, "club", publicationEnabled), null)
 })
 
 test("provider and entity kill switches force immediate fallback", () => {
@@ -101,19 +104,19 @@ test("provider and entity kill switches force immediate fallback", () => {
 })
 
 test("non-active, malformed and wrong-context assets retain the FutScout fallback", () => {
-  assert.equal(resolveAssetSource({ ...club, status: "VALIDATED" }, "club"), null)
-  assert.equal(resolveAssetSource({ ...club, sourceUrl: "javascript:bad", storageUrl: null }, "club"), null)
-  assert.equal(resolveAssetSource({ ...club, fetchedAt: "invalid" }, "club"), null)
-  assert.equal(resolveAssetSource({ ...club, version: 0 }, "club"), null)
-  assert.equal(resolveAssetSource({ ...club, identity: { ...club.identity, assetType: "LOGO" } }, "club"), null)
-  assert.equal(resolveAssetSource(club, "league"), null)
+  assert.equal(resolveAssetSource({ ...club, status: "VALIDATED" }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...club, sourceUrl: "javascript:bad", storageUrl: null }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...club, fetchedAt: "invalid" }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...club, version: 0 }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...club, identity: { ...club.identity, assetType: "LOGO" } }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource(club, "league", publicationEnabled), null)
   assert.equal(resolveAssetSource("/player-shields/en/1.png", "club"), null)
-  assert.equal(normalizeAssetReference({ ...club, entityId: "" }), null)
+  assert.equal(normalizeAssetReference({ ...club, entityId: "" }, publicationEnabled), null)
 })
 
 test("remote-only never leaks a cached copy and approved assets can fall back to source", () => {
-  assert.equal(resolveAssetSource({ ...club, rightsStatus: "REMOTE_ONLY", storageUrl: "/clubs/forbidden.svg" }, "club"), club.sourceUrl)
-  assert.equal(resolveAssetSource({ ...club, storageUrl: null }, "club"), club.sourceUrl)
+  assert.equal(resolveAssetSource({ ...club, rightsStatus: "REMOTE_ONLY", storageUrl: "/clubs/forbidden.svg" }, "club", publicationEnabled), club.sourceUrl)
+  assert.equal(resolveAssetSource({ ...club, storageUrl: null }, "club", publicationEnabled), club.sourceUrl)
 })
 
 test("asset references are deduplicated by provider identity while preserving first occurrence", () => {

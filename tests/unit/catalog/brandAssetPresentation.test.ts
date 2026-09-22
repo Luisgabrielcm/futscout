@@ -23,7 +23,8 @@ function asset(entityType: "club" | "league", rightsStatus: AssetReference["righ
     identity: { entityType, provider: "fixture-provider", providerEntityId: entityType === "club" ? "50" : "39",
       assetType: entityType === "club" ? "CREST" : "LOGO" },
     entityId: `${entityType}-fixture`, sourceUrl: `/${entityType === "club" ? "clubs" : "leagues"}/fixture.svg`,
-    version: 1, fetchedAt: "2026-09-21T12:00:00.000Z", rightsStatus, status: "ACTIVE",
+    version: 1, fetchedAt: "2026-09-21T12:00:00.000Z", rightsStatus,
+    displayPolicy: rightsStatus === "BLOCKED" ? "DISPLAY_BLOCKED" : "DISPLAY_ALLOWED", status: "ACTIVE",
   }
 }
 
@@ -74,8 +75,8 @@ test("player cards consume a registry crest and never require a provider URL in 
 })
 
 test("controlled publication flag lets REVIEW_REQUIRED assets reach club and player cards in PT/EN", () => {
-  const previous = process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED
-  process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED = "true"
+  const previous = process.env.BRAND_ASSET_PUBLICATION_ENABLED
+  process.env.BRAND_ASSET_PUBLICATION_ENABLED = "true"
   try {
     for (const locale of ["pt", "en"] as const) {
       const clubAsset = reviewRequiredRemoteAsset("club"), leagueAsset = reviewRequiredRemoteAsset("league")
@@ -92,8 +93,8 @@ test("controlled publication flag lets REVIEW_REQUIRED assets reach club and pla
       assert.match(playerHtml, /media\.example\.test\/teams\/50\.png/)
     }
   } finally {
-    if (previous === undefined) delete process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED
-    else process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED = previous
+    if (previous === undefined) delete process.env.BRAND_ASSET_PUBLICATION_ENABLED
+    else process.env.BRAND_ASSET_PUBLICATION_ENABLED = previous
   }
 })
 

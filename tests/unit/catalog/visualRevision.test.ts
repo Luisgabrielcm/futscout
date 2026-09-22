@@ -200,7 +200,8 @@ test("league fallback is visible and never uses initials or a club/player asset"
   const withLogo = renderToStaticMarkup(React.createElement(LeagueCard, { league: { ...league, asset: {
     identity: { entityType: "league", provider: "fixture", providerEntityId: "39", assetType: "LOGO" },
     entityId: "fixture-league", sourceUrl: "/leagues/fixture.svg", version: 1,
-    fetchedAt: "2026-09-16T12:00:00.000Z", rightsStatus: "APPROVED", status: "ACTIVE",
+    fetchedAt: "2026-09-16T12:00:00.000Z", rightsStatus: "APPROVED",
+    displayPolicy: "DISPLAY_ALLOWED", status: "ACTIVE",
   } } }))
   assert.match(withLogo, /src="\/leagues\/fixture.svg"/)
   for (const src of ["/players/1.png", "/player-portraits/1.png", "/player-shields/1.png", "/portraits/1.png"]) {

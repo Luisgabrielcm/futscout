@@ -39,7 +39,8 @@ test("header renders each player's own supplied image and club badge", () => {
     player.club!.asset = {
       identity: { entityType: "club", provider: "fixture", providerEntityId: "1", assetType: "CREST" },
       entityId: "club-1", sourceUrl: "/clubs/fixture.svg", version: 1,
-      fetchedAt: "2026-09-16T12:00:00.000Z", rightsStatus: "APPROVED", status: "ACTIVE",
+      fetchedAt: "2026-09-16T12:00:00.000Z", rightsStatus: "APPROVED",
+      displayPolicy: "DISPLAY_ALLOWED", status: "ACTIVE",
     }
     const html = renderToStaticMarkup(createElement(Header, { player }))
     assert.ok(html.includes(`src="${src}"`))

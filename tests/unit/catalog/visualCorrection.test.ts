@@ -34,6 +34,7 @@ test("ClubLogo and LeagueLogo enforce the central rights gate without knowing th
     version: 1,
     fetchedAt: "2026-09-16T12:00:00.000Z",
     rightsStatus: "APPROVED",
+    displayPolicy: "DISPLAY_ALLOWED",
     status: "ACTIVE",
   }
   const club = renderToStaticMarkup(createElement(ClubLogo, { locale: "en", name: "Fixture Club", asset: base }))
@@ -52,7 +53,8 @@ test("ClubLogo and LeagueLogo enforce the central rights gate without knowing th
   }
   const league = renderToStaticMarkup(createElement(LeagueLogo, { locale: "en", name: "Fixture League", asset: leagueAsset }))
   assert.match(league, /src="\/leagues\/fixture\.svg"/)
-  const blockedLeague = renderToStaticMarkup(createElement(LeagueLogo, { locale: "en", name: "Blocked League", asset: { ...leagueAsset, rightsStatus: "REVIEW_REQUIRED" } }))
+  const blockedLeague = renderToStaticMarkup(createElement(LeagueLogo, { locale: "en", name: "Blocked League", asset: {
+    ...leagueAsset, rightsStatus: "REVIEW_REQUIRED", displayPolicy: "DISPLAY_BLOCKED" } }))
   assert.match(blockedLeague, /brandAssetFallback-league/)
   assert.doesNotMatch(blockedLeague, /<img/)
 
@@ -73,13 +75,14 @@ test("ClubLogo and LeagueLogo enforce the central rights gate without knowing th
 })
 
 test("ClubLogo and LeagueLogo honor the reversible server publication flag in PT/EN", () => {
-  const previous = process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED
-  process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED = "true"
+  const previous = process.env.BRAND_ASSET_PUBLICATION_ENABLED
+  process.env.BRAND_ASSET_PUBLICATION_ENABLED = "true"
   try {
     const base: AssetReference = {
       identity: { entityType: "club", provider: "fixture-provider", providerEntityId: "50", assetType: "CREST" },
       entityId: "fixture-club", sourceUrl: "https://media.example.test/teams/50.png", storageUrl: null,
-      version: 1, fetchedAt: "2026-09-21T18:00:00.000Z", rightsStatus: "REVIEW_REQUIRED", status: "ACTIVE",
+      version: 1, fetchedAt: "2026-09-21T18:00:00.000Z", rightsStatus: "REVIEW_REQUIRED",
+      displayPolicy: "DISPLAY_ALLOWED", status: "ACTIVE",
       operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE", operationalAuthorizedAt: "2026-09-21T18:00:00.000Z",
       operationalDecisionRef: "owner-decision:brand-assets-phase-j", operatorRiskAccepted: true,
       riskAcceptedAt: "2026-09-21T18:00:00.000Z", riskAcceptedBy: "FutScout owner",
@@ -94,8 +97,8 @@ test("ClubLogo and LeagueLogo honor the reversible server publication flag in PT
     assert.match(clubHtml, /media\.example\.test\/teams\/50\.png/)
     assert.match(leagueHtml, /media\.example\.test\/leagues\/39\.png/)
   } finally {
-    if (previous === undefined) delete process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED
-    else process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED = previous
+    if (previous === undefined) delete process.env.BRAND_ASSET_PUBLICATION_ENABLED
+    else process.env.BRAND_ASSET_PUBLICATION_ENABLED = previous
   }
 })
 

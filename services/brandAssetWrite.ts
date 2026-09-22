@@ -5,6 +5,7 @@ export type BrandEntityType = "CLUB" | "LEAGUE"
 export type BrandAssetType = "CREST" | "LOGO"
 export type BrandRightsStatus = "APPROVED" | "REMOTE_ONLY" | "CACHE_ALLOWED" | "REVIEW_REQUIRED" | "BLOCKED"
 export type BrandOperationalDecision = "NOT_AUTHORIZED" | "OWNER_AUTHORIZED_REMOTE_USE" | "REVOKED"
+export type BrandDisplayPolicy = "DISPLAY_ALLOWED" | "DISPLAY_BLOCKED"
 export type BrandDeliveryStatus = "VALIDATED" | "UNVERIFIED" | "FAILED"
 export type BrandIdentityStatus = "VERIFIED" | "REVIEW_REQUIRED" | "BLOCKED"
 export type BrandAssetLifecycle = "DISCOVERED" | "VALIDATED" | "ACTIVE" | "STALE" | "REMOVED" | "ERROR"
@@ -33,6 +34,7 @@ export type BrandAssetCandidate = BrandAssetPilotIdentity & Readonly<{
   contentHash: string | null
   fetchedAt: string
   rightsStatus: BrandRightsStatus
+  displayPolicy: BrandDisplayPolicy
   operationalDecision: BrandOperationalDecision
   operationalAuthorizedAt: string | null
   operationalDecisionRef: string | null
@@ -49,6 +51,7 @@ export type BrandAssetDryRunRow = Readonly<{
   identity: BrandAssetPilotIdentity
   sourceUrl: string
   rightsStatus: BrandRightsStatus
+  displayPolicy: BrandDisplayPolicy
   riskAccepted: boolean
   operationalDecision: BrandOperationalDecision
   publicationDecision: "ALLOWED_AT_OPERATOR_RISK" | "NOT_ALLOWED" | "REVOKED"
@@ -98,8 +101,10 @@ function blockers(candidate: BrandAssetCandidate) {
     candidate.riskAcceptedAt !== null && riskAcceptedBy.length > 0 && riskReason.length > 0 &&
     validHttpsUrl(candidate.sourceTermsUrl) && candidate.revocable
   if (candidate.identityStatus !== "VERIFIED") values.push("IDENTITY_NOT_VERIFIED")
+  if (candidate.displayPolicy === "DISPLAY_BLOCKED") values.push("DISPLAY_BLOCKED")
   if (candidate.operationalDecision === "REVOKED") values.push("OPERATIONAL_AUTHORIZATION_REVOKED")
-  if (candidate.rightsStatus === "REVIEW_REQUIRED" && !operationallyAuthorized) values.push("RIGHTS_REVIEW_REQUIRED")
+  if (candidate.rightsStatus === "REVIEW_REQUIRED" && candidate.displayPolicy === "DISPLAY_ALLOWED" &&
+      !operationallyAuthorized) values.push("OPERATIONAL_AUTHORIZATION_INVALID")
   if (candidate.rightsStatus === "BLOCKED") values.push("RIGHTS_BLOCKED")
   if (candidate.operationalDecision === "NOT_AUTHORIZED" &&
       (candidate.operationalAuthorizedAt !== null || candidate.operationalDecisionRef !== null ||
@@ -124,12 +129,12 @@ export function prepareBrandAssetPilotDryRun(candidates: readonly BrandAssetCand
     const blocked = blockers(candidate)
     const writable = blocked.length === 0
     return { identity: BRAND_ASSET_PILOT_ALLOWLIST.find(item => identityKey(item) === identityKey(candidate))!,
-      sourceUrl: candidate.sourceUrl, rightsStatus: candidate.rightsStatus,
+      sourceUrl: candidate.sourceUrl, rightsStatus: candidate.rightsStatus, displayPolicy: candidate.displayPolicy,
       riskAccepted: candidate.operatorRiskAccepted, operationalDecision: candidate.operationalDecision,
       publicationDecision: candidate.operationalDecision === "OWNER_AUTHORIZED_REMOTE_USE" ? "ALLOWED_AT_OPERATOR_RISK" :
         candidate.operationalDecision === "REVOKED" ? "REVOKED" : "NOT_ALLOWED",
       deliveryStatus: candidate.deliveryStatus,
-      renderDecision: writable && candidate.rightsStatus === "REVIEW_REQUIRED" ? "REMOTE_WHEN_GLOBAL_ENABLED" : "FALLBACK",
+      renderDecision: writable && candidate.displayPolicy === "DISPLAY_ALLOWED" ? "REMOTE_WHEN_GLOBAL_ENABLED" : "FALLBACK",
       rollbackDecision: operationallyAuthorizedForRollback(candidate) ? "REVOKE_ASSET" : "NOT_APPLICABLE",
       plannedStatus: writable ? "ACTIVE" : candidate.deliveryStatus === "VALIDATED" ? "VALIDATED" : "DISCOVERED",
       action: writable ? "CREATE_ACTIVE" : "NOT_WRITABLE", blockers: blocked, writable }
@@ -147,6 +152,7 @@ export type BrandIdentityRow = Readonly<{
 export type BrandAssetRow = Readonly<{
   id: string; identityId: string; assetType: BrandAssetType; sourceUrl: string; storageUrl: string | null
   contentHash: string | null; version: number; fetchedAt: string; rightsStatus: BrandRightsStatus
+  displayPolicy: BrandDisplayPolicy
   operationalDecision: BrandOperationalDecision; operationalAuthorizedAt: string | null; operationalDecisionRef: string | null
   operatorRiskAccepted: boolean; riskAcceptedAt: string | null; riskAcceptedBy: string | null; riskReason: string | null
   sourceTermsUrl: string | null; revocable: boolean
@@ -205,6 +211,7 @@ function expectedRegistryDelta(before: BrandAssetAudit, after: BrandAssetAudit, 
 const sameAsset = (row: BrandAssetRow, candidate: BrandAssetCandidate) => row.assetType === candidate.assetType &&
   row.sourceUrl === candidate.sourceUrl && row.storageUrl === candidate.storageUrl && row.contentHash === candidate.contentHash &&
   row.rightsStatus === candidate.rightsStatus && row.operationalDecision === candidate.operationalDecision &&
+  row.displayPolicy === candidate.displayPolicy &&
   row.operationalAuthorizedAt === candidate.operationalAuthorizedAt &&
   row.operationalDecisionRef === candidate.operationalDecisionRef &&
   row.operatorRiskAccepted === candidate.operatorRiskAccepted && row.riskAcceptedAt === candidate.riskAcceptedAt &&
