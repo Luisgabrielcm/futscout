@@ -22,6 +22,8 @@ export type AssetOperationalDecision =
 
 export type AssetPublicationPolicy = Readonly<{
   reviewPublicationEnabled: boolean
+  blockedProviders: ReadonlySet<string>
+  blockedEntityIds: ReadonlySet<string>
 }>
 
 export type BrandAssetEntityType = Extract<ImageKind, "club" | "league">
@@ -46,6 +48,12 @@ export type AssetReference = Readonly<{
   operationalDecision?: AssetOperationalDecision
   operationalAuthorizedAt?: string | null
   operationalDecisionRef?: string | null
+  operatorRiskAccepted?: boolean
+  riskAcceptedAt?: string | null
+  riskAcceptedBy?: string | null
+  riskReason?: string | null
+  sourceTermsUrl?: string | null
+  revocable?: boolean
   status: AssetStatus
 }>
 
@@ -53,12 +61,29 @@ export type AssetRegistry = ReadonlyMap<string, AssetReference>
 
 export function brandAssetPublicationPolicyFromEnvironment(
   value = process.env.BRAND_ASSET_REVIEW_PUBLICATION_ENABLED,
+  blockedProviders = process.env.BRAND_ASSET_BLOCKED_PROVIDERS,
+  blockedEntityIds = process.env.BRAND_ASSET_BLOCKED_ENTITY_IDS,
 ): AssetPublicationPolicy {
-  return { reviewPublicationEnabled: value === "true" }
+  const values = (input: string | undefined, normalize = (item: string) => item) => new Set((input ?? "").split(",")
+    .map(item => normalize(item.trim())).filter(Boolean))
+  return {
+    reviewPublicationEnabled: value === "true",
+    blockedProviders: values(blockedProviders, item => item.toLowerCase()),
+    blockedEntityIds: values(blockedEntityIds),
+  }
 }
 
 export function assetIdentityKey(identity: AssetIdentity): string {
   return [identity.entityType, identity.provider.trim().toLowerCase(), String(identity.providerEntityId).trim(), identity.assetType].join(":")
+}
+
+function isHttpsUrl(value: string | null | undefined): boolean {
+  try {
+    const url = new URL(value ?? "")
+    return url.protocol === "https:" && !url.username && !url.password
+  } catch {
+    return false
+  }
 }
 
 /** Resolve only by a provider identity; names are deliberately not considered. */
@@ -73,15 +98,24 @@ export function resolveAssetByIdentity(identity: AssetIdentity | null | undefine
 function permittedAssetUrl(reference: AssetReference, policy: AssetPublicationPolicy): string | null {
   if (reference.status !== "ACTIVE") return null
   if (reference.rightsStatus === "BLOCKED" || reference.operationalDecision === "REVOKED") return null
+  if (policy.blockedProviders.has(reference.identity.provider.trim().toLowerCase()) ||
+      policy.blockedEntityIds.has(reference.entityId)) return null
 
   const sourceUrl = getVisualAssetSrc(reference.sourceUrl, reference.identity.entityType)
   const storageUrl = getVisualAssetSrc(reference.storageUrl, reference.identity.entityType)
   if (reference.rightsStatus === "REVIEW_REQUIRED") {
-    if (policy.reviewPublicationEnabled) return sourceUrl
-    const authorizedAt = reference.operationalAuthorizedAt
+    const operationalAuthorizedAt = reference.operationalAuthorizedAt
+    const riskAcceptedAt = reference.riskAcceptedAt
+    const riskAcceptedBy = reference.riskAcceptedBy?.trim()
+    const riskReason = reference.riskReason?.trim()
     const authorizationRef = reference.operationalDecisionRef?.trim()
-    return reference.operationalDecision === "OWNER_AUTHORIZED_REMOTE_USE" &&
-      authorizedAt && Number.isFinite(Date.parse(authorizedAt)) && authorizationRef ? sourceUrl : null
+    const sourceTermsUrl = reference.sourceTermsUrl
+    const riskAcceptanceComplete = reference.operationalDecision === "OWNER_AUTHORIZED_REMOTE_USE" &&
+      reference.operatorRiskAccepted === true && reference.revocable === true &&
+      operationalAuthorizedAt && Number.isFinite(Date.parse(operationalAuthorizedAt)) &&
+      riskAcceptedAt && Number.isFinite(Date.parse(riskAcceptedAt)) &&
+      riskAcceptedBy && riskReason && authorizationRef && isHttpsUrl(sourceTermsUrl)
+    return policy.reviewPublicationEnabled && riskAcceptanceComplete ? sourceUrl : null
   }
   if (reference.rightsStatus === "REMOTE_ONLY") return sourceUrl
   return storageUrl ?? sourceUrl

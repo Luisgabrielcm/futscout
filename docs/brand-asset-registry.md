@@ -33,7 +33,8 @@ The flattened registry contract exposed to application code is equivalent to:
 ```text
 entityType, entityId, provider, providerEntityId, assetType,
 sourceUrl, storageUrl?, contentHash?, version, fetchedAt,
-rightsStatus, status
+rightsStatus, operationalDecision, operatorRiskAccepted, riskAcceptedAt,
+riskAcceptedBy, riskReason, sourceTermsUrl, revocable, status
 ```
 
 ## Rights policy
@@ -56,11 +57,15 @@ frontend gate. Technical availability of a public URL is not proof of
 trademark or redistribution rights.
 
 For a controlled beta, the server-side
-`BRAND_ASSET_REVIEW_PUBLICATION_ENABLED` switch may additionally permit an
-`ACTIVE` and technically valid `REVIEW_REQUIRED` asset to use only its remote
-`sourceUrl`. The default is `false`. Turning it off restores the fallback
-without changing Registry data. `BLOCKED` and `REVOKED` remain absolute, and
-the switch never changes or represents the documentary `rightsStatus`.
+`BRAND_ASSET_REVIEW_PUBLICATION_ENABLED` switch may permit an `ACTIVE` and
+technically valid `REVIEW_REQUIRED` asset to use only its remote `sourceUrl`,
+but the switch is necessary and never sufficient by itself. The individual
+asset must also carry a complete, revocable operator-risk acceptance record.
+The default is `false`. Turning it off restores the fallback without changing
+Registry data. `BRAND_ASSET_BLOCKED_PROVIDERS` and
+`BRAND_ASSET_BLOCKED_ENTITY_IDS` provide provider and local-entity kill
+switches. `BLOCKED` and `REVOKED` remain absolute, and none of these controls
+changes or represents the documentary `rightsStatus`.
 
 ## Initial evidence, not persisted
 

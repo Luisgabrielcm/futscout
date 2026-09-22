@@ -22,8 +22,19 @@ const club: AssetReference = {
   status: "ACTIVE",
 }
 
-const publicationDisabled = { reviewPublicationEnabled: false } as const
-const publicationEnabled = { reviewPublicationEnabled: true } as const
+const publicationDisabled = { reviewPublicationEnabled: false, blockedProviders: new Set<string>(),
+  blockedEntityIds: new Set<string>() } as const
+const publicationEnabled = { reviewPublicationEnabled: true, blockedProviders: new Set<string>(),
+  blockedEntityIds: new Set<string>() } as const
+
+function riskAcceptedReview(changes: Partial<AssetReference> = {}): AssetReference {
+  return { ...club, storageUrl: null, rightsStatus: "REVIEW_REQUIRED",
+    operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE", operationalAuthorizedAt: "2026-09-21T18:00:00.000Z",
+    operationalDecisionRef: "owner-decision:brand-assets-phase-j", operatorRiskAccepted: true,
+    riskAcceptedAt: "2026-09-21T18:00:00.000Z", riskAcceptedBy: "FutScout owner",
+    riskReason: "Controlled remote beta pilot; trademark rights remain unverified.",
+    sourceTermsUrl: "https://www.api-football.com/terms", revocable: true, ...changes }
+}
 
 test("asset registry resolves only an exact provider identity and asset type", () => {
   const league: AssetReference = {
@@ -54,28 +65,39 @@ test("rights gate chooses only the URL allowed by the explicit policy", () => {
   assert.equal(resolveAssetSource({ ...club, rightsStatus: "BLOCKED" }, "club", publicationEnabled), null)
 })
 
-test("controlled publication defaults off and enables only remote REVIEW_REQUIRED assets", () => {
+test("controlled publication defaults off and requires complete per-asset risk acceptance", () => {
   const review = { ...club, storageUrl: "/clubs/must-not-be-used.svg", rightsStatus: "REVIEW_REQUIRED" as const }
   assert.deepEqual(brandAssetPublicationPolicyFromEnvironment(undefined), publicationDisabled)
   assert.deepEqual(brandAssetPublicationPolicyFromEnvironment("false"), publicationDisabled)
   assert.deepEqual(brandAssetPublicationPolicyFromEnvironment("true"), publicationEnabled)
   assert.deepEqual(brandAssetPublicationPolicyFromEnvironment("TRUE"), publicationDisabled)
   assert.equal(resolveAssetSource(review, "club", publicationDisabled), null)
-  assert.equal(resolveAssetSource(review, "club", publicationEnabled), club.sourceUrl)
+  assert.equal(resolveAssetSource(review, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource(riskAcceptedReview(), "club", publicationDisabled), null)
+  assert.equal(resolveAssetSource(riskAcceptedReview(), "club", publicationEnabled), club.sourceUrl)
   assert.equal(resolveAssetSource({ ...review, rightsStatus: "BLOCKED" }, "club", publicationEnabled), null)
   assert.equal(resolveAssetSource({ ...review, operationalDecision: "REVOKED" }, "club", publicationEnabled), null)
   assert.equal(resolveAssetSource({ ...review, sourceUrl: "javascript:bad" }, "club", publicationEnabled), null)
 })
 
 test("owner-authorized remote use is separate from REVIEW_REQUIRED evidence", () => {
-  const authorized: AssetReference = { ...club, storageUrl: null, rightsStatus: "REVIEW_REQUIRED",
-    operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE", operationalAuthorizedAt: "2026-09-21T18:00:00.000Z",
-    operationalDecisionRef: "owner-decision:brand-assets-phase-j" }
-  assert.equal(resolveAssetSource(authorized, "club", publicationDisabled), club.sourceUrl)
-  assert.equal(resolveAssetSource({ ...authorized, operationalDecisionRef: null }, "club", publicationDisabled), null)
-  assert.equal(resolveAssetSource({ ...authorized, operationalAuthorizedAt: null }, "club", publicationDisabled), null)
+  const authorized = riskAcceptedReview()
+  assert.equal(resolveAssetSource(authorized, "club", publicationEnabled), club.sourceUrl)
+  assert.equal(resolveAssetSource({ ...authorized, operationalDecisionRef: null }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...authorized, operationalAuthorizedAt: null }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...authorized, riskAcceptedBy: null }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...authorized, sourceTermsUrl: "http://insecure.test/terms" }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...authorized, revocable: false }, "club", publicationEnabled), null)
   assert.equal(resolveAssetSource({ ...authorized, operationalDecision: "REVOKED" }, "club"), null)
   assert.equal(resolveAssetSource({ ...authorized, rightsStatus: "BLOCKED" }, "club"), null)
+})
+
+test("provider and entity kill switches force immediate fallback", () => {
+  const authorized = riskAcceptedReview()
+  assert.equal(resolveAssetSource(authorized, "club", { ...publicationEnabled,
+    blockedProviders: new Set(["api-football"]) }), null)
+  assert.equal(resolveAssetSource(authorized, "club", { ...publicationEnabled,
+    blockedEntityIds: new Set([authorized.entityId]) }), null)
 })
 
 test("non-active, malformed and wrong-context assets retain the FutScout fallback", () => {

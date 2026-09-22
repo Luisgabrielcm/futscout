@@ -15,7 +15,8 @@ function candidate(index = 0, changes: Partial<BrandAssetCandidate> = {}): Brand
   return { ...identity, identityStatus: "VERIFIED", sourceUrl: `https://media.api-sports.io/football/${folder}/${identity.providerEntityId}.png`,
     storageUrl: null, contentHash: "a".repeat(64), fetchedAt: "2026-09-17T14:00:00.000Z",
     rightsStatus: "APPROVED", operationalDecision: "NOT_AUTHORIZED", operationalAuthorizedAt: null,
-    operationalDecisionRef: null, deliveryStatus: "VALIDATED", ...changes }
+    operationalDecisionRef: null, operatorRiskAccepted: false, riskAcceptedAt: null, riskAcceptedBy: null,
+    riskReason: null, sourceTermsUrl: null, revocable: true, deliveryStatus: "VALIDATED", ...changes }
 }
 
 function currentPilot() {
@@ -23,6 +24,9 @@ function currentPilot() {
     identityStatus: "VERIFIED",
     rightsStatus: "REVIEW_REQUIRED", operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE",
     operationalAuthorizedAt: "2026-09-17T14:30:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j",
+    operatorRiskAccepted: true, riskAcceptedAt: "2026-09-17T14:30:00.000Z", riskAcceptedBy: "FutScout owner",
+    riskReason: "Controlled remote beta pilot; trademark rights remain unverified.",
+    sourceTermsUrl: "https://www.api-football.com/terms", revocable: true,
     deliveryStatus: "UNVERIFIED", contentHash: null,
   }))
 }
@@ -78,6 +82,9 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
           sourceUrl: input.sourceUrl, storageUrl: input.storageUrl, contentHash: input.contentHash, version,
           fetchedAt: input.fetchedAt, rightsStatus: input.rightsStatus, operationalDecision: input.operationalDecision,
           operationalAuthorizedAt: input.operationalAuthorizedAt, operationalDecisionRef: input.operationalDecisionRef,
+          operatorRiskAccepted: input.operatorRiskAccepted, riskAcceptedAt: input.riskAcceptedAt,
+          riskAcceptedBy: input.riskAcceptedBy, riskReason: input.riskReason, sourceTermsUrl: input.sourceTermsUrl,
+          revocable: input.revocable,
           status: "ACTIVE" }
         draft.assets.push(row); return row
       },
@@ -97,7 +104,9 @@ test("closed six-candidate dry-run records owner authorization but stays blocked
   assert.equal(result.length, 6)
   assert.deepEqual(result.map(row => row.identity), [...BRAND_ASSET_PILOT_ALLOWLIST])
   assert.ok(result.every(row => !row.writable && row.action === "NOT_WRITABLE" && row.rightsStatus === "REVIEW_REQUIRED" &&
-    row.operationalDecision === "OWNER_AUTHORIZED_REMOTE_USE" && row.deliveryStatus === "UNVERIFIED" &&
+    row.riskAccepted && row.operationalDecision === "OWNER_AUTHORIZED_REMOTE_USE" &&
+    row.publicationDecision === "ALLOWED_AT_OPERATOR_RISK" && row.renderDecision === "FALLBACK" &&
+    row.rollbackDecision === "REVOKE_ASSET" && row.deliveryStatus === "UNVERIFIED" &&
     !row.blockers.includes("RIGHTS_REVIEW_REQUIRED") && row.blockers.includes("DELIVERY_NOT_VALIDATED")))
 })
 
@@ -107,6 +116,16 @@ test("allow-list rejects a seventh candidate, replacement, reordering and Club/L
   assert.throws(() => prepareBrandAssetPilotDryRun([six[1], six[0], ...six.slice(2)], now), /ALLOWLIST/)
   assert.throws(() => prepareBrandAssetPilotDryRun([{ ...six[0], providerEntityId: "999" }, ...six.slice(1)], now), /ALLOWLIST/)
   assert.throws(() => prepareBrandAssetPilotDryRun([{ ...six[0], assetType: "LOGO" }, ...six.slice(1)] as BrandAssetCandidate[], now), /ALLOWLIST/)
+})
+
+test("pilot source URL is bound to the exact API-Football provider identity", async () => {
+  const changed = candidate(0, { sourceUrl: "https://media.api-sports.io/football/teams/999.png" })
+  assert.throws(() => prepareBrandAssetPilotDryRun([changed, ...currentPilot().slice(1)], now), /CANDIDATE_INVALID/)
+  const f = fakeStore(), result = await persistBrandAssetAtomically(f.store,
+    { candidate: changed, expected: emptyExpected }, () => now)
+  assert.equal(result.status, "AUTHORIZATION_MISMATCH")
+  assert.equal(result.reason, "CANDIDATE_INVALID")
+  assert.equal(f.transactions(), 0)
 })
 
 test("future approved, delivered candidate creates identity and ACTIVE asset atomically", async () => {
@@ -150,6 +169,8 @@ function existingState(overrides: Partial<BrandAssetRow> = {}) {
     sourceUrl: "https://media.api-sports.io/football/teams/541-old.png", storageUrl: null, contentHash: "b".repeat(64),
     version: 1, fetchedAt: "2026-09-16T14:00:00.000Z", rightsStatus: "APPROVED",
     operationalDecision: "NOT_AUTHORIZED", operationalAuthorizedAt: null, operationalDecisionRef: null,
+    operatorRiskAccepted: false, riskAcceptedAt: null, riskAcceptedBy: null, riskReason: null, sourceTermsUrl: null,
+    revocable: true,
     status: "ACTIVE", ...overrides }
   return { input, identity, asset }
 }
@@ -185,7 +206,10 @@ for (const changes of [
 
 test("delivered REVIEW_REQUIRED asset becomes writable only with explicit owner remote authorization", async () => {
   const input = candidate(0, { rightsStatus: "REVIEW_REQUIRED", operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE",
-    operationalAuthorizedAt: "2026-09-17T14:30:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j" })
+    operationalAuthorizedAt: "2026-09-17T14:30:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j",
+    operatorRiskAccepted: true, riskAcceptedAt: "2026-09-17T14:30:00.000Z", riskAcceptedBy: "FutScout owner",
+    riskReason: "Controlled remote beta pilot; trademark rights remain unverified.",
+    sourceTermsUrl: "https://www.api-football.com/terms", revocable: true })
   const f = fakeStore(), result = await persistBrandAssetAtomically(f.store,
     { candidate: input, expected: emptyExpected }, () => now)
   assert.equal(result.status, "CREATED")
@@ -194,10 +218,29 @@ test("delivered REVIEW_REQUIRED asset becomes writable only with explicit owner 
   assert.equal(f.state().assets[0].storageUrl, null)
 })
 
+test("incomplete or non-revocable risk acceptance never becomes writable", async () => {
+  const accepted = { rightsStatus: "REVIEW_REQUIRED" as const, operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE" as const,
+    operationalAuthorizedAt: "2026-09-17T14:30:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j",
+    operatorRiskAccepted: true, riskAcceptedAt: "2026-09-17T14:30:00.000Z", riskAcceptedBy: "FutScout owner",
+    riskReason: "Controlled remote beta pilot; trademark rights remain unverified.",
+    sourceTermsUrl: "https://www.api-football.com/terms", revocable: true }
+  for (const incomplete of [{ ...accepted, riskAcceptedBy: null }, { ...accepted, riskReason: "" },
+    { ...accepted, sourceTermsUrl: "http://insecure.test/terms" }, { ...accepted, revocable: false }]) {
+    const f = fakeStore(), result = await persistBrandAssetAtomically(f.store,
+      { candidate: candidate(0, incomplete), expected: emptyExpected }, () => now)
+    assert.equal(result.status, "NOT_WRITABLE")
+    assert.match(result.reason, /OPERATIONAL_AUTHORIZATION_INVALID/)
+    assert.equal(f.transactions(), 0)
+  }
+})
+
 test("BLOCKED remains absolute even with owner authorization", async () => {
   const f = fakeStore(), result = await persistBrandAssetAtomically(f.store, { candidate: candidate(0, {
     rightsStatus: "BLOCKED", operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE",
     operationalAuthorizedAt: "2026-09-17T14:30:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j",
+    operatorRiskAccepted: true, riskAcceptedAt: "2026-09-17T14:30:00.000Z", riskAcceptedBy: "FutScout owner",
+    riskReason: "Controlled remote beta pilot; trademark rights remain unverified.",
+    sourceTermsUrl: "https://www.api-football.com/terms", revocable: true,
   }), expected: emptyExpected }, () => now)
   assert.equal(result.status, "NOT_WRITABLE")
   assert.match(result.reason, /RIGHTS_BLOCKED/)

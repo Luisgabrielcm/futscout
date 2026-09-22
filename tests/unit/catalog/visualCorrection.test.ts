@@ -57,13 +57,16 @@ test("ClubLogo and LeagueLogo enforce the central rights gate without knowing th
   assert.doesNotMatch(blockedLeague, /<img/)
 
   const authorization = { operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE" as const,
-    operationalAuthorizedAt: "2026-09-21T18:00:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j" }
+    operationalAuthorizedAt: "2026-09-21T18:00:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j",
+    operatorRiskAccepted: true, riskAcceptedAt: "2026-09-21T18:00:00.000Z", riskAcceptedBy: "FutScout owner",
+    riskReason: "Controlled remote beta pilot; trademark rights remain unverified.",
+    sourceTermsUrl: "https://www.api-football.com/terms", revocable: true }
   const authorizedClub = renderToStaticMarkup(createElement(ClubLogo, { locale: "pt", name: "Authorized Club",
     asset: { ...base, storageUrl: null, rightsStatus: "REVIEW_REQUIRED", ...authorization } }))
   const authorizedLeague = renderToStaticMarkup(createElement(LeagueLogo, { locale: "en", name: "Authorized League",
     asset: { ...leagueAsset, storageUrl: null, rightsStatus: "REVIEW_REQUIRED", ...authorization } }))
-  assert.match(authorizedClub, /src="https:\/\/media\.example\.test\/teams\/50\.png"/)
-  assert.match(authorizedLeague, /src="https:\/\/media\.example\.test\/leagues\/39\.png"/)
+  assert.match(authorizedClub, /brandAssetFallback-club/)
+  assert.match(authorizedLeague, /brandAssetFallback-league/)
   const stillBlocked = renderToStaticMarkup(createElement(ClubLogo, { locale: "en", name: "Blocked Club",
     asset: { ...base, storageUrl: null, rightsStatus: "BLOCKED", ...authorization } }))
   assert.match(stillBlocked, /brandAssetFallback-club/)
@@ -77,6 +80,11 @@ test("ClubLogo and LeagueLogo honor the reversible server publication flag in PT
       identity: { entityType: "club", provider: "fixture-provider", providerEntityId: "50", assetType: "CREST" },
       entityId: "fixture-club", sourceUrl: "https://media.example.test/teams/50.png", storageUrl: null,
       version: 1, fetchedAt: "2026-09-21T18:00:00.000Z", rightsStatus: "REVIEW_REQUIRED", status: "ACTIVE",
+      operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE", operationalAuthorizedAt: "2026-09-21T18:00:00.000Z",
+      operationalDecisionRef: "owner-decision:brand-assets-phase-j", operatorRiskAccepted: true,
+      riskAcceptedAt: "2026-09-21T18:00:00.000Z", riskAcceptedBy: "FutScout owner",
+      riskReason: "Controlled remote beta pilot; trademark rights remain unverified.",
+      sourceTermsUrl: "https://www.api-football.com/terms", revocable: true,
     }
     const league: AssetReference = { ...base,
       identity: { entityType: "league", provider: "fixture-provider", providerEntityId: "39", assetType: "LOGO" },

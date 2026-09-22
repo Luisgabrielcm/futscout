@@ -156,6 +156,12 @@ model BrandAsset {
   operationalDecision     BrandAssetOperationalDecision @default(NOT_AUTHORIZED)
   operationalAuthorizedAt DateTime?
   operationalDecisionRef  String?
+  operatorRiskAccepted    Boolean                       @default(false)
+  riskAcceptedAt          DateTime?
+  riskAcceptedBy          String?
+  riskReason              String?
+  sourceTermsUrl          String?
+  revocable               Boolean                       @default(true)
   status                  BrandAssetStatus              @default(DISCOVERED)
   createdAt               DateTime                      @default(now())
   updatedAt               DateTime                      @updatedAt

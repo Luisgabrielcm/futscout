@@ -29,7 +29,12 @@ function asset(entityType: "club" | "league", rightsStatus: AssetReference["righ
 
 function reviewRequiredRemoteAsset(entityType: "club" | "league"): AssetReference {
   return { ...asset(entityType, "REVIEW_REQUIRED"), storageUrl: null,
-    sourceUrl: `https://media.example.test/${entityType === "club" ? "teams/50" : "leagues/39"}.png` }
+    sourceUrl: `https://media.example.test/${entityType === "club" ? "teams/50" : "leagues/39"}.png`,
+    operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE", operationalAuthorizedAt: "2026-09-21T18:00:00.000Z",
+    operationalDecisionRef: "owner-decision:brand-assets-phase-j", operatorRiskAccepted: true,
+    riskAcceptedAt: "2026-09-21T18:00:00.000Z", riskAcceptedBy: "FutScout owner",
+    riskReason: "Controlled remote beta pilot; trademark rights remain unverified.",
+    sourceTermsUrl: "https://www.api-football.com/terms", revocable: true }
 }
 
 test("club card composes crest, league logo, registered count and FutScout rating in PT/EN", () => {
