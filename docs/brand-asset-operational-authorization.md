@@ -133,3 +133,19 @@ The rights and rollback contract is unchanged: `REVIEW_REQUIRED`,
 `DISPLAY_ALLOWED`, `OWNER_AUTHORIZED_REMOTE_USE`, `storageUrl = null`,
 individual revocation, absolute `BLOCKED`, and the global publication kill
 switch all remain in force.
+
+## Controlled expansion to 200 covered clubs
+
+Decision date: 2026-09-22
+
+The owner authorized a further batch of 100 exact Club identities, bringing
+controlled crest coverage to 200 Clubs. Selection is based on real catalogue
+coverage across MLS, Argentina, the Championship, Bundesliga 2, LaLiga 2,
+Serie B, Belgium, Switzerland, Poland, Turkey and other supported leagues.
+Each identity is resolved by a unique provider ID; every remote delivery was
+validated through the production image path before write.
+
+No fuzzy association, automatic replacement or placeholder substitution is
+permitted. The documentary and rollback contract remains unchanged:
+`REVIEW_REQUIRED`, `DISPLAY_ALLOWED`, `OWNER_AUTHORIZED_REMOTE_USE`, remote-only
+delivery, individual revocation, absolute `BLOCKED`, and the global kill switch.
