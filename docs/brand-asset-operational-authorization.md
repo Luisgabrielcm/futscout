@@ -88,3 +88,27 @@ contract. Every added asset remains `REVIEW_REQUIRED`, uses
 and is individually revocable. `BLOCKED` remains absolute. No provider ID is
 inferred by name: each local Club already stored the exact provider ID before
 this authorization.
+
+## Controlled expansion to 25 priority clubs
+
+Decision date: 2026-09-22
+
+The FutScout owner subsequently authorized the same revocable remote-use
+decision for a further 25 priority clubs. Exact API-Football identity and
+remote PNG delivery were revalidated before this code change:
+
+- SSC Napoli / 492; Borussia Dortmund / 165; Athletic Club / 531;
+- Newcastle United / 34; AS Roma / 497; Aston Villa / 66;
+- Juventus / 496; Bayer Leverkusen / 168; Fiorentina / 502;
+- RB Leipzig / 173; Tottenham Hotspur / 47; Real Betis / 543;
+- Everton / 45; Olympique de Marseille / 81; Nottingham Forest / 65;
+- Real Sociedad / 548; Villarreal / 533; West Ham United / 48;
+- Fulham / 36; Brighton & Hove Albion / 51; Bologna / 500;
+- Crystal Palace / 52; AS Monaco / 91; Eintracht Frankfurt / 169;
+- Valencia / 532.
+
+These assets retain `REVIEW_REQUIRED`, `DISPLAY_ALLOWED`,
+`OWNER_AUTHORIZED_REMOTE_USE`, `storageUrl = null`, and per-asset revocation.
+The documentary rights conclusion is unchanged. Provider identities must be
+persisted by exact ID with a protected audit before registry writes; no name
+matching or placeholder clubs are authorized.
