@@ -25,6 +25,17 @@ export const BRAND_ASSET_PILOT_ALLOWLIST = [
   { entityType: "CLUB", entityId: "cmt92ovai0001hwucqa7za5jj", provider: "api-football", providerEntityId: "40", assetType: "CREST" },
   { entityType: "LEAGUE", entityId: "cmt94rzm4000b5gucw3hp7cx7", provider: "api-football", providerEntityId: "140", assetType: "LOGO" },
   { entityType: "LEAGUE", entityId: "cmt92ouaa0000hwuc3mmpqdvt", provider: "api-football", providerEntityId: "39", assetType: "LOGO" },
+  { entityType: "CLUB", entityId: "cmt988deb006axoucsek15lnf", provider: "api-football", providerEntityId: "42", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt988fv1006gxoucfvhe5ixq", provider: "api-football", providerEntityId: "530", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt9bpbac01jdukuc7pk7ymaj", provider: "api-football", providerEntityId: "44", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt988ik5006oxoucd513b45v", provider: "api-football", providerEntityId: "49", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt986ykp003ixouc55mf1aqi", provider: "api-football", providerEntityId: "157", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt9ci1vx037oukucp6bz74xm", provider: "api-football", providerEntityId: "175", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt997z4k009et4ucd72b4yil", provider: "api-football", providerEntityId: "33", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt94s5fj000n5gucp31fdk0k", provider: "api-football", providerEntityId: "85", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt99gll7008avsuch9uw1gvl", provider: "api-football", providerEntityId: "746", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt9aoe5300322kucqgprwdz0", provider: "api-football", providerEntityId: "167", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt9aq1pu00682kucyfduu54a", provider: "api-football", providerEntityId: "172", assetType: "CREST" },
 ] as const satisfies readonly BrandAssetPilotIdentity[]
 
 export type BrandAssetCandidate = BrandAssetPilotIdentity & Readonly<{

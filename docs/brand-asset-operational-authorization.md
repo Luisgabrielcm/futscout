@@ -59,3 +59,32 @@ This phase does not apply the prepared migration, insert registry rows,
 download artwork, or publish assets. A later write requires separate
 authorization, exact provider identity, validated delivery, a clean CAS
 preflight, and a successful protected-table audit.
+
+## Controlled expansion to all identified clubs
+
+Decision date: 2026-09-22
+
+After the six-asset pilot was validated in Production, the FutScout owner
+authorized the same revocable remote-use decision for every remaining Club
+that already had an exact, persisted API-Football identity. The expansion adds
+these eleven Club identities; the original four Clubs and two Leagues remain
+unchanged:
+
+- Arsenal / API-Football 42 / CREST;
+- Atlético de Madrid / API-Football 530 / CREST;
+- Burnley / API-Football 44 / CREST;
+- Chelsea / API-Football 49 / CREST;
+- FC Bayern München / API-Football 157 / CREST;
+- Hamburger SV / API-Football 175 / CREST;
+- Manchester United / API-Football 33 / CREST;
+- Paris Saint-Germain / API-Football 85 / CREST;
+- Sunderland / API-Football 746 / CREST;
+- TSG Hoffenheim / API-Football 167 / CREST;
+- VfB Stuttgart / API-Football 172 / CREST.
+
+The expansion changes neither the documentary conclusion nor the publication
+contract. Every added asset remains `REVIEW_REQUIRED`, uses
+`OWNER_AUTHORIZED_REMOTE_USE` plus `DISPLAY_ALLOWED`, keeps `storageUrl = null`,
+and is individually revocable. `BLOCKED` remains absolute. No provider ID is
+inferred by name: each local Club already stored the exact provider ID before
+this authorization.

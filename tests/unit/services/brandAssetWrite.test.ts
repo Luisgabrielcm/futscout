@@ -100,9 +100,11 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
 
 const emptyExpected = { identity: null, latestAsset: null, activeAssetId: null }
 
-test("closed six-candidate dry-run records owner authorization but stays blocked by unverified delivery", () => {
+test("closed 15-club and 2-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
   const result = prepareBrandAssetPilotDryRun(currentPilot(), now)
-  assert.equal(result.length, 6)
+  assert.equal(result.length, 17)
+  assert.equal(result.filter(row => row.identity.entityType === "CLUB").length, 15)
+  assert.equal(result.filter(row => row.identity.entityType === "LEAGUE").length, 2)
   assert.deepEqual(result.map(row => row.identity), [...BRAND_ASSET_PILOT_ALLOWLIST])
   assert.ok(result.every(row => !row.writable && row.action === "NOT_WRITABLE" && row.rightsStatus === "REVIEW_REQUIRED" &&
     row.displayPolicy === "DISPLAY_ALLOWED" &&
@@ -112,12 +114,12 @@ test("closed six-candidate dry-run records owner authorization but stays blocked
     !row.blockers.includes("RIGHTS_REVIEW_REQUIRED") && row.blockers.includes("DELIVERY_NOT_VALIDATED")))
 })
 
-test("allow-list rejects a seventh candidate, replacement, reordering and Club/League type mismatch", () => {
-  const six = currentPilot()
-  assert.throws(() => prepareBrandAssetPilotDryRun([...six, six[0]], now), /ALLOWLIST/)
-  assert.throws(() => prepareBrandAssetPilotDryRun([six[1], six[0], ...six.slice(2)], now), /ALLOWLIST/)
-  assert.throws(() => prepareBrandAssetPilotDryRun([{ ...six[0], providerEntityId: "999" }, ...six.slice(1)], now), /ALLOWLIST/)
-  assert.throws(() => prepareBrandAssetPilotDryRun([{ ...six[0], assetType: "LOGO" }, ...six.slice(1)] as BrandAssetCandidate[], now), /ALLOWLIST/)
+test("allow-list rejects an eighteenth candidate, replacement, reordering and Club/League type mismatch", () => {
+  const pilot = currentPilot()
+  assert.throws(() => prepareBrandAssetPilotDryRun([...pilot, pilot[0]], now), /ALLOWLIST/)
+  assert.throws(() => prepareBrandAssetPilotDryRun([pilot[1], pilot[0], ...pilot.slice(2)], now), /ALLOWLIST/)
+  assert.throws(() => prepareBrandAssetPilotDryRun([{ ...pilot[0], providerEntityId: "999" }, ...pilot.slice(1)], now), /ALLOWLIST/)
+  assert.throws(() => prepareBrandAssetPilotDryRun([{ ...pilot[0], assetType: "LOGO" }, ...pilot.slice(1)] as BrandAssetCandidate[], now), /ALLOWLIST/)
 })
 
 test("pilot source URL is bound to the exact API-Football provider identity", async () => {
