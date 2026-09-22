@@ -172,3 +172,25 @@ The operational contract remains `REVIEW_REQUIRED`, `DISPLAY_ALLOWED`,
 `OWNER_AUTHORIZED_REMOTE_USE`, `storageUrl = null`, per-asset revocation,
 absolute `BLOCKED`, and the global publication kill switch. The documentary
 rights conclusion is unchanged.
+
+## Explicit alias reconciliation to 574 covered clubs
+
+Decision date: 2026-09-22
+
+The owner authorized a final conservative reconciliation of the remaining Club
+catalogue. This batch adds 177 Clubs and brings controlled crest coverage to
+574 of 582 Clubs. Every association was explicitly reviewed against an exact
+API-Football provider identity evidenced by a league roster or direct provider
+lookup. All 177 remote deliveries were validated through the Production image
+path before write. No fuzzy match was promoted.
+
+Eight catalogue records intentionally remain on the FutScout fallback:
+`Milano FC`, `Latium`, `Bergamo Calcio`, and `Lombardia FC` are fictional EA
+placeholders; `VfB Stuttgart II`, `TSG Hoffenheim II`, and `Real Sociedad B`
+are reserve teams excluded by policy; and the empty duplicate Bayer Leverkusen
+record cannot reuse provider ID 168 owned by the populated Club.
+
+The operational contract remains `REVIEW_REQUIRED`, `DISPLAY_ALLOWED`,
+`OWNER_AUTHORIZED_REMOTE_USE`, `storageUrl = null`, per-asset revocation,
+absolute `BLOCKED`, and the global publication kill switch. Documentary rights
+remain unverified and are not represented as `APPROVED`.
