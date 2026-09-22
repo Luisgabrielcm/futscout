@@ -95,6 +95,13 @@ test("owner-authorized remote use is separate from REVIEW_REQUIRED evidence", ()
   assert.equal(resolveAssetSource({ ...authorized, rightsStatus: "BLOCKED" }, "club", publicationEnabled), null)
 })
 
+test("server-resolved publication survives serialization without exposing the runtime flag", () => {
+  const authorized = riskAcceptedReview({ publicationAllowedByServer: true })
+  assert.equal(resolveAssetSource(authorized, "club", publicationDisabled), club.sourceUrl)
+  assert.equal(resolveAssetSource({ ...authorized, publicationAllowedByServer: false }, "club", publicationEnabled), null)
+  assert.equal(resolveAssetSource({ ...authorized, rightsStatus: "BLOCKED" }, "club", publicationDisabled), null)
+})
+
 test("provider and entity kill switches force immediate fallback", () => {
   const authorized = riskAcceptedReview()
   assert.equal(resolveAssetSource(authorized, "club", { ...publicationEnabled,

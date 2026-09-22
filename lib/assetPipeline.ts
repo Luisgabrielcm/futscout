@@ -57,6 +57,8 @@ export type AssetReference = Readonly<{
   riskReason?: string | null
   sourceTermsUrl?: string | null
   revocable?: boolean
+  /** Server-resolved publication switch. Keeps private runtime env out of client bundles. */
+  publicationAllowedByServer?: boolean
   status: AssetStatus
 }>
 
@@ -119,7 +121,8 @@ function permittedAssetUrl(reference: AssetReference, policy: AssetPublicationPo
       operationalAuthorizedAt && Number.isFinite(Date.parse(operationalAuthorizedAt)) &&
       riskAcceptedAt && Number.isFinite(Date.parse(riskAcceptedAt)) &&
       riskAcceptedBy && riskReason && authorizationRef && isHttpsUrl(sourceTermsUrl)
-    return policy.publicationEnabled && riskAcceptanceComplete ? sourceUrl : null
+    const publicationEnabled = reference.publicationAllowedByServer ?? policy.publicationEnabled
+    return publicationEnabled && riskAcceptanceComplete ? sourceUrl : null
   }
   if (reference.rightsStatus === "REMOTE_ONLY") return sourceUrl
   return storageUrl ?? sourceUrl

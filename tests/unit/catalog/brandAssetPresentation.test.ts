@@ -104,6 +104,7 @@ test("registry reader uses exact local identities and keeps rights enforcement i
   assert.match(reader, /where:\s*\{ status:\s*"ACTIVE" \}/)
   assert.match(reader, /entityId:\s*\{ in: clubIds \}/)
   assert.match(reader, /entityId:\s*\{ in: leagueIds \}/)
+  assert.match(reader, /publicationAllowedByServer:\s*publicationPolicy\.publicationEnabled/)
   assert.doesNotMatch(reader, /contains:|startsWith:|levenshtein|similarity/i)
   for (const component of ["ClubBadge.tsx", "LeagueLogo.tsx"]) {
     assert.match(readFileSync(`app/components/${component}`, "utf8"), /resolveAssetSource/)

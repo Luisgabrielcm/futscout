@@ -1,7 +1,7 @@
 import "server-only"
 
 import { prisma } from "../lib/prisma"
-import type { AssetReference } from "../lib/assetPipeline"
+import { brandAssetPublicationPolicyFromEnvironment, type AssetReference } from "../lib/assetPipeline"
 
 export type BrandAssetMaps = Readonly<{
   clubs: ReadonlyMap<string, AssetReference>
@@ -58,6 +58,7 @@ export async function getBrandAssetsForEntities(input: Readonly<{
 
   const clubs = new Map<string, AssetReference>()
   const leagues = new Map<string, AssetReference>()
+  const publicationPolicy = brandAssetPublicationPolicyFromEnvironment()
   for (const identity of identities) {
     const expectedType = identity.entityType === "CLUB" ? "CREST" : "LOGO"
     const asset = identity.assets.find(item => item.assetType === expectedType)
@@ -86,6 +87,9 @@ export async function getBrandAssetsForEntities(input: Readonly<{
       riskReason: asset.riskReason,
       sourceTermsUrl: asset.sourceTermsUrl,
       revocable: asset.revocable,
+      publicationAllowedByServer: publicationPolicy.publicationEnabled &&
+        !publicationPolicy.blockedProviders.has(identity.provider.trim().toLowerCase()) &&
+        !publicationPolicy.blockedEntityIds.has(identity.entityId),
       status: asset.status,
     }
     if (identity.entityType === "CLUB") clubs.set(identity.entityId, reference)
