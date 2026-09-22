@@ -407,7 +407,6 @@ export const BRAND_ASSET_PILOT_ALLOWLIST = [
   { entityType: "CLUB", entityId: "cmtaeqqm507169gucj4t3uz7c", provider: "api-football", providerEntityId: "3475", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtaj7s9501kpq0ucenrlswot", provider: "api-football", providerEntityId: "3477", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtal2swh068jq0ucuuwpr61j", provider: "api-football", providerEntityId: "1298", assetType: "CREST" },
-  { entityType: "CLUB", entityId: "cmt998lop00ajt4ucd1plg0j2", provider: "api-football", providerEntityId: "22307", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmt9c2tw402bvukucfeh3zjp2", provider: "api-football", providerEntityId: "26064", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtauvmrq02wlzsuceruvv04b", provider: "api-football", providerEntityId: "7763", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtajv0g3038eq0ucjj68fixe", provider: "api-football", providerEntityId: "3478", assetType: "CREST" },

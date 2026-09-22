@@ -150,17 +150,19 @@ permitted. The documentary and rollback contract remains unchanged:
 `REVIEW_REQUIRED`, `DISPLAY_ALLOWED`, `OWNER_AUTHORIZED_REMOTE_USE`, remote-only
 delivery, individual revocation, absolute `BLOCKED`, and the global kill switch.
 
-## Controlled expansion to 398 covered clubs
+## Controlled expansion to 397 covered clubs
 
 Decision date: 2026-09-22
 
 The owner authorized every additional Club that could be resolved conservatively
 from the remaining catalogue through an exact normalized identity, either inside
 its API-Football league roster or through an exact team search. This batch adds
-198 Clubs and brings controlled crest coverage to 398 Clubs. All 198 remote
+197 Clubs and brings controlled crest coverage to 397 Clubs. All 197 remote
 deliveries were validated through the Production image path before write.
 
-The empty duplicate Bayer Leverkusen catalogue record was rejected because API-
+The fictional EA placeholder `Milano FC` is explicitly excluded; the unrelated
+provider team `Club Milano` must never be used for it. The empty duplicate Bayer
+Leverkusen catalogue record was also rejected because API-
 Football provider ID 168 is already owned by the populated Bayer Leverkusen
 record. Ambiguous aliases, reserve teams and fictional EA placeholders remain
 outside the batch. No occupied provider ID is reused and no fuzzy result is

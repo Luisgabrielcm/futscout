@@ -100,10 +100,10 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
 
 const emptyExpected = { identity: null, latestAsset: null, activeAssetId: null }
 
-test("closed 398-club and 2-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
+test("closed 397-club and 2-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
   const result = prepareBrandAssetPilotDryRun(currentPilot(), now)
-  assert.equal(result.length, 400)
-  assert.equal(result.filter(row => row.identity.entityType === "CLUB").length, 398)
+  assert.equal(result.length, 399)
+  assert.equal(result.filter(row => row.identity.entityType === "CLUB").length, 397)
   assert.equal(result.filter(row => row.identity.entityType === "LEAGUE").length, 2)
   assert.deepEqual(result.map(row => row.identity), [...BRAND_ASSET_PILOT_ALLOWLIST])
   assert.ok(result.every(row => !row.writable && row.action === "NOT_WRITABLE" && row.rightsStatus === "REVIEW_REQUIRED" &&
@@ -114,7 +114,7 @@ test("closed 398-club and 2-league dry-run records owner authorization but stays
     !row.blockers.includes("RIGHTS_REVIEW_REQUIRED") && row.blockers.includes("DELIVERY_NOT_VALIDATED")))
 })
 
-test("allow-list rejects a 401st candidate, replacement, reordering and Club/League type mismatch", () => {
+test("allow-list rejects a 400th candidate, replacement, reordering and Club/League type mismatch", () => {
   const pilot = currentPilot()
   assert.throws(() => prepareBrandAssetPilotDryRun([...pilot, pilot[0]], now), /ALLOWLIST/)
   assert.throws(() => prepareBrandAssetPilotDryRun([pilot[1], pilot[0], ...pilot.slice(2)], now), /ALLOWLIST/)
