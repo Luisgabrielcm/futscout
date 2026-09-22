@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { t, type Locale } from "../../lib/i18n"
 
 
@@ -21,6 +22,7 @@ type PlayerImageProps = {
   width?: number
   height?: number
   loading?: "lazy" | "eager"
+  proxyRemote?: boolean
 }
 
 export default function PlayerImage({ locale = "pt",
@@ -34,6 +36,7 @@ export default function PlayerImage({ locale = "pt",
   width,
   height,
   loading,
+  proxyRemote = false,
 }: PlayerImageProps) {
   const [
     failedSrc,
@@ -46,6 +49,9 @@ export default function PlayerImage({ locale = "pt",
   const shouldShowImage =
     imageSrc !== null &&
     failedSrc !== imageSrc
+
+  const shouldProxyRemote = proxyRemote && imageSrc !== null && width !== undefined && height !== undefined &&
+    /^https:\/\/media\.api-sports\.io\/football\/(?:teams|leagues)\/\d+\.png$/.test(imageSrc)
 
   if (!shouldShowImage) {
     return (
@@ -60,6 +66,13 @@ export default function PlayerImage({ locale = "pt",
         {fallback ?? fallbackText ?? (alt.trim().charAt(0).toUpperCase() || "?")}
       </span>
     )
+  }
+
+  if (shouldProxyRemote) {
+    return <Image src={imageSrc} alt={alt} className={className} width={width} height={height}
+      loading={loading} ref={(image) => {
+        if (image?.complete && image.naturalWidth === 0) setFailedSrc(imageSrc)
+      }} onError={() => setFailedSrc(imageSrc)} />
   }
 
   return (

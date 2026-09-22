@@ -13,6 +13,7 @@ export default function ClubBadge({ locale = "pt", name, src, asset, size = "med
   return <span className={`clubBadge clubBadge-${size}`}>
     <PlayerImage locale={locale} src={imageSrc ?? undefined} alt={name} kind="club"
       width={sizes[size]} height={sizes[size]} loading="lazy" className={className}
+      proxyRemote={Boolean(asset)}
       fallbackClassName={`clubBadgeFallback brandAssetFallback brandAssetFallback-club ${className}`}
       fallback={<BrandAssetFallback kind="club" />} />
   </span>

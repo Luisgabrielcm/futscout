@@ -82,6 +82,8 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       delete attributes.prefetch
       return createElement("a", { ...attributes, href }, children)
     }
+    if (name === "next/image" && !Object.hasOwn(allowed, name)) return { __esModule: true,
+      default: ({ src, ...props }: { src: string; [key: string]: unknown }) => createElement("img", { ...props, src }) }
     if (!Object.hasOwn(allowed, name)) throw new Error("Unmocked dependency: " + name)
     return allowed[name]
   }

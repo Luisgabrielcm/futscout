@@ -7,7 +7,7 @@ export default function LeagueLogo({ locale, name, logoUrl, asset, size = "mediu
   const src = resolveAssetSource(asset ?? logoUrl, "league")
   const pixels = size === "small" ? 24 : size === "large" ? 72 : 48
   return <PlayerImage locale={locale} src={src ?? undefined} alt={name} kind="league" width={pixels} height={pixels}
-    className={`leagueLogo leagueLogo-${size}`}
+    proxyRemote={Boolean(asset)} className={`leagueLogo leagueLogo-${size}`}
     fallbackClassName={`leagueLogo leagueLogo-${size} brandAssetFallback brandAssetFallback-league`}
     fallback={<BrandAssetFallback kind="league" />} />
 }

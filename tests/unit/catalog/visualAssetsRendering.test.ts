@@ -108,6 +108,24 @@ test("an image that failed before hydration still becomes a neutral fallback", (
   assert.doesNotMatch(renderToStaticMarkup(CachedImage(props)), /<img/)
 })
 
+test("API-Sports brand artwork uses the same-origin Next image proxy", () => {
+  const { default: ProxiedImage } = loadCatalogModule<typeof import("../../../app/components/PlayerImage")>(
+    "app/components/PlayerImage.tsx", {
+      react: React,
+      "../../lib/visualAssets": visualAssets,
+      "next/image": ({ src, ...props }: { src: string; [key: string]: unknown }) =>
+        createElement("img", { ...props, src, "data-next-image": "true" }),
+    },
+  )
+  const remote = renderToStaticMarkup(createElement(ProxiedImage, { src: "https://media.api-sports.io/football/teams/541.png",
+    alt: "Real Madrid", kind: "club", width: 72, height: 72, proxyRemote: true }))
+  const local = renderToStaticMarkup(createElement(ProxiedImage, { src: "/clubs/fixture.svg",
+    alt: "Fixture", kind: "club", width: 72, height: 72, proxyRemote: true }))
+  assert.match(remote, /data-next-image="true"/)
+  assert.match(remote, /media\.api-sports\.io\/football\/teams\/541\.png/)
+  assert.doesNotMatch(local, /data-next-image/)
+})
+
 test("unknown country or missing flag artwork shows only the country name", () => {
   for (const country of ["Unknown", "Congo", "Chinese Taipei", "Northern Ireland", null]) {
     const html = renderToStaticMarkup(createElement(Flag, { country }))
