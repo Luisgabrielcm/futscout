@@ -818,7 +818,10 @@ export async function persistBrandAssetAtomically(store: BrandAssetWriteStore, r
       }
       const providerOwner = await tx.findIdentityByProvider(candidate)
       if (providerOwner && providerOwner.entityId !== candidate.entityId) throw new BrandWriteAbort("IDENTITY_CONFLICT", "PROVIDER_OCCUPIED")
+      // Provider IDs remain reserved across history: never recreate/revive a blocked identity.
+      if (providerOwner && providerOwner.status !== "VERIFIED") throw new BrandWriteAbort("IDENTITY_CONFLICT", "PROVIDER_IDENTITY_NOT_VERIFIED")
       let identity = await tx.findIdentityByLocal(candidate)
+      if (providerOwner && providerOwner.id !== identity?.id) throw new BrandWriteAbort("IDENTITY_CONFLICT", "PROVIDER_LOCAL_IDENTITY_CONFLICT")
       if (identity && (identity.providerEntityId !== candidate.providerEntityId || identity.status !== "VERIFIED" ||
           identity.entityType !== candidate.entityType)) throw new BrandWriteAbort("IDENTITY_CONFLICT", "IDENTITY_STATE_CONFLICT")
       const latest = identity ? await tx.latestAsset(identity.id, candidate.assetType) : null

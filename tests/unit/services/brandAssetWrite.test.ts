@@ -32,7 +32,7 @@ function currentPilot() {
 }
 
 type State = { identities: BrandIdentityRow[]; assets: BrandAssetRow[] }
-function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; mutateProtectedAfterCommit?: boolean } = {}) {
+function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; mutateProtectedAfterCommit?: boolean; identityConflict?: string } = {}) {
   let state: State = { identities: [], assets: [] }, transactions = 0, audits = 0
   const retries = 0
   const protectedState = { Club: { count: "582", hash: "club-safe" }, League: { count: "45", hash: "league-safe" } }
@@ -52,7 +52,7 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
         return identity ? { id: entityId, providerEntityId: entityType === "CLUB" ? identity.providerEntityId : null } : null
       },
       async findIdentityByLocal(input) {
-        return draft.identities.find(row => row.entityType === input.entityType && row.entityId === input.entityId && row.provider === input.provider) ?? null
+        return draft.identities.find(row => row.entityType === input.entityType && row.entityId === input.entityId && row.provider === input.provider && row.status !== "BLOCKED") ?? null
       },
       async findIdentityByProvider(input) {
         return draft.identities.find(row => row.entityType === input.entityType && row.provider === input.provider &&
@@ -66,6 +66,7 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
         return draft.assets.find(row => row.identityId === identityId && row.assetType === assetType && row.status === "ACTIVE") ?? null
       },
       async createIdentity(input) {
+        if (options.identityConflict) throw Object.assign(new Error("simulated concurrent insert"), { code: options.identityConflict })
         const row: BrandIdentityRow = { id: `identity-${draft.identities.length + 1}`, entityType: input.entityType,
           entityId: input.entityId, provider: input.provider, providerEntityId: input.providerEntityId, status: "VERIFIED", version: 1 }
         draft.identities.push(row); return row
@@ -190,6 +191,64 @@ function existingState(overrides: Partial<BrandAssetRow> = {}) {
     status: "ACTIVE", ...overrides }
   return { input, identity, asset }
 }
+
+test("a different blocked provider identity and revoked crest remain untouched when creating the current identity", async () => {
+  const base = existingState({ operationalDecision: "REVOKED", displayPolicy: "DISPLAY_BLOCKED", version: 2 })
+  const historical = { ...base.identity, providerEntityId: "historical-provider", status: "BLOCKED" as const, version: 2 }
+  const f = fakeStore(); f.set({ identities: [historical], assets: [base.asset] })
+  const result = await persistBrandAssetAtomically(f.store, { candidate: base.input, expected: emptyExpected }, () => now)
+  assert.equal(result.status, "CREATED")
+  assert.deepEqual(f.state().identities[0], historical); assert.deepEqual(f.state().assets[0], base.asset)
+  assert.equal(f.state().identities.length, 2); assert.equal(f.state().assets.length, 2)
+  const second = await persistBrandAssetAtomically(f.store, { candidate: base.input, expected: emptyExpected }, () => now)
+  assert.equal(second.status, "NO_OP")
+})
+
+for (const status of ["BLOCKED", "REVIEW_REQUIRED"] as const) test(`same-provider ${status} identity cannot be revived or duplicated`, async () => {
+  const base = existingState(), f = fakeStore()
+  const state = { identities: [{ ...base.identity, status }], assets: [base.asset] }
+  f.set(state)
+  const result = await persistBrandAssetAtomically(f.store, { candidate: base.input, expected: emptyExpected }, () => now)
+  assert.equal(result.status, "IDENTITY_CONFLICT"); assert.equal(result.reason, "PROVIDER_IDENTITY_NOT_VERIFIED")
+  assert.deepEqual(f.state(), state)
+})
+
+test("another nonblocked local identity, including REVIEW_REQUIRED, still occupies the local slot", async () => {
+  for (const status of ["VERIFIED", "REVIEW_REQUIRED"] as const) {
+    const base = existingState(), f = fakeStore()
+    const state = { identities: [{ ...base.identity, providerEntityId: "other-current", status }], assets: [base.asset] }
+    f.set(state)
+    const result = await persistBrandAssetAtomically(f.store, { candidate: base.input, expected: emptyExpected }, () => now)
+    assert.equal(result.status, "IDENTITY_CONFLICT"); assert.deepEqual(f.state(), state)
+  }
+})
+
+test("failure creating the new crest rolls back its new identity without touching blocked history", async () => {
+  const base = existingState({ operationalDecision: "REVOKED", displayPolicy: "DISPLAY_BLOCKED" }), f = fakeStore({ failAsset: true })
+  const state = { identities: [{ ...base.identity, providerEntityId: "historical", status: "BLOCKED" as const }], assets: [base.asset] }
+  f.set(state)
+  const result = await persistBrandAssetAtomically(f.store, { candidate: base.input, expected: emptyExpected }, () => now)
+  assert.equal(result.status, "ROLLED_BACK"); assert.deepEqual(f.state(), state)
+})
+
+for (const code of ["P2002", "23505", "P2034", "40001"]) test(`${code}: concurrent local/provider insert is rejected without retry`, async () => {
+  const f = fakeStore({ identityConflict: code })
+  const result = await persistBrandAssetAtomically(f.store, { candidate: candidate(), expected: emptyExpected }, () => now)
+  assert.equal(result.status, "CONCURRENT_MODIFICATION"); assert.equal(result.retries, 0)
+  assert.equal(f.transactions(), 1); assert.deepEqual(f.state(), { identities: [], assets: [] })
+})
+
+test("all 573 authorized club mappings keep the existing create and idempotent behavior", async () => {
+  let checked = 0
+  for (const [index, identity] of BRAND_ASSET_PILOT_ALLOWLIST.entries()) {
+    if (identity.entityType !== "CLUB") continue
+    const f = fakeStore(), request = { candidate: candidate(index), expected: emptyExpected }
+    assert.equal((await persistBrandAssetAtomically(f.store, request, () => now)).status, "CREATED")
+    assert.equal((await persistBrandAssetAtomically(f.store, request, () => now)).status, "NO_OP")
+    checked++
+  }
+  assert.equal(checked, 573)
+})
 
 for (const scenario of ["active", "version", "rights"] as const) test(`${scenario} concurrent drift is rejected by CAS`, async () => {
   const f = fakeStore(), base = existingState(), expectedAsset = structuredClone(base.asset)

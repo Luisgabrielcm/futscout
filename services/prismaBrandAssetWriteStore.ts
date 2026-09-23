@@ -40,8 +40,9 @@ function transactionPort(tx: Prisma.TransactionClient) {
       return row && { id: row.id, providerEntityId: null }
     },
     async findIdentityByLocal(input: BrandAssetPilotIdentity) {
-      const row = await tx.brandAssetIdentity.findUnique({ where: { entityType_entityId_provider: {
-        entityType: input.entityType, entityId: input.entityId, provider: input.provider } },
+      // The partial unique index includes REVIEW_REQUIRED, but preserves BLOCKED history outside the slot.
+      const row = await tx.brandAssetIdentity.findFirst({ where: {
+        entityType: input.entityType, entityId: input.entityId, provider: input.provider, status: { not: "BLOCKED" } },
         select: { id: true, entityType: true, entityId: true, provider: true, providerEntityId: true, status: true, version: true } })
       return row ? decodeIdentity(row) : null
     },

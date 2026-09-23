@@ -143,7 +143,9 @@ model BrandAssetIdentity {
 
   assets BrandAsset[]
 
-  @@unique([entityType, entityId, provider])
+  // SQL migration additionally enforces one non-BLOCKED identity per local/provider.
+  // Partial uniqueness is maintained in SQL, as with BrandAsset_one_active_per_identity_type_key.
+  @@index([entityType, entityId, provider])
   @@unique([entityType, provider, providerEntityId])
   @@index([entityType, entityId, status])
 }
