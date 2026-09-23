@@ -194,3 +194,40 @@ The operational contract remains `REVIEW_REQUIRED`, `DISPLAY_ALLOWED`,
 `OWNER_AUTHORIZED_REMOTE_USE`, `storageUrl = null`, per-asset revocation,
 absolute `BLOCKED`, and the global publication kill switch. Documentary rights
 remain unverified and are not represented as `APPROVED`.
+
+## Controlled expansion to five additional league logos
+
+Decision date: 2026-09-23
+
+Decision reference: `owner-decision:brand-assets-five-leagues-2026-09-23`.
+
+The FutScout owner explicitly authorized remote display at the operator's risk
+for only these five additional API-Football league identities:
+
+| League | Local League ID | API-Football ID | Asset |
+| --- | --- | --- | --- |
+| Bundesliga | `cmt7hnpph0000z0ucroxfcazy` | `78` | LOGO |
+| Ligue 1 McDonald's | `cmt94s5bs000m5gucea56g6vg` | `61` | LOGO |
+| Serie A Enilive | `cmt987w77005exoucgs0iro0p` | `135` | LOGO |
+| Eredivisie | `cmtd9cvkm019boguc5jeujodz` | `88` | LOGO |
+| MLS | `cmt99do1v0025vsucfwh0wtco` | `253` | LOGO |
+
+Each asset must retain `rightsStatus = REVIEW_REQUIRED` and use
+`OWNER_AUTHORIZED_REMOTE_USE`, `DISPLAY_ALLOWED`, `storageUrl = null`,
+`operatorRiskAccepted = true`, and `revocable = true`. Record the acceptance
+actor and timestamp, risk reason, source-terms URL, and decision reference.
+Remote delivery uses the exact provider URL
+`https://media.api-sports.io/football/leagues/{providerEntityId}.png`.
+
+This operational decision does not represent a licence to use the marks or
+approval from API-Sports, the leagues, or other rightsholders. Each asset must
+remain individually revocable through `REVOKED`; absolute `BLOCKED`, provider
+and entity deny lists, and the global publication switch remain in force.
+
+Registration is authorized only after a fresh preflight of local identities,
+Registry conflicts, source URLs and SHA-256 hashes. Use the existing
+transactional writer one league at a time, with a confirmation read after
+each transaction. Stop on divergence, conflict or an indeterminate result;
+do not retry automatically. Other league fallbacks remain unchanged. This
+decision authorizes the five Registry writes and localhost verification,
+but does not authorize a deployment.
