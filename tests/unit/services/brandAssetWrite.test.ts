@@ -9,6 +9,18 @@ import { BRAND_ASSET_PILOT_ALLOWLIST, persistBrandAssetAtomically, prepareBrandA
 const now = new Date("2026-09-17T15:00:00.000Z")
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex")
 
+test("the 25 newly authorized leagues match the immutable owner-reviewed manifest", () => {
+  const bytes = readFileSync("docs/league-logos-25-manifest-2026-09-23.json")
+  assert.equal(createHash("sha256").update(bytes).digest("hex"),
+    "b86f64b18714736d2911692c7d6f74e15e258bee598b0ef1acded0854ddeb401")
+  const manifest = JSON.parse(bytes.toString("utf8")) as { entries: { leagueId: string; providerId: string }[] }
+  assert.equal(manifest.entries.length, 25)
+  assert.deepEqual(BRAND_ASSET_PILOT_ALLOWLIST.slice(584), manifest.entries.map(entry => ({
+    entityType: "LEAGUE", entityId: entry.leagueId, provider: "api-football",
+    providerEntityId: entry.providerId, assetType: "LOGO",
+  })))
+})
+
 function candidate(index = 0, changes: Partial<BrandAssetCandidate> = {}): BrandAssetCandidate {
   const identity = BRAND_ASSET_PILOT_ALLOWLIST[index]
   const folder = identity.entityType === "CLUB" ? "teams" : "leagues"
@@ -101,11 +113,11 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
 
 const emptyExpected = { identity: null, latestAsset: null, activeAssetId: null }
 
-test("closed 573-club and 11-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
+test("closed 573-club and 36-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
   const result = prepareBrandAssetPilotDryRun(currentPilot(), now)
-  assert.equal(result.length, 584)
+  assert.equal(result.length, 609)
   assert.equal(result.filter(row => row.identity.entityType === "CLUB").length, 573)
-  assert.equal(result.filter(row => row.identity.entityType === "LEAGUE").length, 11)
+  assert.equal(result.filter(row => row.identity.entityType === "LEAGUE").length, 36)
   assert.deepEqual(result.map(row => row.identity), [...BRAND_ASSET_PILOT_ALLOWLIST])
   assert.ok(result.every(row => !row.writable && row.action === "NOT_WRITABLE" && row.rightsStatus === "REVIEW_REQUIRED" &&
     row.displayPolicy === "DISPLAY_ALLOWED" &&
@@ -115,7 +127,7 @@ test("closed 573-club and 11-league dry-run records owner authorization but stay
     !row.blockers.includes("RIGHTS_REVIEW_REQUIRED") && row.blockers.includes("DELIVERY_NOT_VALIDATED")))
 })
 
-test("allow-list rejects a 585th candidate, replacement, reordering and Club/League type mismatch", () => {
+test("allow-list rejects a 610th candidate, replacement, reordering and Club/League type mismatch", () => {
   const pilot = currentPilot()
   assert.throws(() => prepareBrandAssetPilotDryRun([...pilot, pilot[0]], now), /ALLOWLIST/)
   assert.throws(() => prepareBrandAssetPilotDryRun([pilot[1], pilot[0], ...pilot.slice(2)], now), /ALLOWLIST/)
