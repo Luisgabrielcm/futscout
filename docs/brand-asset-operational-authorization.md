@@ -231,3 +231,40 @@ each transaction. Stop on divergence, conflict or an indeterminate result;
 do not retry automatically. Other league fallbacks remain unchanged. This
 decision authorizes the five Registry writes and localhost verification,
 but does not authorize a deployment.
+
+## Second league batch: four verified competitions
+
+Decision date: 2026-09-23
+
+Decision reference: `owner-decision:brand-assets-second-league-batch-2026-09-23`.
+
+The owner approved the proposed transactional registration and revocable remote
+display of only these four verified competitions, at the operator's risk:
+
+| League | Local League ID | API-Football ID |
+| --- | --- | --- |
+| Liga Portugal | `cmt99o0480055ugucogcv1tys` | `94` |
+| EFL Championship | `cmt9cn4x903jhukuctl70f0n1` | `40` |
+| Bundesliga 2 | `cmt9d9yzg04znukuczx9cgidr` | `79` |
+| Serie BKT | `cmt9c850x02nfukucwm8657h5` | `136` |
+
+All four assets require `REVIEW_REQUIRED`, `OWNER_AUTHORIZED_REMOTE_USE`,
+`DISPLAY_ALLOWED`, `storageUrl = null`, `operatorRiskAccepted = true`, and
+`revocable = true`, with the acceptance actor, timestamp, reason, terms URL and
+decision reference recorded. This is an operational decision, not a trademark
+licence. Individual `REVOKED`, absolute `BLOCKED` and existing publication
+switches remain effective.
+
+Reuse the technical and visual audit already completed on 2026-09-23: no repeat
+provider competition queries or image downloads. Recheck local database state
+and Registry conflicts before writing, preserve the previous delivery evidence,
+and use the existing transactional writer once per league, in the table order.
+Require independent confirmation and protected-table audits before proceeding
+to the next league. Stop on conflict, audit failure or an indeterminate result;
+no automatic retries or manual INSERTs are authorized.
+
+Ligue 2 BKT remains excluded and in REVIEW because of the local Red Star
+association conflict. This decision does not authorize changing the Red Star
+Club, its Registry identity or crest, or deploying the application.
+
+Evidence and execution results: [second-batch report](league-logo-second-batch-2026-09-23.md).
