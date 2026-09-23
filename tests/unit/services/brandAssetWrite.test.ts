@@ -100,10 +100,10 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
 
 const emptyExpected = { identity: null, latestAsset: null, activeAssetId: null }
 
-test("closed 574-club and 11-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
+test("closed 573-club and 11-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
   const result = prepareBrandAssetPilotDryRun(currentPilot(), now)
-  assert.equal(result.length, 585)
-  assert.equal(result.filter(row => row.identity.entityType === "CLUB").length, 574)
+  assert.equal(result.length, 584)
+  assert.equal(result.filter(row => row.identity.entityType === "CLUB").length, 573)
   assert.equal(result.filter(row => row.identity.entityType === "LEAGUE").length, 11)
   assert.deepEqual(result.map(row => row.identity), [...BRAND_ASSET_PILOT_ALLOWLIST])
   assert.ok(result.every(row => !row.writable && row.action === "NOT_WRITABLE" && row.rightsStatus === "REVIEW_REQUIRED" &&
@@ -114,7 +114,7 @@ test("closed 574-club and 11-league dry-run records owner authorization but stay
     !row.blockers.includes("RIGHTS_REVIEW_REQUIRED") && row.blockers.includes("DELIVERY_NOT_VALIDATED")))
 })
 
-test("allow-list rejects a 586th candidate, replacement, reordering and Club/League type mismatch", () => {
+test("allow-list rejects a 585th candidate, replacement, reordering and Club/League type mismatch", () => {
   const pilot = currentPilot()
   assert.throws(() => prepareBrandAssetPilotDryRun([...pilot, pilot[0]], now), /ALLOWLIST/)
   assert.throws(() => prepareBrandAssetPilotDryRun([pilot[1], pilot[0], ...pilot.slice(2)], now), /ALLOWLIST/)
@@ -130,6 +130,18 @@ test("pilot source URL is bound to the exact API-Football provider identity", as
   assert.equal(result.status, "AUTHORIZATION_MISMATCH")
   assert.equal(result.reason, "CANDIDATE_INVALID")
   assert.equal(f.transactions(), 0)
+})
+
+test("Red Star 4396 is removed and 104 has no asset authorization", async () => {
+  for (const providerEntityId of ["4396", "104"]) {
+    const f = fakeStore()
+    const result = await persistBrandAssetAtomically(f.store, { expected: emptyExpected, candidate: candidate(0, {
+      entityType: "CLUB", entityId: "cmt9g1wkq037v1sucum6ntyxn", provider: "api-football", providerEntityId,
+      assetType: "CREST", sourceUrl: `https://media.api-sports.io/football/teams/${providerEntityId}.png`,
+    }) }, () => now)
+    assert.equal(result.reason, "ALLOWLIST_MISMATCH")
+    assert.equal(f.transactions(), 0)
+  }
 })
 
 test("future approved, delivered candidate creates identity and ACTIVE asset atomically", async () => {
