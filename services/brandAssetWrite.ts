@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util"
 import { getVisualAssetSrc } from "../lib/visualAssets"
-import { BRACK_SOURCE, matchesBrackSource } from "../lib/brackBrandSource"
+import { officialLeagueSource, matchesOfficialLeagueSource } from "../lib/brackBrandSource"
 
 export type BrandEntityType = "CLUB" | "LEAGUE"
 export type BrandAssetType = "CREST" | "LOGO"
@@ -14,7 +14,7 @@ export type BrandAssetLifecycle = "DISCOVERED" | "VALIDATED" | "ACTIVE" | "STALE
 export type BrandAssetPilotIdentity = Readonly<{
   entityType: BrandEntityType
   entityId: string
-  provider: "api-football" | "official-brack-media"
+  provider: "api-football" | "official-brack-media" | "official-isl"
   providerEntityId: string
   assetType: BrandAssetType
 }>
@@ -688,7 +688,7 @@ const validHttpsUrl = (value: string | null) => {
 
 export function validateBrandAssetCandidate(candidate: BrandAssetCandidate, now: Date) {
   const compatible = candidate.entityType === "CLUB" ? candidate.assetType === "CREST" : candidate.assetType === "LOGO"
-  const sourceMatches = candidate.provider === BRACK_SOURCE.provider ? matchesBrackSource(candidate) :
+  const sourceMatches = candidate.provider !== "api-football" ? matchesOfficialLeagueSource(candidate) :
     candidate.provider === "api-football" && candidate.sourceUrl === expectedSourceUrl(candidate)
   if (!compatible || !sourceMatches ||
       !getVisualAssetSrc(candidate.sourceUrl, kind(candidate.entityType)) ||
@@ -850,7 +850,7 @@ export async function persistBrandAssetAtomically(store: BrandAssetWriteStore, r
       if (!local || (candidate.entityType === "CLUB" && local.providerEntityId !== candidate.providerEntityId)) {
         throw new BrandWriteAbort("IDENTITY_CONFLICT", "LOCAL_IDENTITY_MISMATCH")
       }
-      if (candidate.provider === BRACK_SOURCE.provider && (!tx.hasLeaguePublicationBlock ||
+      if (officialLeagueSource(candidate.entityId) && candidate.provider !== "api-football" && (!tx.hasLeaguePublicationBlock ||
           await tx.hasLeaguePublicationBlock(candidate.entityId))) {
         throw new BrandWriteAbort("IDENTITY_CONFLICT", "OFFICIAL_SOURCE_PUBLICATION_BLOCK")
       }

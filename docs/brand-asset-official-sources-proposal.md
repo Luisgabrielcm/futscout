@@ -1,5 +1,7 @@
 # Fontes oficiais exatas — proposta, sem habilitação
 
+Atualização de 24/09/2026: a [preparação das cinco ligas](five-official-leagues-preparation.md) registra o estado atual, suporte restrito a Brack/ISL, allowlist proposta inativa, inspeção SVG, leitura do Registry e três candidatas ainda em REVIEW. O texto abaixo preserva o histórico da proposta inicial.
+
 Atualização: a seção abaixo preserva a proposta e a pesquisa originais. O suporte técnico implementado posteriormente **somente para Brack**, seus testes e a sequência de publicação estão em [brack-official-source-implementation.md](brack-official-source-implementation.md). Nenhuma das cinco imagens foi cadastrada nesta implementação.
 
 Preparada após o commit `d0deb614fa2a79ff6cd9e4a1385d561f38fe4dc7`. Nenhuma consulta ou escrita no banco, download novo, alteração de allowlist, migration ou publicação nesta etapa. A cobertura confirmada no relatório anterior continua 40/45; não foi medida novamente nesta revisão. As cinco fontes abaixo são candidatas, não autorizações de uso.

@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { test } from "node:test"
-import { BRACK_SOURCE } from "../../../lib/brackBrandSource"
+import { BRACK_SOURCE, ISL_SOURCE } from "../../../lib/brackBrandSource"
 import { BRAND_ASSET_PILOT_ALLOWLIST, persistBrandAssetAtomically, prepareBrandAssetPilotDryRun,
   type BrandAssetAudit, type BrandAssetCandidate, type BrandAssetRow, type BrandAssetWriteStore,
   type BrandIdentityRow, type BrandAssetPilotIdentity } from "../../../services/brandAssetWrite"
@@ -119,18 +119,18 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
 
 const emptyExpected = { identity: null, latestAsset: null, activeAssetId: null }
 
-test("synthetically authorized Brack uses existing atomic writer, rollback, conflict and indeterminate controls", async () => {
+for (const source of [BRACK_SOURCE, ISL_SOURCE]) test(`synthetically authorized ${source.provider} uses existing atomic writer, rollback, conflict and indeterminate controls`, async () => {
   // In-memory authorization fixture only; the checked-in allowlist stays unchanged.
   const allowlist = BRAND_ASSET_PILOT_ALLOWLIST as unknown as BrandAssetPilotIdentity[]
-  const identity: BrandAssetPilotIdentity = { entityType: "LEAGUE", entityId: BRACK_SOURCE.entityId,
-    provider: BRACK_SOURCE.provider, providerEntityId: BRACK_SOURCE.providerEntityId, assetType: "LOGO" }
+  const identity: BrandAssetPilotIdentity = { entityType: "LEAGUE", entityId: source.entityId,
+    provider: source.provider, providerEntityId: source.providerEntityId, assetType: "LOGO" }
   allowlist.push(identity)
   try {
-    const official = candidate(allowlist.length - 1, { sourceUrl: BRACK_SOURCE.sourceUrl, contentHash: BRACK_SOURCE.contentHash,
+    const official = candidate(allowlist.length - 1, { sourceUrl: source.sourceUrl, contentHash: source.contentHash,
       rightsStatus: "REVIEW_REQUIRED", operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE",
       operationalAuthorizedAt: now.toISOString(), operationalDecisionRef: "synthetic-only",
       operatorRiskAccepted: true, riskAcceptedAt: now.toISOString(), riskAcceptedBy: "test", riskReason: "test",
-      sourceTermsUrl: BRACK_SOURCE.evidenceUrl })
+      sourceTermsUrl: source.evidenceUrl })
     for (const options of [{}, { failAsset: true }, { identityConflict: "P2002" }, { unknownCommit: true }]) {
       const f = fakeStore(options)
       const result = await persistBrandAssetAtomically(f.store, { candidate: official, expected: emptyExpected }, () => now)
@@ -140,7 +140,7 @@ test("synthetically authorized Brack uses existing atomic writer, rollback, conf
       assert.equal(f.state().assets.length, "failAsset" in options || "identityConflict" in options ? 0 : 1)
     }
     const f = fakeStore()
-    f.set({ identities: [{ id: "blocked-api", entityType: "LEAGUE", entityId: BRACK_SOURCE.entityId,
+    f.set({ identities: [{ id: "blocked-api", entityType: "LEAGUE", entityId: source.entityId,
       provider: "api-football", providerEntityId: "207", status: "BLOCKED", version: 2 }], assets: [] })
     const before = f.state()
     const blocked = await persistBrandAssetAtomically(f.store, { candidate: official, expected: emptyExpected }, () => now)
@@ -148,6 +148,7 @@ test("synthetically authorized Brack uses existing atomic writer, rollback, conf
     assert.deepEqual(f.state(), before)
   } finally { allowlist.pop() }
 })
+
 
 test("four independently verified league logos are the only new identities after Red Star", async () => {
   const rows = [

@@ -2,7 +2,7 @@ import "server-only"
 
 import { prisma } from "../lib/prisma"
 import { brandAssetPublicationPolicyFromEnvironment, type AssetReference } from "../lib/assetPipeline"
-import { BRACK_SOURCE, selectBrandIdentities } from "../lib/brackBrandSource"
+import { OFFICIAL_LEAGUE_SOURCES, selectBrandIdentities } from "../lib/brackBrandSource"
 
 export type BrandAssetMaps = Readonly<{
   clubs: ReadonlyMap<string, AssetReference>
@@ -19,7 +19,7 @@ export async function getBrandAssetsForEntities(input: Readonly<{
 
   const identities = await prisma.brandAssetIdentity.findMany({
     where: {
-      AND: [{ OR: [{ status: "VERIFIED" }, { entityType: "LEAGUE", entityId: BRACK_SOURCE.entityId }] }],
+      AND: [{ OR: [{ status: "VERIFIED" }, { entityType: "LEAGUE", entityId: { in: OFFICIAL_LEAGUE_SOURCES.map(source => source.entityId) } }] }],
       OR: [
         ...(clubIds.length ? [{ entityType: "CLUB" as const, entityId: { in: clubIds } }] : []),
         ...(leagueIds.length ? [{ entityType: "LEAGUE" as const, entityId: { in: leagueIds } }] : []),
@@ -32,7 +32,7 @@ export async function getBrandAssetsForEntities(input: Readonly<{
       providerEntityId: true,
       status: true,
       assets: {
-        // Include negative history: Brack must never recover through another provider.
+        // Include negative history: supported official leagues never recover through another provider.
         orderBy: { version: "desc" },
         select: {
           assetType: true,

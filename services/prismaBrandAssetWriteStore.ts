@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from "../app/generated/prisma/client"
 import { withPrismaReadOnly } from "../lib/prismaReadOnly"
-import { BRACK_SOURCE } from "../lib/brackBrandSource"
+import { officialLeagueSource } from "../lib/brackBrandSource"
 import type { BrandAssetAudit, BrandAssetCandidate, BrandAssetPilotIdentity, BrandAssetRow,
   BrandAssetType, BrandAssetWriteStore, BrandEntityType, BrandIdentityRow } from "./brandAssetWrite"
 
@@ -77,11 +77,12 @@ function transactionPort(tx: Prisma.TransactionClient) {
       return row ? decodeAsset(row) : null
     },
     async createIdentity(input: BrandAssetCandidate) {
+      const source = officialLeagueSource(input.entityId)
       return decodeIdentity(await tx.brandAssetIdentity.create({ data: { entityType: input.entityType, entityId: input.entityId,
         provider: input.provider, providerEntityId: input.providerEntityId, status: "VERIFIED", version: 1,
-        verifiedAt: new Date(input.fetchedAt), evidence: input.provider === BRACK_SOURCE.provider
-          ? { source: "guarded-brand-asset-write", evidenceUrl: BRACK_SOURCE.evidenceUrl,
-            season: BRACK_SOURCE.season, contentHash: BRACK_SOURCE.contentHash }
+        verifiedAt: new Date(input.fetchedAt), evidence: source && input.provider === source.provider
+          ? { source: "guarded-brand-asset-write", evidenceUrl: source.evidenceUrl,
+            season: source.season, contentHash: source.contentHash }
           : { source: "guarded-brand-asset-write" } },
         select: { id: true, entityType: true, entityId: true, provider: true, providerEntityId: true, status: true, version: true } }))
     },

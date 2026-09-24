@@ -1,1 +1,3 @@
 `brack.png` is the unchanged 35,259-byte PNG from the archived official Brack media-kit audit (item 236618, 2026-09-24 UTC). Offline test fixture only, not a public or storage URL. SHA-256: `9495ccc727eb8b6fffef811a77f0a1ea6f751bb848c4aac99116ec5a85a3c8ea`. Source and rights limitations: `docs/five-leagues-current-branding-review.md`. Tests do not download images or contact a database.
+
+`isl.svg` is the unchanged 22,329-byte official ISL file archived in the same audit, URL version `v=100.54`. SHA-256: `58e9824e6a3bc95081139c3fa64385994facc9e45feb59f93e8848e2bbaec884`. It contains only a fixed 74×74 svg root and path geometry/color attributes. Tests pin both the hash and a closed grammar; this fixture is neither publication authorization nor a storage URL.
