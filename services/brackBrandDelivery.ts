@@ -18,10 +18,16 @@ export async function fetchOfficialLeagueBytes(source: OfficialSource, fetcher: 
     redirect: "manual", cache: "no-store", signal,
     headers: { Accept: mimeFor(source) },
   })
+  // fetch decodes gzip/br/deflate but keeps the wire Content-Length header.
+  // Bound both declared wire size and the decoded stream; hash pins decoded bytes.
+  const encoding = response.headers.get("content-encoding")?.trim().toLowerCase() ?? "identity"
+  const declaredLength = response.headers.has("content-length") ? Number(response.headers.get("content-length")) : null
+  const invalidLength = declaredLength !== null && (!Number.isSafeInteger(declaredLength) || declaredLength < 0 ||
+    (encoding === "identity" ? declaredLength !== source.bytes : declaredLength > source.bytes))
   if (signal.aborted || response.status !== 200 || response.redirected ||
       (response.url !== "" && response.url !== source.sourceUrl) ||
       response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== mimeFor(source) ||
-      (response.headers.has("content-length") && Number(response.headers.get("content-length")) !== source.bytes)) {
+      (!["identity", "gzip", "br", "deflate"].includes(encoding) || invalidLength)) {
     await response.body?.cancel()
     throw new Error("BRACK_DELIVERY_REJECTED")
   }

@@ -27,7 +27,7 @@ Riscos a reconhecer: procedência pública não é licença; termos específicos
 
 Revogação individual: desligar a flag correspondente e revogar/bloquear o asset pelo mecanismo existente com estado/versão esperados. Confirmar 404/fallback e preservação do histórico. Não excluir identidades nem selecionar outra fonte para contornar BLOCKED/REVOKED. A autorização de uso das imagens não autoriza automaticamente um deploy nem a aceitação de outras regressões de release.
 
-## Comandos preparados — não executados no banco
+## Procedimento e comandos auditáveis
 
 O runner é `scripts/officialLeagueOperation.ts`. Ele não carrega dotenv nem usa DATABASE_URL/DIRECT_URL do processo. Criar **fora do repositório**, com acesso restrito, um arquivo de conexão contendo `databaseId`, `consoleEvidenceRef` e `connectionString`. O ID permitido é Production `rknsog8tmbl5u4xqbogxfux5`. A conexão deve ser emitida/identificada no Console para esse ID. O runner valida a declaração, mas **não consegue provar remotamente o vínculo Console–credencial**: um hostname ou o preenchimento manual de databaseId não são prova. Esse gate humano é obrigatório antes de fornecer o arquivo. Não imprimir seu conteúdo.
 
@@ -55,7 +55,7 @@ preflightFile: caminho do recibo de leitura revisado
 preflightSha256: SHA-256 completo desse recibo
 ```
 
-Adicionar **somente** a tupla individual aprovada da allowlist proposta à allowlist ativa, em alteração revisada separadamente. A preparação atual continua inativa; tentar cadastro com o estado atual termina `ACTIVE_ALLOWLIST_REQUIRED`, antes da conexão. Aprovação ausente/falsa é recusada antes do cliente Prisma.
+As duas tuplas exatas autorizadas foram adicionadas à allowlist ativa após o preflight de Production. A allowlist proposta continua sendo um manifesto independente, sem autorizar dinamicamente o writer. Aprovação ausente/falsa é recusada antes do cliente Prisma. A liberação de entrega é separada e exige a flag individual.
 
 ```powershell
 # ESCRITA FUTURA — exige aprovação e todos os gates anteriores.
@@ -82,4 +82,12 @@ npx tsx --test tests/production/i18n404.test.ts
 Remove-Item Env:FUTSCOUT_SSR_TEST_ORIGIN
 ```
 
-Aceite registrado; nenhum comando de cadastro foi executado neste registro. A allowlist ativa ainda aguarda o preflight de Production. Flags individuais continuam desligadas por padrão. A liberação pública exige confirmação independente e inspeção da interface, além do aceite.
+## Execução de 24/09/2026 — checkpoint
+
+Conexão direct emitida pelo Console para Production `rknsog8tmbl5u4xqbogxfux5`, guardada com acesso restrito fora do repositório; nenhuma conexão ou credencial integra este documento. Preflight: 20 migrations concluídas, 582 clubes, 45 ligas, 16228 jogadores, 615 identidades/assets antes de Brack. Comparação de IDs e campos do snapshot anterior, além dos hashes: `audit/output/brack-isl-existing-registry-baseline.json`.
+
+Brack: `COMMITTED_INDEPENDENT_READ_CONFIRMED`, identidade `cmufoilbt0000ykucg9p5dvpf` VERIFIED v1 e asset `cmufoilg20001ykuchgmq55fg` ACTIVE v1. Recibo: `audit/output/brack-registration-approved-v2-20260924.json`. REVIEW_REQUIRED, storageUrl=null e revogação individual preservados. O primeiro writer sofreu rollback integral por comparação textual do timestamp (`Z` versus `.000Z`); reconciliação comprovou ausência de identidade. O runner passou a normalizar o mesmo instante ISO, sem enfraquecer a comparação do writer, e um novo preflight precedeu a operação v2. Os recibos e marcadores anteriores foram preservados.
+
+SHA publicado: `8af2b7debab3d4dc5b47431614864cea69a4c547`. Preview conferido no banco compartilhado, sem tratá-lo como homologação isolada. Deployment Production com Brack habilitada: `dpl_7Hy93b4YadUnk5Yu6712CC1GQwwv`. PNG 1044×1005 e 12 ocorrências da logo confirmados na página pública. Cobertura pública confirmada neste checkpoint: **41/45**, preservadas as 40 logos anteriores. Rollback compatível com flags desligadas: `dpl_BzKAkd178nRpEVHdeg1JyQbdSHzr`, mesmo SHA.
+
+ISL: tentativa interrompida antes do writer. Reconciliação `audit/output/isl-reconcile-approved-20260924.json`: `NO_IDENTITY_PRESENT`. Uma leitura diagnóstica encontrou HTTP 200, SVG com Content-Encoding gzip e Content-Length 10052 (bytes comprimidos), enquanto o corpo decodificado esperado possui 22329 bytes. A correção distingue tamanho de transporte e corpo decodificado: mantém buffer fixo, limite antes da cópia, hash exato e política SVG fechada. Registra também recibo de validação de imagem, sem segredos. Exige novo SHA validado/publicado, preflight e operação individual após a reconciliação; não há retry automático. ISL permanece desligada e não conta na cobertura até confirmação pública.

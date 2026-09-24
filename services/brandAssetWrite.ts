@@ -634,6 +634,9 @@ export const BRAND_ASSET_PILOT_ALLOWLIST = [
   { entityType: "LEAGUE", entityId: "cmta7vu7o02496wucuxpwquwr", provider: "api-football", providerEntityId: "41", assetType: "LOGO" },
   { entityType: "LEAGUE", entityId: "cmtad946t03lq9gucelzi806s", provider: "api-football", providerEntityId: "80", assetType: "LOGO" },
   { entityType: "LEAGUE", entityId: "cmt9b3q3i00alukuc087t3u4x", provider: "api-football", providerEntityId: "128", assetType: "LOGO" },
+  // Owner authorization: docs/brack-isl-operational-decision-draft.md (2026-09-24).
+  { entityType: "LEAGUE", entityId: "cmt9cdhm202ycukuc9eatc0la", provider: "official-brack-media", providerEntityId: "236618", assetType: "LOGO" },
+  { entityType: "LEAGUE", entityId: "cmtacvytc02r59guc438hbrlo", provider: "official-isl", providerEntityId: "static-assets/images/svg/isl-logo.svg?v=100.54", assetType: "LOGO" },
 ] as const satisfies readonly BrandAssetPilotIdentity[]
 
 export type BrandAssetCandidate = BrandAssetPilotIdentity & Readonly<{

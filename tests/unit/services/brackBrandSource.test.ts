@@ -9,8 +9,8 @@ import * as pipeline from "../../../lib/assetPipeline"
 import { BRACK_SOURCE as B, selectBrandIdentities } from "../../../lib/brackBrandSource"
 import { resolveAssetSource, type AssetReference } from "../../../lib/assetPipeline"
 import { createBrackRequestGate, fetchBrackBytes, serveBrackAsset as serveConfiguredBrackAsset } from "../../../services/brackBrandDelivery"
-import { BRAND_ASSET_PILOT_ALLOWLIST, validateBrandAssetCandidate, persistBrandAssetAtomically,
-  type BrandAssetCandidate, type BrandAssetWriteStore } from "../../../services/brandAssetWrite"
+import { BRAND_ASSET_PILOT_ALLOWLIST, validateBrandAssetCandidate,
+  type BrandAssetCandidate } from "../../../services/brandAssetWrite"
 
 const bytes = readFileSync("tests/fixtures/brand-assets/brack.png")
 const at = "2026-09-24T02:02:15.450Z"
@@ -97,16 +97,13 @@ function row(provider: string = B.provider, changes = {}) {
       operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE", displayPolicy: "DISPLAY_ALLOWED" }], ...changes }
 }
 
-test("exact Brack candidate is technically valid but remains outside the authorized writer allowlist", async () => {
+test("exact owner-approved Brack tuple is allowlisted without changing the 40 API leagues", () => {
   validateBrandAssetCandidate(candidate(), new Date(at))
-  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.length, 614)
-  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.filter(i => i.entityType === "LEAGUE").length, 40)
-  const store: BrandAssetWriteStore = { audit: async () => { throw Error("must not audit") },
-    transaction: async () => { throw Error("must not write") } }
-  const result = await persistBrandAssetAtomically(store, { candidate: candidate(),
-    expected: { identity: null, latestAsset: null, activeAssetId: null } })
-  assert.equal(result.status, "AUTHORIZATION_MISMATCH")
-  assert.equal(result.transactionState, "NOT_STARTED")
+  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.length, 616)
+  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.filter(i => i.entityType === "LEAGUE" && i.provider === "api-football").length, 40)
+  assert.deepEqual(BRAND_ASSET_PILOT_ALLOWLIST.filter(i => i.provider === B.provider), [
+    { entityType: "LEAGUE", entityId: B.entityId, provider: B.provider, providerEntityId: B.providerEntityId, assetType: "LOGO" },
+  ])
 })
 
 test("writer and presentation reject wrong identity, provider, hash, storage and rights", () => {

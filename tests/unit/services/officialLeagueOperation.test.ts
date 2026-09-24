@@ -46,3 +46,15 @@ test("receipt publication preserves pending evidence on write failure and refuse
     assert.throws(() => publishReceipt(pending, {}), /RECEIPT_EXISTS/)
   } finally { assert.equal(dirname(resolve(directory)), resolve(tmpdir())); rmSync(directory, { recursive: true }) }
 })
+
+test("approval timestamps survive PostgreSQL Date round-trip without false mismatch", () => {
+  const source = operationSource("brack")
+  const approval = { ...source, approved: true, databaseId: "rknsog8tmbl5u4xqbogxfux5", decisionRef: "synthetic",
+    approvedAt: "2026-09-24T14:21:36Z", approvedBy: "test", riskReason: "test" }
+  const candidate = approvedCandidate("brack", approval, "2026-09-24T15:00:00.000Z")
+  assert.equal(candidate.operationalAuthorizedAt, "2026-09-24T14:21:36.000Z")
+  assert.equal(candidate.riskAcceptedAt, "2026-09-24T14:21:36.000Z")
+  assert.equal(candidateMatches(candidate, { ...source, entityType: "LEAGUE", status: "VERIFIED", version: 1 },
+    { ...candidate, status: "ACTIVE", version: 1, operationalAuthorizedAt: new Date(approval.approvedAt),
+      riskAcceptedAt: new Date(approval.approvedAt), fetchedAt: new Date(candidate.fetchedAt) }), true)
+})

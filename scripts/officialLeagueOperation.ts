@@ -27,12 +27,13 @@ export function approvedCandidate(key: string, approval: Approval, fetchedAt: st
     assert.equal(approval[field], source[field], "APPROVAL_SCOPE_MISMATCH")
   assert.ok(approval.approvedBy?.trim() && approval.decisionRef.trim() && approval.riskReason.trim(), "INCOMPLETE_APPROVAL")
   assert.ok(approval.approvedAt && Number.isFinite(Date.parse(approval.approvedAt)) && Date.parse(approval.approvedAt) <= Date.now(), "INVALID_APPROVAL_TIME")
+  const authorizedAt = new Date(approval.approvedAt).toISOString() // Same instant, canonical Prisma Date round-trip.
   return { entityType: "LEAGUE", entityId: source.entityId, provider: source.provider,
     providerEntityId: source.providerEntityId, assetType: "LOGO", identityStatus: "VERIFIED",
     sourceUrl: source.sourceUrl, contentHash: source.contentHash, fetchedAt, storageUrl: null,
     rightsStatus: "REVIEW_REQUIRED", deliveryStatus: "VALIDATED", operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE",
-    displayPolicy: "DISPLAY_ALLOWED", operationalAuthorizedAt: approval.approvedAt, operationalDecisionRef: approval.decisionRef,
-    operatorRiskAccepted: true, riskAcceptedAt: approval.approvedAt, riskAcceptedBy: approval.approvedBy,
+    displayPolicy: "DISPLAY_ALLOWED", operationalAuthorizedAt: authorizedAt, operationalDecisionRef: approval.decisionRef,
+    operatorRiskAccepted: true, riskAcceptedAt: authorizedAt, riskAcceptedBy: approval.approvedBy,
     riskReason: approval.riskReason, sourceTermsUrl: source.evidenceUrl, revocable: true }
 }
 const readJson = (file: string) => JSON.parse(readFileSync(file, "utf8"))
@@ -130,7 +131,21 @@ export async function main(args: string[]) {
     publishReceipt(receipt + ".pending.json", { databaseId: production, source, candidate, before, audit,
       expected: { identity: null, latestAsset: null, activeAssetId: null }, status: "ATTEMPT_RESERVED_NO_RETRY" })
     // Exactly one image request; every failure keeps the pending marker and stops.
-    await fetchOfficialLeagueBytes(source)
+    let imageHttp: { status: number; mime: string | null; contentLength: string | null; encoding: string | null } | null = null
+    try {
+      await fetchOfficialLeagueBytes(source, async (...args) => {
+        const response = await fetch(...args)
+        imageHttp = { status: response.status, mime: response.headers.get("content-type"),
+          contentLength: response.headers.get("content-length"), encoding: response.headers.get("content-encoding") }
+        return response
+      })
+      publishReceipt(receipt + ".image-validation.json", { status: "VALIDATED", imageHttp, contentHash: source.contentHash })
+    } catch (error) {
+      const reason = error instanceof Error && /^(BRACK_|OFFICIAL_|UNKNOWN_)/.test(error.message) ? error.message :
+        error instanceof Error ? error.name : "UNKNOWN_FAILURE"
+      publishReceipt(receipt + ".image-validation.json", { status: "PRE_WRITE_VALIDATION_FAILED", imageHttp, reason })
+      throw error
+    }
     candidate = { ...candidate, fetchedAt: new Date().toISOString() }
     // Keep the exact candidate used for writing in a second immutable marker.
     publishReceipt(receipt + ".candidate.json", candidate)

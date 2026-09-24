@@ -11,8 +11,8 @@ import { ISL_SOURCE as I, BRACK_SOURCE as B, matchesOfficialLeagueSource, select
 import { isReviewedIslSvg } from "../../../lib/islSvgPolicy"
 import { fetchOfficialLeagueBytes, serveIslAsset, serveBrackAsset } from "../../../services/brackBrandDelivery"
 import { PREPARED_OFFICIAL_LEAGUE_ALLOWLIST } from "../../../services/officialLeaguePreparation"
-import { BRAND_ASSET_PILOT_ALLOWLIST, validateBrandAssetCandidate, persistBrandAssetAtomically,
-  type BrandAssetCandidate, type BrandAssetWriteStore } from "../../../services/brandAssetWrite"
+import { BRAND_ASSET_PILOT_ALLOWLIST, validateBrandAssetCandidate,
+  type BrandAssetCandidate } from "../../../services/brandAssetWrite"
 
 const bytes = readFileSync("tests/fixtures/brand-assets/isl.svg")
 const at = "2026-09-24T02:02:15.758Z"
@@ -27,19 +27,17 @@ function reference(changes: Partial<pipeline.AssetReference> = {}) {
 }
 const response = (body: Uint8Array = bytes, mime = "image/svg+xml") => new Response(new Uint8Array(body), { headers: { "content-type": mime } })
 
-test("only Brack and ISL have a prepared allowlist; neither is yet authorized in the writer", async () => {
+test("only the exact owner-approved Brack and ISL tuples extend the 40 API leagues", async () => {
   assert.deepEqual(PREPARED_OFFICIAL_LEAGUE_ALLOWLIST.map(row => row.entityId), [B.entityId, I.entityId])
-  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.length, 614)
-  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.filter(row => row.entityType === "LEAGUE").length, 40)
+  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.length, 616)
+  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.filter(row => row.entityType === "LEAGUE").length, 42)
   const r = reference()
   const candidate: BrandAssetCandidate = { ...r, ...r.identity, entityType: "LEAGUE", provider: I.provider,
     providerEntityId: I.providerEntityId, identityStatus: "VERIFIED", contentHash: I.contentHash,
     storageUrl: null, deliveryStatus: "VALIDATED" }
   validateBrandAssetCandidate(candidate, new Date(at))
-  const store: BrandAssetWriteStore = { audit: async () => { throw Error("must not audit") },
-    transaction: async () => { throw Error("must not write") } }
-  assert.equal((await persistBrandAssetAtomically(store, { candidate,
-    expected: { identity: null, latestAsset: null, activeAssetId: null } })).status, "AUTHORIZATION_MISMATCH")
+  assert.deepEqual(BRAND_ASSET_PILOT_ALLOWLIST.slice(614), PREPARED_OFFICIAL_LEAGUE_ALLOWLIST)
+  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.filter(row => row.entityType === "LEAGUE" && row.provider === "api-football").length, 40)
   for (const change of [{ provider: "api-football" as const }, { sourceUrl: I.sourceUrl + "#x" },
     { providerEntityId: "323" }, { entityId: B.entityId }, { rightsStatus: "APPROVED" as const }]) {
     assert.throws(() => validateBrandAssetCandidate({ ...candidate, ...change }, new Date(at)))
@@ -162,4 +160,28 @@ test("actual reader includes ISL negative history; UI uses controlled img, never
   assert.match(html, /src="\/api\/brand-assets\/isl"/); assert.doesNotMatch(html, /_next\/image|indiansuperleague.com/)
   const fallback = renderToStaticMarkup(React.createElement(Logo, { locale: "pt", name: "ISL", asset: reference({ displayPolicy: "DISPLAY_BLOCKED" }) }))
   assert.doesNotMatch(fallback, /<img/); assert.match(fallback, /brandAssetFallback-league/)
+})
+
+test("compressed HTTP length is wire size; decoded SVG still has exact bounds and hash", async () => {
+  for (const encoding of ["gzip", "br", "deflate"]) {
+    const decoded = await fetchOfficialLeagueBytes(I, async () => new Response(new Uint8Array(bytes), {
+      headers: { "content-type": "image/svg+xml", "content-encoding": encoding, "content-length": "10052" },
+    }))
+    assert.equal(decoded.length, I.bytes)
+  }
+  for (const headers of [
+    { "content-encoding": "gzip", "content-length": String(I.bytes + 1) },
+    { "content-encoding": "identity", "content-length": "10052" },
+    { "content-encoding": "unknown", "content-length": "10052" },
+    { "content-encoding": "gzip", "content-length": "invalid" },
+  ]) await assert.rejects(fetchOfficialLeagueBytes(I, async () => new Response(new Uint8Array(bytes), {
+    headers: { "content-type": "image/svg+xml", ...headers },
+  })), /DELIVERY_REJECTED/)
+  const changed = new Uint8Array(bytes); changed[100] ^= 1
+  await assert.rejects(fetchOfficialLeagueBytes(I, async () => new Response(changed, {
+    headers: { "content-type": "image/svg+xml", "content-encoding": "gzip", "content-length": "10052" },
+  })), /BYTES_REJECTED/)
+  await assert.rejects(fetchOfficialLeagueBytes(I, async () => new Response(new Uint8Array(I.bytes + 1), {
+    headers: { "content-type": "image/svg+xml", "content-encoding": "gzip", "content-length": "10052" },
+  })), /SIZE_REJECTED/)
 })

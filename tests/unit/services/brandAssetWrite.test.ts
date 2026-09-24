@@ -40,7 +40,8 @@ function currentPilot() {
     operatorRiskAccepted: true, riskAcceptedAt: "2026-09-17T14:30:00.000Z", riskAcceptedBy: "FutScout owner",
     riskReason: "Controlled remote beta pilot; trademark rights remain unverified.",
     sourceTermsUrl: "https://www.api-football.com/terms", revocable: true,
-    deliveryStatus: "UNVERIFIED", contentHash: null,
+    deliveryStatus: "UNVERIFIED", contentHash: [BRACK_SOURCE, ISL_SOURCE].find(source => source.provider === _identity.provider)?.contentHash ?? null,
+    ...(_identity.provider !== "api-football" ? { sourceUrl: [BRACK_SOURCE, ISL_SOURCE].find(source => source.provider === _identity.provider)!.sourceUrl } : {}),
   }))
 }
 
@@ -155,7 +156,7 @@ test("four independently verified league logos are the only new identities after
     ["cmt9d4pi304mtukucja4z7u2q", "141"], ["cmta7vu7o02496wucuxpwquwr", "41"],
     ["cmtad946t03lq9gucelzi806s", "80"], ["cmt9b3q3i00alukuc087t3u4x", "128"],
   ]
-  assert.deepEqual(BRAND_ASSET_PILOT_ALLOWLIST.slice(610), rows.map(([entityId, providerEntityId]) => ({
+  assert.deepEqual(BRAND_ASSET_PILOT_ALLOWLIST.slice(610, 614), rows.map(([entityId, providerEntityId]) => ({
     entityType: "LEAGUE", entityId, provider: "api-football", providerEntityId, assetType: "LOGO",
   })))
   assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.filter(row => row.entityType === "LEAGUE" &&
@@ -168,11 +169,11 @@ test("four independently verified league logos are the only new identities after
   }
 })
 
-test("closed 574-club and 40-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
+test("closed 574-club and 42-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
   const result = prepareBrandAssetPilotDryRun(currentPilot(), now)
-  assert.equal(result.length, 614)
+  assert.equal(result.length, 616)
   assert.equal(result.filter(row => row.identity.entityType === "CLUB").length, 574)
-  assert.equal(result.filter(row => row.identity.entityType === "LEAGUE").length, 40)
+  assert.equal(result.filter(row => row.identity.entityType === "LEAGUE").length, 42)
   assert.deepEqual(result.map(row => row.identity), [...BRAND_ASSET_PILOT_ALLOWLIST])
   assert.ok(result.every(row => !row.writable && row.action === "NOT_WRITABLE" && row.rightsStatus === "REVIEW_REQUIRED" &&
     row.displayPolicy === "DISPLAY_ALLOWED" &&
@@ -182,7 +183,7 @@ test("closed 574-club and 40-league dry-run records owner authorization but stay
     !row.blockers.includes("RIGHTS_REVIEW_REQUIRED") && row.blockers.includes("DELIVERY_NOT_VALIDATED")))
 })
 
-test("allow-list rejects a 615th candidate, replacement, reordering and Club/League type mismatch", () => {
+test("allow-list rejects a 617th candidate, replacement, reordering and Club/League type mismatch", () => {
   const pilot = currentPilot()
   assert.throws(() => prepareBrandAssetPilotDryRun([...pilot, pilot[0]], now), /ALLOWLIST/)
   assert.throws(() => prepareBrandAssetPilotDryRun([pilot[1], pilot[0], ...pilot.slice(2)], now), /ALLOWLIST/)
