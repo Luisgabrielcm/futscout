@@ -1,4 +1,5 @@
 import { getVisualAssetSrc, type ImageKind } from "./visualAssets"
+import { BRACK_SOURCE, matchesBrackSource, isBrackRemoteUrl } from "./brackBrandSource"
 
 export type AssetRightsStatus =
   | "APPROVED"
@@ -101,6 +102,9 @@ export function resolveAssetByIdentity(identity: AssetIdentity | null | undefine
 }
 
 function permittedAssetUrl(reference: AssetReference, policy: AssetPublicationPolicy): string | null {
+  const brack = reference.identity.provider === BRACK_SOURCE.provider || reference.entityId === BRACK_SOURCE.entityId ||
+    isBrackRemoteUrl(reference.sourceUrl) || isBrackRemoteUrl(reference.storageUrl ?? "")
+  if (brack && !matchesBrackSource({ ...reference, ...reference.identity })) return null
   if (reference.status !== "ACTIVE") return null
   if (reference.rightsStatus === "BLOCKED" || reference.operationalDecision === "REVOKED") return null
   if (reference.displayPolicy !== "DISPLAY_ALLOWED") return null
@@ -122,7 +126,7 @@ function permittedAssetUrl(reference: AssetReference, policy: AssetPublicationPo
       riskAcceptedAt && Number.isFinite(Date.parse(riskAcceptedAt)) &&
       riskAcceptedBy && riskReason && authorizationRef && isHttpsUrl(sourceTermsUrl)
     const publicationEnabled = reference.publicationAllowedByServer ?? policy.publicationEnabled
-    return publicationEnabled && riskAcceptanceComplete ? sourceUrl : null
+    return publicationEnabled && riskAcceptanceComplete ? (brack ? BRACK_SOURCE.deliveryPath : sourceUrl) : null
   }
   if (reference.rightsStatus === "REMOTE_ONLY") return sourceUrl
   return storageUrl ?? sourceUrl
@@ -153,7 +157,7 @@ export function deduplicateAssetReferences(references: readonly AssetReference[]
 export function resolveAssetSource(input: string | AssetReference | null | undefined, kind: ImageKind,
   policy = brandAssetPublicationPolicyFromEnvironment()): string | null {
   if (!input) return null
-  if (typeof input === "string") return getVisualAssetSrc(input, kind)
+  if (typeof input === "string") return isBrackRemoteUrl(input) ? null : getVisualAssetSrc(input, kind)
   if (input.identity.entityType !== kind || !normalizeAssetReference(input, policy)) return null
   return permittedAssetUrl(input, policy)
 }

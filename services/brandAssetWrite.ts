@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util"
 import { getVisualAssetSrc } from "../lib/visualAssets"
+import { BRACK_SOURCE, matchesBrackSource } from "../lib/brackBrandSource"
 
 export type BrandEntityType = "CLUB" | "LEAGUE"
 export type BrandAssetType = "CREST" | "LOGO"
@@ -13,7 +14,7 @@ export type BrandAssetLifecycle = "DISCOVERED" | "VALIDATED" | "ACTIVE" | "STALE
 export type BrandAssetPilotIdentity = Readonly<{
   entityType: BrandEntityType
   entityId: string
-  provider: "api-football"
+  provider: "api-football" | "official-brack-media"
   providerEntityId: string
   assetType: BrandAssetType
 }>
@@ -685,9 +686,11 @@ const validHttpsUrl = (value: string | null) => {
   } catch { return false }
 }
 
-function validateCandidate(candidate: BrandAssetCandidate, now: Date) {
+export function validateBrandAssetCandidate(candidate: BrandAssetCandidate, now: Date) {
   const compatible = candidate.entityType === "CLUB" ? candidate.assetType === "CREST" : candidate.assetType === "LOGO"
-  if (!compatible || candidate.provider !== "api-football" || candidate.sourceUrl !== expectedSourceUrl(candidate) ||
+  const sourceMatches = candidate.provider === BRACK_SOURCE.provider ? matchesBrackSource(candidate) :
+    candidate.provider === "api-football" && candidate.sourceUrl === expectedSourceUrl(candidate)
+  if (!compatible || !sourceMatches ||
       !getVisualAssetSrc(candidate.sourceUrl, kind(candidate.entityType)) ||
       (candidate.storageUrl !== null && !getVisualAssetSrc(candidate.storageUrl, kind(candidate.entityType))) ||
       !Number.isFinite(Date.parse(candidate.fetchedAt)) || Date.parse(candidate.fetchedAt) > now.getTime() ||
@@ -733,7 +736,7 @@ export function prepareBrandAssetPilotDryRun(candidates: readonly BrandAssetCand
   if (candidates.length !== BRAND_ASSET_PILOT_ALLOWLIST.length || candidates.some((candidate, index) =>
     identityKey(candidate) !== identityKey(BRAND_ASSET_PILOT_ALLOWLIST[index]))) throw new Error("BRAND_ASSET_ALLOWLIST_MISMATCH")
   return candidates.map(candidate => {
-    validateCandidate(candidate, now)
+    validateBrandAssetCandidate(candidate, now)
     const blocked = blockers(candidate)
     const writable = blocked.length === 0
     return { identity: BRAND_ASSET_PILOT_ALLOWLIST.find(item => identityKey(item) === identityKey(candidate))!,
@@ -778,6 +781,7 @@ export type BrandAssetAudit = Readonly<{
 }>
 
 export type BrandAssetWriteTransaction = {
+  hasLeaguePublicationBlock?(entityId: string): Promise<boolean>
   readLocalEntity(entityType: BrandEntityType, entityId: string): Promise<{ id: string; providerEntityId: string | null } | null>
   findIdentityByLocal(input: BrandAssetPilotIdentity): Promise<BrandIdentityRow | null>
   findIdentityByProvider(input: BrandAssetPilotIdentity): Promise<BrandIdentityRow | null>
@@ -833,7 +837,7 @@ export async function persistBrandAssetAtomically(store: BrandAssetWriteStore, r
   const pin = structuredClone(request.expected)
   const allowed = BRAND_ASSET_PILOT_ALLOWLIST.some(item => identityKey(item) === identityKey(candidate))
   if (!allowed) return result(request, "AUTHORIZATION_MISMATCH", "NOT_STARTED", "ALLOWLIST_MISMATCH")
-  try { validateCandidate(candidate, clock()) } catch { return result(request, "AUTHORIZATION_MISMATCH", "NOT_STARTED", "CANDIDATE_INVALID") }
+  try { validateBrandAssetCandidate(candidate, clock()) } catch { return result(request, "AUTHORIZATION_MISMATCH", "NOT_STARTED", "CANDIDATE_INVALID") }
   const blocked = blockers(candidate)
   if (blocked.length) return result(request, "NOT_WRITABLE", "NOT_STARTED", blocked.join("+"))
 
@@ -845,6 +849,10 @@ export async function persistBrandAssetAtomically(store: BrandAssetWriteStore, r
       const local = await tx.readLocalEntity(candidate.entityType, candidate.entityId)
       if (!local || (candidate.entityType === "CLUB" && local.providerEntityId !== candidate.providerEntityId)) {
         throw new BrandWriteAbort("IDENTITY_CONFLICT", "LOCAL_IDENTITY_MISMATCH")
+      }
+      if (candidate.provider === BRACK_SOURCE.provider && (!tx.hasLeaguePublicationBlock ||
+          await tx.hasLeaguePublicationBlock(candidate.entityId))) {
+        throw new BrandWriteAbort("IDENTITY_CONFLICT", "OFFICIAL_SOURCE_PUBLICATION_BLOCK")
       }
       const providerOwner = await tx.findIdentityByProvider(candidate)
       if (providerOwner && providerOwner.entityId !== candidate.entityId) throw new BrandWriteAbort("IDENTITY_CONFLICT", "PROVIDER_OCCUPIED")

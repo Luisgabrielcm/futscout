@@ -101,7 +101,8 @@ test("controlled publication flag lets REVIEW_REQUIRED assets reach club and pla
 test("registry reader uses exact local identities and keeps rights enforcement in the shared pipeline", () => {
   const reader = readFileSync("services/brandAssetReadService.ts", "utf8")
   assert.match(reader, /status:\s*"VERIFIED"/)
-  assert.match(reader, /where:\s*\{ status:\s*"ACTIVE" \}/)
+  assert.match(reader, /item.status === "ACTIVE"/)
+  assert.match(reader, /selectBrandIdentities\(identities\)/)
   assert.match(reader, /entityId:\s*\{ in: clubIds \}/)
   assert.match(reader, /entityId:\s*\{ in: leagueIds \}/)
   assert.match(reader, /publicationAllowedByServer:\s*publicationPolicy\.publicationEnabled/)

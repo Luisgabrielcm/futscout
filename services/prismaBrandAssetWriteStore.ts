@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "../app/generated/prisma/client"
 import { withPrismaReadOnly } from "../lib/prismaReadOnly"
+import { BRACK_SOURCE } from "../lib/brackBrandSource"
 import type { BrandAssetAudit, BrandAssetCandidate, BrandAssetPilotIdentity, BrandAssetRow,
   BrandAssetType, BrandAssetWriteStore, BrandEntityType, BrandIdentityRow } from "./brandAssetWrite"
 
@@ -31,6 +32,13 @@ async function audit(db: Pick<PrismaClient, "$transaction">): Promise<BrandAsset
 
 function transactionPort(tx: Prisma.TransactionClient) {
   return {
+    async hasLeaguePublicationBlock(entityId: string) {
+      return (await tx.brandAssetIdentity.findFirst({ where: { entityType: "LEAGUE", entityId, OR: [
+        { status: "BLOCKED" }, { assets: { some: { assetType: "LOGO", OR: [
+          { rightsStatus: "BLOCKED" }, { operationalDecision: "REVOKED" }, { displayPolicy: "DISPLAY_BLOCKED" },
+        ] } } },
+      ] }, select: { id: true } })) !== null
+    },
     async readLocalEntity(entityType: BrandEntityType, entityId: string) {
       if (entityType === "CLUB") {
         const row = await tx.club.findUnique({ where: { id: entityId }, select: { id: true, apiFootballId: true } })
@@ -71,7 +79,10 @@ function transactionPort(tx: Prisma.TransactionClient) {
     async createIdentity(input: BrandAssetCandidate) {
       return decodeIdentity(await tx.brandAssetIdentity.create({ data: { entityType: input.entityType, entityId: input.entityId,
         provider: input.provider, providerEntityId: input.providerEntityId, status: "VERIFIED", version: 1,
-        verifiedAt: new Date(input.fetchedAt), evidence: { source: "guarded-brand-asset-write" } },
+        verifiedAt: new Date(input.fetchedAt), evidence: input.provider === BRACK_SOURCE.provider
+          ? { source: "guarded-brand-asset-write", evidenceUrl: BRACK_SOURCE.evidenceUrl,
+            season: BRACK_SOURCE.season, contentHash: BRACK_SOURCE.contentHash }
+          : { source: "guarded-brand-asset-write" } },
         select: { id: true, entityType: true, entityId: true, provider: true, providerEntityId: true, status: true, version: true } }))
     },
     async markActiveStale(id: string, version: number) {

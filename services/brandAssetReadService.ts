@@ -2,6 +2,7 @@ import "server-only"
 
 import { prisma } from "../lib/prisma"
 import { brandAssetPublicationPolicyFromEnvironment, type AssetReference } from "../lib/assetPipeline"
+import { BRACK_SOURCE, selectBrandIdentities } from "../lib/brackBrandSource"
 
 export type BrandAssetMaps = Readonly<{
   clubs: ReadonlyMap<string, AssetReference>
@@ -18,7 +19,7 @@ export async function getBrandAssetsForEntities(input: Readonly<{
 
   const identities = await prisma.brandAssetIdentity.findMany({
     where: {
-      status: "VERIFIED",
+      AND: [{ OR: [{ status: "VERIFIED" }, { entityType: "LEAGUE", entityId: BRACK_SOURCE.entityId }] }],
       OR: [
         ...(clubIds.length ? [{ entityType: "CLUB" as const, entityId: { in: clubIds } }] : []),
         ...(leagueIds.length ? [{ entityType: "LEAGUE" as const, entityId: { in: leagueIds } }] : []),
@@ -29,8 +30,9 @@ export async function getBrandAssetsForEntities(input: Readonly<{
       entityId: true,
       provider: true,
       providerEntityId: true,
+      status: true,
       assets: {
-        where: { status: "ACTIVE" },
+        // Include negative history: Brack must never recover through another provider.
         orderBy: { version: "desc" },
         select: {
           assetType: true,
@@ -59,9 +61,9 @@ export async function getBrandAssetsForEntities(input: Readonly<{
   const clubs = new Map<string, AssetReference>()
   const leagues = new Map<string, AssetReference>()
   const publicationPolicy = brandAssetPublicationPolicyFromEnvironment()
-  for (const identity of identities) {
+  for (const identity of selectBrandIdentities(identities)) {
     const expectedType = identity.entityType === "CLUB" ? "CREST" : "LOGO"
-    const asset = identity.assets.find(item => item.assetType === expectedType)
+    const asset = identity.assets.find(item => item.assetType === expectedType && item.status === "ACTIVE")
     if (!asset) continue
     const reference: AssetReference = {
       identity: {
