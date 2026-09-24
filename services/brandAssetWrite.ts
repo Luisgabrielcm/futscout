@@ -629,6 +629,10 @@ export const BRAND_ASSET_PILOT_ALLOWLIST = [
   { entityType: "LEAGUE", entityId: "cmt9c3i3502dgukuc28vz7prp", provider: "api-football", providerEntityId: "13", assetType: "LOGO" },
   { entityType: "LEAGUE", entityId: "cmtdae90p04wlogucj7s3c2in", provider: "api-football", providerEntityId: "11", assetType: "LOGO" },
   { entityType: "CLUB", entityId: "cmt9g1wkq037v1sucum6ntyxn", provider: "api-football", providerEntityId: "104", assetType: "CREST" },
+  { entityType: "LEAGUE", entityId: "cmt9d4pi304mtukucja4z7u2q", provider: "api-football", providerEntityId: "141", assetType: "LOGO" },
+  { entityType: "LEAGUE", entityId: "cmta7vu7o02496wucuxpwquwr", provider: "api-football", providerEntityId: "41", assetType: "LOGO" },
+  { entityType: "LEAGUE", entityId: "cmtad946t03lq9gucelzi806s", provider: "api-football", providerEntityId: "80", assetType: "LOGO" },
+  { entityType: "LEAGUE", entityId: "cmt9b3q3i00alukuc087t3u4x", provider: "api-football", providerEntityId: "128", assetType: "LOGO" },
 ] as const satisfies readonly BrandAssetPilotIdentity[]
 
 export type BrandAssetCandidate = BrandAssetPilotIdentity & Readonly<{
