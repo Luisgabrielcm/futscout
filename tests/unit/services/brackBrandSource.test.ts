@@ -8,7 +8,7 @@ import * as brackPolicy from "../../../lib/brackBrandSource"
 import * as pipeline from "../../../lib/assetPipeline"
 import { BRACK_SOURCE as B, selectBrandIdentities } from "../../../lib/brackBrandSource"
 import { resolveAssetSource, type AssetReference } from "../../../lib/assetPipeline"
-import { createBrackRequestGate, fetchBrackBytes, serveBrackAsset } from "../../../services/brackBrandDelivery"
+import { createBrackRequestGate, fetchBrackBytes, serveBrackAsset as serveConfiguredBrackAsset } from "../../../services/brackBrandDelivery"
 import { BRAND_ASSET_PILOT_ALLOWLIST, validateBrandAssetCandidate, persistBrandAssetAtomically,
   type BrandAssetCandidate, type BrandAssetWriteStore } from "../../../services/brandAssetWrite"
 
@@ -35,6 +35,61 @@ function response(body: Uint8Array = bytes, headers: Record<string, string> = {}
   return new Response(new Uint8Array(body), { headers: { "content-type": "image/png", ...headers } })
 }
 const request = () => new Request(`https://futscout.test${B.deliveryPath}`)
+// Existing delivery tests explicitly opt in; production defaults to disabled.
+function serveBrackAsset(...args: Parameters<typeof serveConfiguredBrackAsset>) {
+  return serveConfiguredBrackAsset(args[0], args[1], args[2], args[3], true)
+}
+
+test("release gate defaults off and denies even an authorized asset before DB, admission or network", async () => {
+  const previous = process.env.BRACK_BRAND_ASSET_DELIVERY_ENABLED
+  let reads = 0, downloads = 0, admissions = 0
+  const read = async () => { reads++; return reference() }
+  const fetcher: typeof fetch = async () => { downloads++; return response() }
+  const admit = () => { admissions++; return () => {} }
+  try {
+    for (const value of [undefined, "false", "TRUE", "1", ""]) {
+      if (value === undefined) delete process.env.BRACK_BRAND_ASSET_DELIVERY_ENABLED
+      else process.env.BRACK_BRAND_ASSET_DELIVERY_ENABLED = value
+      const result = await serveConfiguredBrackAsset(request(), read, fetcher, admit)
+      assert.equal(result.status, 404)
+      assert.equal((await result.arrayBuffer()).byteLength, 0)
+      assert.match(result.headers.get("cache-control")!, /no-store/)
+    }
+    assert.deepEqual([reads, downloads, admissions], [0, 0, 0])
+    process.env.BRACK_BRAND_ASSET_DELIVERY_ENABLED = "true"
+    assert.equal((await serveConfiguredBrackAsset(request(), read, fetcher, admit)).status, 200)
+    assert.deepEqual([reads, downloads, admissions], [2, 1, 1])
+    assert.equal((await serveConfiguredBrackAsset(request(), async () => undefined, fetcher, admit)).status, 404)
+    assert.equal(downloads, 1)
+  } finally {
+    if (previous === undefined) delete process.env.BRACK_BRAND_ASSET_DELIVERY_ENABLED
+    else process.env.BRACK_BRAND_ASSET_DELIVERY_ENABLED = previous
+  }
+})
+
+test("actual GET returns 404 with release disabled or with enabled release and no Registry asset", async () => {
+  const previous = process.env.BRACK_BRAND_ASSET_DELIVERY_ENABLED
+  let reads = 0
+  const route = loadCatalogModule<typeof import("../../../app/api/brand-assets/brack/route")>(
+    "app/api/brand-assets/brack/route.ts", {
+      "../../../../lib/brackBrandSource": brackPolicy,
+      "../../../../services/brackBrandDelivery": { serveBrackAsset: serveConfiguredBrackAsset },
+      "../../../../services/brandAssetReadService": { getBrandAssetsForEntities: async () => {
+        reads++; return { leagues: new Map(), clubs: new Map() }
+      } },
+    })
+  try {
+    delete process.env.BRACK_BRAND_ASSET_DELIVERY_ENABLED
+    assert.equal((await route.GET(request())).status, 404)
+    assert.equal(reads, 0)
+    process.env.BRACK_BRAND_ASSET_DELIVERY_ENABLED = "true"
+    assert.equal((await route.GET(request())).status, 404)
+    assert.equal(reads, 1)
+  } finally {
+    if (previous === undefined) delete process.env.BRACK_BRAND_ASSET_DELIVERY_ENABLED
+    else process.env.BRACK_BRAND_ASSET_DELIVERY_ENABLED = previous
+  }
+})
 function row(provider: string = B.provider, changes = {}) {
   return { entityType: "LEAGUE", entityId: B.entityId, provider,
     providerEntityId: provider === B.provider ? B.providerEntityId : "207", status: "VERIFIED",

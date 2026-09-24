@@ -3,6 +3,9 @@ import { test } from "node:test"
 import { readFileSync } from "node:fs"
 import type { PrismaClient } from "../../../app/generated/prisma/client"
 import { createPrismaBrandAssetWriteStore } from "../../../services/prismaBrandAssetWriteStore"
+import { loadCatalogModule } from "../../helpers/loadCatalogModule"
+import * as brackPolicy from "../../../lib/brackBrandSource"
+import * as pipeline from "../../../lib/assetPipeline"
 
 test("adapter looks up only nonblocked local identities but reserves every provider ID including history", async () => {
   const input = { entityType: "CLUB" as const, entityId: "local", provider: "api-football" as const, providerEntityId: "104", assetType: "CREST" as const }
@@ -38,10 +41,28 @@ test("prepared SQL atomically replaces only local uniqueness, keeps review reser
   assert.doesNotMatch(schema, /@@unique\(\[entityType, entityId, provider\]\)/)
 })
 
-test("reader never selects BLOCKED history and revocation still denies image delivery", () => {
-  const reader = readFileSync("services/brandAssetReadService.ts", "utf8")
-  assert.match(reader, /where:\s*\{\s*status: "VERIFIED"/)
-  const pipeline = readFileSync("lib/assetPipeline.ts", "utf8")
-  assert.match(pipeline, /operationalDecision === "REVOKED"\) return null/)
-  assert.match(pipeline, /displayPolicy !== "DISPLAY_ALLOWED"\) return null/)
+test("reader selects Red Star 104 while keeping blocked 4396 history and revoked images invisible", async () => {
+  const asset = { assetType: "CREST", status: "ACTIVE", rightsStatus: "APPROVED",
+    operationalDecision: "NOT_AUTHORIZED", displayPolicy: "DISPLAY_ALLOWED", version: 1,
+    fetchedAt: new Date("2026-09-23T00:00:00Z"), storageUrl: null,
+    sourceUrl: "https://media.api-sports.io/football/teams/104.png" }
+  const active = { entityType: "CLUB", entityId: "red-star", provider: "api-football",
+    providerEntityId: "104", status: "VERIFIED", assets: [asset] }
+  const blocked = { ...active, providerEntityId: "4396", status: "BLOCKED",
+    assets: [{ ...asset, sourceUrl: "https://media.api-sports.io/football/teams/4396.png",
+      operationalDecision: "REVOKED", displayPolicy: "DISPLAY_BLOCKED" }] }
+  let rows = [blocked, active]
+  const reader = loadCatalogModule<typeof import("../../../services/brandAssetReadService")>(
+    "services/brandAssetReadService.ts", {
+      "server-only": {}, "../lib/brackBrandSource": brackPolicy, "../lib/assetPipeline": pipeline,
+      "../lib/prisma": { prisma: { brandAssetIdentity: { findMany: async () => rows } } },
+    })
+  const selected = (await reader.getBrandAssetsForEntities({ clubIds: ["red-star"] })).clubs.get("red-star")!
+  assert.equal(selected.identity.providerEntityId, "104")
+  assert.equal(pipeline.resolveAssetSource(selected, "club"), asset.sourceUrl)
+  for (const changes of [{ operationalDecision: "REVOKED" as const }, { displayPolicy: "DISPLAY_BLOCKED" as const }]) {
+    assert.equal(pipeline.resolveAssetSource({ ...selected, ...changes }, "club"), null)
+  }
+  rows = [blocked]
+  assert.equal((await reader.getBrandAssetsForEntities({ clubIds: ["red-star"] })).clubs.size, 0)
 })

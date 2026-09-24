@@ -64,8 +64,12 @@ export function createBrackRequestGate(clock: () => number = () => performance.n
 const requestGate = createBrackRequestGate()
 
 export async function serveBrackAsset(request: Request, read: () => Promise<AssetReference | undefined>,
-  fetcher: typeof fetch = fetch, admit = requestGate): Promise<Response> {
+  fetcher: typeof fetch = fetch, admit = requestGate,
+  enabled = process.env.BRACK_BRAND_ASSET_DELIVERY_ENABLED === "true"): Promise<Response> {
   const deny = (status: number) => new Response(null, { status, headers })
+  // Independent release gate: the writer allowlist is not a reader authorization control.
+  // Fail closed before rate admission, database access or downloading any image.
+  if (!enabled) return deny(404)
   if (request.method !== "GET" || new URL(request.url).search) return deny(404)
   const release = admit()
   if (!release) return new Response(null, { status: 429, headers: { ...headers, "Retry-After": "60" } })
