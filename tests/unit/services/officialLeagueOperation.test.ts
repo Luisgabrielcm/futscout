@@ -6,7 +6,7 @@ import { join, dirname, resolve } from "node:path"
 import { approvedCandidate, operationSource, publishReceipt, candidateMatches } from "../../../scripts/officialLeagueOperation"
 
 test("operation refuses unapproved or scope-mismatched decisions before any database access", () => {
-  for (const key of ["brack", "isl"]) {
+  for (const key of ["brack", "isl", "roshn"]) {
     const source = operationSource(key), at = new Date().toISOString()
     const approval = { ...source, approved: false, databaseId: "rknsog8tmbl5u4xqbogxfux5", decisionRef: "synthetic",
       approvedAt: at, approvedBy: "test", riskReason: "test" }
@@ -27,7 +27,7 @@ test("operation refuses unapproved or scope-mismatched decisions before any data
       assert.throws(() => approvedCandidate(key, { ...valid, ...change }, at))
     }
   }
-  assert.throws(() => operationSource("roshn"))
+  assert.throws(() => operationSource("cyprus"))
 })
 
 test("receipt publication preserves pending evidence on write failure and refuses overwrites", () => {

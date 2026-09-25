@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { test } from "node:test"
-import { BRACK_SOURCE, ISL_SOURCE } from "../../../lib/brackBrandSource"
+import { OFFICIAL_LEAGUE_SOURCES } from "../../../lib/brackBrandSource"
 import { BRAND_ASSET_PILOT_ALLOWLIST, persistBrandAssetAtomically, prepareBrandAssetPilotDryRun,
   type BrandAssetAudit, type BrandAssetCandidate, type BrandAssetRow, type BrandAssetWriteStore,
   type BrandIdentityRow, type BrandAssetPilotIdentity } from "../../../services/brandAssetWrite"
@@ -40,8 +40,8 @@ function currentPilot() {
     operatorRiskAccepted: true, riskAcceptedAt: "2026-09-17T14:30:00.000Z", riskAcceptedBy: "FutScout owner",
     riskReason: "Controlled remote beta pilot; trademark rights remain unverified.",
     sourceTermsUrl: "https://www.api-football.com/terms", revocable: true,
-    deliveryStatus: "UNVERIFIED", contentHash: [BRACK_SOURCE, ISL_SOURCE].find(source => source.provider === _identity.provider)?.contentHash ?? null,
-    ...(_identity.provider !== "api-football" ? { sourceUrl: [BRACK_SOURCE, ISL_SOURCE].find(source => source.provider === _identity.provider)!.sourceUrl } : {}),
+    deliveryStatus: "UNVERIFIED", contentHash: OFFICIAL_LEAGUE_SOURCES.find(source => source.provider === _identity.provider)?.contentHash ?? null,
+    ...(_identity.provider !== "api-football" ? { sourceUrl: OFFICIAL_LEAGUE_SOURCES.find(source => source.provider === _identity.provider)!.sourceUrl } : {}),
   }))
 }
 
@@ -120,7 +120,7 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
 
 const emptyExpected = { identity: null, latestAsset: null, activeAssetId: null }
 
-for (const source of [BRACK_SOURCE, ISL_SOURCE]) test(`synthetically authorized ${source.provider} uses existing atomic writer, rollback, conflict and indeterminate controls`, async () => {
+for (const source of OFFICIAL_LEAGUE_SOURCES) test(`synthetically authorized ${source.provider} uses existing atomic writer, rollback, conflict and indeterminate controls`, async () => {
   // In-memory authorization fixture only; the checked-in allowlist stays unchanged.
   const allowlist = BRAND_ASSET_PILOT_ALLOWLIST as unknown as BrandAssetPilotIdentity[]
   const identity: BrandAssetPilotIdentity = { entityType: "LEAGUE", entityId: source.entityId,
@@ -169,11 +169,11 @@ test("four independently verified league logos are the only new identities after
   }
 })
 
-test("closed 574-club and 42-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
+test("closed 574-club and 43-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
   const result = prepareBrandAssetPilotDryRun(currentPilot(), now)
-  assert.equal(result.length, 616)
+  assert.equal(result.length, 617)
   assert.equal(result.filter(row => row.identity.entityType === "CLUB").length, 574)
-  assert.equal(result.filter(row => row.identity.entityType === "LEAGUE").length, 42)
+  assert.equal(result.filter(row => row.identity.entityType === "LEAGUE").length, 43)
   assert.deepEqual(result.map(row => row.identity), [...BRAND_ASSET_PILOT_ALLOWLIST])
   assert.ok(result.every(row => !row.writable && row.action === "NOT_WRITABLE" && row.rightsStatus === "REVIEW_REQUIRED" &&
     row.displayPolicy === "DISPLAY_ALLOWED" &&
@@ -183,7 +183,7 @@ test("closed 574-club and 42-league dry-run records owner authorization but stay
     !row.blockers.includes("RIGHTS_REVIEW_REQUIRED") && row.blockers.includes("DELIVERY_NOT_VALIDATED")))
 })
 
-test("allow-list rejects a 617th candidate, replacement, reordering and Club/League type mismatch", () => {
+test("allow-list rejects a 618th candidate, replacement, reordering and Club/League type mismatch", () => {
   const pilot = currentPilot()
   assert.throws(() => prepareBrandAssetPilotDryRun([...pilot, pilot[0]], now), /ALLOWLIST/)
   assert.throws(() => prepareBrandAssetPilotDryRun([pilot[1], pilot[0], ...pilot.slice(2)], now), /ALLOWLIST/)

@@ -22,7 +22,16 @@ export const ISL_SOURCE = Object.freeze({
   evidenceUrl: "https://www.indiansuperleague.com/standings/1000",
   season: "2025/26", deliveryPath: "/api/brand-assets/isl", bytes: 22329, width: 74, height: 74,
 })
-export const OFFICIAL_LEAGUE_SOURCES = Object.freeze([BRACK_SOURCE, ISL_SOURCE])
+// Owner explicitly chose the current 2026/27 brand; this is not a 2025/26 claim.
+export const ROSHN_SOURCE = Object.freeze({
+  entityId: "cmt99f99p005gvsuclbx5elkf", provider: "official-spl",
+  providerEntityId: "v1785321708/prd/assets/icons/Roshn-Saudi-League_pchauk.png",
+  sourceUrl: "https://images.spl.com.sa/image/private/t_q_good/v1785321708/prd/assets/icons/Roshn-Saudi-League_pchauk.png",
+  contentHash: "30f9b6a053a80f9b45e9c77b99c62efc3d73dd1da3d3d9295d70b609788a8bc1",
+  evidenceUrl: "https://www.spl.com.sa/en", season: "2026/27",
+  deliveryPath: "/api/brand-assets/roshn", bytes: 32409, width: 512, height: 512,
+})
+export const OFFICIAL_LEAGUE_SOURCES = Object.freeze([BRACK_SOURCE, ISL_SOURCE, ROSHN_SOURCE])
 export function officialLeagueSource(entityId: string) {
   return OFFICIAL_LEAGUE_SOURCES.find(source => source.entityId === entityId)
 }

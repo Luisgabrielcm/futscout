@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import * as sources from "../../../lib/brackBrandSource"
 import * as pipeline from "../../../lib/assetPipeline"
-import { ISL_SOURCE as I, BRACK_SOURCE as B, matchesOfficialLeagueSource, selectBrandIdentities } from "../../../lib/brackBrandSource"
+import { ISL_SOURCE as I, BRACK_SOURCE as B, ROSHN_SOURCE as R, matchesOfficialLeagueSource, selectBrandIdentities } from "../../../lib/brackBrandSource"
 import { isReviewedIslSvg } from "../../../lib/islSvgPolicy"
 import { fetchOfficialLeagueBytes, serveIslAsset, serveBrackAsset } from "../../../services/brackBrandDelivery"
 import { PREPARED_OFFICIAL_LEAGUE_ALLOWLIST } from "../../../services/officialLeaguePreparation"
@@ -27,10 +27,10 @@ function reference(changes: Partial<pipeline.AssetReference> = {}) {
 }
 const response = (body: Uint8Array = bytes, mime = "image/svg+xml") => new Response(new Uint8Array(body), { headers: { "content-type": mime } })
 
-test("only the exact owner-approved Brack and ISL tuples extend the 40 API leagues", async () => {
-  assert.deepEqual(PREPARED_OFFICIAL_LEAGUE_ALLOWLIST.map(row => row.entityId), [B.entityId, I.entityId])
-  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.length, 616)
-  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.filter(row => row.entityType === "LEAGUE").length, 42)
+test("only the three exact owner-approved official tuples extend the 40 API leagues", async () => {
+  assert.deepEqual(PREPARED_OFFICIAL_LEAGUE_ALLOWLIST.map(row => row.entityId), [B.entityId, I.entityId, R.entityId])
+  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.length, 617)
+  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.filter(row => row.entityType === "LEAGUE").length, 43)
   const r = reference()
   const candidate: BrandAssetCandidate = { ...r, ...r.identity, entityType: "LEAGUE", provider: I.provider,
     providerEntityId: I.providerEntityId, identityStatus: "VERIFIED", contentHash: I.contentHash,

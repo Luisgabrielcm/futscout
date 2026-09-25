@@ -14,7 +14,7 @@ export type BrandAssetLifecycle = "DISCOVERED" | "VALIDATED" | "ACTIVE" | "STALE
 export type BrandAssetPilotIdentity = Readonly<{
   entityType: BrandEntityType
   entityId: string
-  provider: "api-football" | "official-brack-media" | "official-isl"
+  provider: "api-football" | "official-brack-media" | "official-isl" | "official-spl"
   providerEntityId: string
   assetType: BrandAssetType
 }>
@@ -637,6 +637,8 @@ export const BRAND_ASSET_PILOT_ALLOWLIST = [
   // Owner authorization: docs/brack-isl-operational-decision-draft.md (2026-09-24).
   { entityType: "LEAGUE", entityId: "cmt9cdhm202ycukuc9eatc0la", provider: "official-brack-media", providerEntityId: "236618", assetType: "LOGO" },
   { entityType: "LEAGUE", entityId: "cmtacvytc02r59guc438hbrlo", provider: "official-isl", providerEntityId: "static-assets/images/svg/isl-logo.svg?v=100.54", assetType: "LOGO" },
+  // Owner chose the current 2026/27 brand: docs/roshn-operational-decision.md.
+  { entityType: "LEAGUE", entityId: "cmt99f99p005gvsuclbx5elkf", provider: "official-spl", providerEntityId: "v1785321708/prd/assets/icons/Roshn-Saudi-League_pchauk.png", assetType: "LOGO" },
 ] as const satisfies readonly BrandAssetPilotIdentity[]
 
 export type BrandAssetCandidate = BrandAssetPilotIdentity & Readonly<{

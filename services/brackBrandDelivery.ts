@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { BRACK_SOURCE, ISL_SOURCE, OFFICIAL_LEAGUE_SOURCES } from "../lib/brackBrandSource"
+import { BRACK_SOURCE, ISL_SOURCE, ROSHN_SOURCE, OFFICIAL_LEAGUE_SOURCES } from "../lib/brackBrandSource"
 import { resolveAssetSource, type AssetReference } from "../lib/assetPipeline"
 import { isReviewedIslSvg } from "../lib/islSvgPolicy"
 
@@ -79,6 +79,7 @@ export function createBrackRequestGate(clock: () => number = () => performance.n
 }
 const requestGate = createBrackRequestGate()
 const islRequestGate = createBrackRequestGate()
+const roshnRequestGate = createBrackRequestGate()
 
 export async function serveBrackAsset(request: Request, read: () => Promise<AssetReference | undefined>,
   fetcher: typeof fetch = fetch, admit = requestGate,
@@ -90,6 +91,12 @@ export async function serveIslAsset(request: Request, read: () => Promise<AssetR
   fetcher: typeof fetch = fetch, admit = islRequestGate,
   enabled = process.env.ISL_BRAND_ASSET_DELIVERY_ENABLED === "true"): Promise<Response> {
   return serveOfficialLeagueAsset(ISL_SOURCE, request, read, fetcher, admit, enabled)
+}
+
+export async function serveRoshnAsset(request: Request, read: () => Promise<AssetReference | undefined>,
+  fetcher: typeof fetch = fetch, admit = roshnRequestGate,
+  enabled = process.env.ROSHN_BRAND_ASSET_DELIVERY_ENABLED === "true"): Promise<Response> {
+  return serveOfficialLeagueAsset(ROSHN_SOURCE, request, read, fetcher, admit, enabled)
 }
 
 async function serveOfficialLeagueAsset(source: OfficialSource, request: Request,
