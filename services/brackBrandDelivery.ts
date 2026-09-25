@@ -8,15 +8,37 @@ import { isReviewedPunjabSvg } from "../lib/punjabSvgPolicy"
 
 type OfficialSource = (typeof OFFICIAL_LEAGUE_SOURCES)[number] | typeof PUNJAB_SOURCE
 const mimeFor = (source: OfficialSource) => source === ISL_SOURCE || source === PUNJAB_SOURCE ? "image/svg+xml" : source === CYPRUS_SOURCE ? "image/jpeg" : "image/png"
+type DeliveryPhase = "read-before" | "fetch-headers" | "fetch-body" | "validate" | "read-after"
+type DeliveryObservation = { phase: DeliveryPhase; httpStatus?: number; mime?: string; encoding?: string;
+  declaredBytes?: number | null; receivedBytes?: number; redirected?: boolean; exactResponseUrl?: boolean }
+const safeToken = (value: string | null, allowed: readonly string[]) => value !== null && allowed.includes(value) ? value : value === null ? "missing" : "other"
+function deliveryErrorCode(error: unknown): string {
+  if (!(error instanceof Error)) return "UNCLASSIFIED"
+  const known = ["UNKNOWN_OFFICIAL_SOURCE", "BRACK_DELIVERY_REJECTED", "BRACK_EMPTY_BODY", "BRACK_SIZE_REJECTED", "BRACK_BYTES_REJECTED", "OFFICIAL_FORMAT_REJECTED"]
+  if (known.includes(error.message)) return error.message
+  if (error.name === "TimeoutError" || error.name === "AbortError") return "DEADLINE_OR_ABORT"
+  const code = "code" in error ? error.code : undefined
+  if (["P1000", "P1001", "P1002", "P1008", "P1017", "P2024"].includes(String(code))) return "DATABASE_CONNECTION_ERROR"
+  if (error.name === "PrismaClientKnownRequestError" || error.name === "PrismaClientUnknownRequestError") return "DATABASE_QUERY_ERROR"
+  const cause = error.cause
+  const causeCode = cause && typeof cause === "object" && "code" in cause ? cause.code : undefined
+  const transportCodes = ["ENOTFOUND", "EAI_AGAIN", "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "UND_ERR_CONNECT_TIMEOUT",
+    "CERT_HAS_EXPIRED", "UNABLE_TO_VERIFY_LEAF_SIGNATURE", "DEPTH_ZERO_SELF_SIGNED_CERT", "ERR_TLS_CERT_ALTNAME_INVALID"]
+  if (typeof causeCode === "string" && transportCodes.includes(causeCode)) return "TRANSPORT_" + causeCode
+  if (error instanceof TypeError) return "TYPE_OR_TRANSPORT_ERROR"
+  return "UNCLASSIFIED"
+}
 
 /** Fixed destination, bounded memory, no redirect, no persistent cache, no retry. */
 export async function fetchBrackBytes(fetcher: typeof fetch = fetch): Promise<Uint8Array> {
   return fetchOfficialLeagueBytes(BRACK_SOURCE, fetcher)
 }
 
-export async function fetchOfficialLeagueBytes(source: OfficialSource, fetcher: typeof fetch = fetch): Promise<Uint8Array> {
+export async function fetchOfficialLeagueBytes(source: OfficialSource, fetcher: typeof fetch = fetch,
+  observe?: (event: DeliveryObservation) => void): Promise<Uint8Array> {
   if (source !== PUNJAB_SOURCE && !OFFICIAL_LEAGUE_SOURCES.some(known => known === source)) throw new Error("UNKNOWN_OFFICIAL_SOURCE")
   const signal = AbortSignal.timeout(8000)
+  observe?.({ phase: "fetch-headers" })
   const response = await fetcher(source.sourceUrl, {
     redirect: "manual", cache: "no-store", signal,
     headers: { Accept: mimeFor(source) },
@@ -25,6 +47,12 @@ export async function fetchOfficialLeagueBytes(source: OfficialSource, fetcher: 
   // Bound both declared wire size and the decoded stream; hash pins decoded bytes.
   const encoding = response.headers.get("content-encoding")?.trim().toLowerCase() ?? "identity"
   const declaredLength = response.headers.has("content-length") ? Number(response.headers.get("content-length")) : null
+  observe?.({ phase: "fetch-headers", httpStatus: response.status,
+    mime: safeToken(response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() ?? null,
+      ["image/png", "image/jpeg", "image/svg+xml", "image/webp", "text/html", "application/json", "application/octet-stream"]),
+    encoding: safeToken(encoding, ["identity", "gzip", "br", "deflate"]),
+    declaredBytes: declaredLength !== null && Number.isSafeInteger(declaredLength) && declaredLength >= 0 ? declaredLength : null,
+    redirected: response.redirected, exactResponseUrl: response.url === "" || response.url === source.sourceUrl })
   const invalidLength = declaredLength !== null && (!Number.isSafeInteger(declaredLength) || declaredLength < 0 ||
     (encoding === "identity" ? declaredLength !== source.bytes : declaredLength > source.bytes))
   if (signal.aborted || response.status !== 200 || response.redirected ||
@@ -40,6 +68,7 @@ export async function fetchOfficialLeagueBytes(source: OfficialSource, fetcher: 
   // Transport buffers belong to fetch; never copy an oversized chunk into our buffer.
   const bytes = Buffer.alloc(source.bytes)
   let length = 0
+  observe?.({ phase: "fetch-body", receivedBytes: 0 })
   try {
     while (true) {
       signal.throwIfAborted()
@@ -49,10 +78,12 @@ export async function fetchOfficialLeagueBytes(source: OfficialSource, fetcher: 
       if (value.length > source.bytes - length) throw new Error("BRACK_SIZE_REJECTED")
       bytes.set(value, length)
       length += value.length
+      observe?.({ phase: "fetch-body", receivedBytes: length })
     }
   } finally {
     await reader.cancel()
   }
+  observe?.({ phase: "validate", receivedBytes: length })
   if (length !== source.bytes || createHash("sha256").update(bytes).digest("hex") !== source.contentHash) {
     throw new Error("BRACK_BYTES_REJECTED")
   }
@@ -138,16 +169,22 @@ async function serveOfficialLeagueAsset(source: OfficialSource, request: Request
   if (request.method !== "GET" || new URL(request.url).search) return deny(404)
   const release = admit()
   if (!release) return new Response(null, { status: 429, headers: { ...responseHeaders, "Retry-After": "60" } })
+  const started = performance.now()
+  let observation: DeliveryObservation = { phase: "read-before" }
   try {
     const before = await read()
     if (!before || resolveAssetSource(before, kind) !== source.deliveryPath) return deny(404)
-    const bytes = await fetchOfficialLeagueBytes(source, fetcher)
+    const bytes = await fetchOfficialLeagueBytes(source, fetcher, event => { observation = { ...observation, ...event } })
     // A revocation during the fetch must not release bytes selected before it.
+    observation.phase = "read-after"
     const after = await read()
     if (!after || resolveAssetSource(after, kind) !== source.deliveryPath ||
         JSON.stringify(before) !== JSON.stringify(after)) return deny(404)
     return new Response(bytes as BodyInit, { headers: responseHeaders })
-  } catch {
+  } catch (error) {
+    // Finite metadata only: never log exception text/stack, URL, headers, body or credentials.
+    console.error("BRAND_ASSET_DELIVERY_FAILED", { provider: source.provider, ...observation,
+      errorCode: deliveryErrorCode(error), elapsedMs: Math.round(performance.now() - started) })
     // Do not expose upstream details or fall back to an unaudited remote URL.
     return deny(502)
   } finally {
