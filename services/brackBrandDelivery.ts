@@ -5,12 +5,14 @@ import { resolveAssetSource, type AssetReference } from "../lib/assetPipeline"
 import { isReviewedIslSvg } from "../lib/islSvgPolicy"
 import { PUNJAB_SOURCE } from "../lib/punjabBrandSource"
 import { isReviewedPunjabSvg } from "../lib/punjabSvgPolicy"
+import { inspectAleaguePng } from "../lib/aleaguePngDiagnostic"
 
 type OfficialSource = (typeof OFFICIAL_LEAGUE_SOURCES)[number] | typeof PUNJAB_SOURCE
 const mimeFor = (source: OfficialSource) => source === ISL_SOURCE || source === PUNJAB_SOURCE ? "image/svg+xml" : source === CYPRUS_SOURCE ? "image/jpeg" : "image/png"
 type DeliveryPhase = "read-before" | "fetch-headers" | "fetch-body" | "validate" | "read-after"
 type DeliveryObservation = { phase: DeliveryPhase; httpStatus?: number; mime?: string; encoding?: string;
-  declaredBytes?: number | null; receivedBytes?: number; redirected?: boolean; exactResponseUrl?: boolean }
+  declaredBytes?: number | null; receivedBytes?: number; redirected?: boolean; exactResponseUrl?: boolean;
+  rejectedPng?: ReturnType<typeof inspectAleaguePng> }
 const safeToken = (value: string | null, allowed: readonly string[]) => value !== null && allowed.includes(value) ? value : value === null ? "missing" : "other"
 function deliveryErrorCode(error: unknown): string {
   if (!(error instanceof Error)) return "UNCLASSIFIED"
@@ -55,6 +57,27 @@ export async function fetchOfficialLeagueBytes(source: OfficialSource, fetcher: 
     redirected: response.redirected, exactResponseUrl: response.url === "" || response.url === source.sourceUrl })
   const invalidLength = declaredLength !== null && (!Number.isSafeInteger(declaredLength) || declaredLength < 0 ||
     (encoding === "identity" ? declaredLength !== source.bytes : declaredLength > source.bytes))
+  // Audit the single observed discrepancy without releasing bytes or accepting another hash.
+  // Fixed capacity and the existing deadline apply before copying any body chunk.
+  if (source === ALEAGUE_SOURCE && declaredLength === 15498 && encoding === "identity" &&
+      response.status === 200 && !response.redirected && response.url === source.sourceUrl &&
+      response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() === "image/png" && response.body) {
+    const reader = response.body.getReader()
+    const rejected = Buffer.alloc(15498)
+    let received = 0
+    try {
+      while (true) {
+        signal.throwIfAborted()
+        const { done, value } = await reader.read()
+        signal.throwIfAborted()
+        if (done) break
+        if (value.length > rejected.length - received) throw new Error("BRACK_SIZE_REJECTED")
+        rejected.set(value, received); received += value.length
+      }
+      observe?.({ phase: "validate", rejectedPng: inspectAleaguePng(rejected.subarray(0, received)) })
+    } finally { await reader.cancel() }
+    throw new Error("BRACK_DELIVERY_REJECTED")
+  }
   if (signal.aborted || response.status !== 200 || response.redirected ||
       (response.url !== "" && response.url !== source.sourceUrl) ||
       response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== mimeFor(source) ||
