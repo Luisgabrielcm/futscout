@@ -56,7 +56,7 @@ test("missing portrait and incorrect club card render neutral initials, not anot
   const html = renderToStaticMarkup(createElement(Header, { player }))
   assert.doesNotMatch(html, /<img|player-shields|bobb|musiala/i)
   assert.match(html, /Jogador de teste — imagem indisponível/)
-  assert.match(html, /Clube Teste — imagem indisponível/)
+  assert.match(html, /Clube Teste: representação genérica — escudo oficial indisponível/)
   assert.match(html, /brandAssetFallbackIcon/)
   assert.doesNotMatch(html, />F<\/span>/)
 })

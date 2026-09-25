@@ -99,7 +99,7 @@ function row(provider: string = B.provider, changes = {}) {
 
 test("exact owner-approved Brack tuple is allowlisted without changing the 40 API leagues", () => {
   validateBrandAssetCandidate(candidate(), new Date(at))
-  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.length, 617)
+  assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.length, 622)
   assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.filter(i => i.entityType === "LEAGUE" && i.provider === "api-football").length, 40)
   assert.deepEqual(BRAND_ASSET_PILOT_ALLOWLIST.filter(i => i.provider === B.provider), [
     { entityType: "LEAGUE", entityId: B.entityId, provider: B.provider, providerEntityId: B.providerEntityId, assetType: "LOGO" },

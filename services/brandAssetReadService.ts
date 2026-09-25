@@ -3,6 +3,7 @@ import "server-only"
 import { prisma } from "../lib/prisma"
 import { brandAssetPublicationPolicyFromEnvironment, type AssetReference } from "../lib/assetPipeline"
 import { OFFICIAL_LEAGUE_SOURCES, selectBrandIdentities } from "../lib/brackBrandSource"
+import { PUNJAB_SOURCE } from "../lib/punjabBrandSource"
 
 export type BrandAssetMaps = Readonly<{
   clubs: ReadonlyMap<string, AssetReference>
@@ -19,7 +20,8 @@ export async function getBrandAssetsForEntities(input: Readonly<{
 
   const identities = await prisma.brandAssetIdentity.findMany({
     where: {
-      AND: [{ OR: [{ status: "VERIFIED" }, { entityType: "LEAGUE", entityId: { in: OFFICIAL_LEAGUE_SOURCES.map(source => source.entityId) } }] }],
+      AND: [{ OR: [{ status: "VERIFIED" }, { entityType: "LEAGUE", entityId: { in: OFFICIAL_LEAGUE_SOURCES.map(source => source.entityId) } },
+        { entityType: "CLUB", entityId: PUNJAB_SOURCE.entityId, provider: PUNJAB_SOURCE.provider }] }],
       OR: [
         ...(clubIds.length ? [{ entityType: "CLUB" as const, entityId: { in: clubIds } }] : []),
         ...(leagueIds.length ? [{ entityType: "LEAGUE" as const, entityId: { in: leagueIds } }] : []),

@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto"
-import { BRACK_SOURCE, ISL_SOURCE, ROSHN_SOURCE, OFFICIAL_LEAGUE_SOURCES } from "../lib/brackBrandSource"
+import { BRACK_SOURCE, ISL_SOURCE, ROSHN_SOURCE, ALEAGUE_SOURCE, CYPRUS_SOURCE, OFFICIAL_LEAGUE_SOURCES } from "../lib/brackBrandSource"
+import { jpegDimensions } from "../lib/reviewedJpeg"
 import { resolveAssetSource, type AssetReference } from "../lib/assetPipeline"
 import { isReviewedIslSvg } from "../lib/islSvgPolicy"
+import { PUNJAB_SOURCE } from "../lib/punjabBrandSource"
+import { isReviewedPunjabSvg } from "../lib/punjabSvgPolicy"
 
-type OfficialSource = (typeof OFFICIAL_LEAGUE_SOURCES)[number]
-const mimeFor = (source: OfficialSource) => source === ISL_SOURCE ? "image/svg+xml" : "image/png"
+type OfficialSource = (typeof OFFICIAL_LEAGUE_SOURCES)[number] | typeof PUNJAB_SOURCE
+const mimeFor = (source: OfficialSource) => source === ISL_SOURCE || source === PUNJAB_SOURCE ? "image/svg+xml" : source === CYPRUS_SOURCE ? "image/jpeg" : "image/png"
 
 /** Fixed destination, bounded memory, no redirect, no persistent cache, no retry. */
 export async function fetchBrackBytes(fetcher: typeof fetch = fetch): Promise<Uint8Array> {
@@ -12,7 +15,7 @@ export async function fetchBrackBytes(fetcher: typeof fetch = fetch): Promise<Ui
 }
 
 export async function fetchOfficialLeagueBytes(source: OfficialSource, fetcher: typeof fetch = fetch): Promise<Uint8Array> {
-  if (!OFFICIAL_LEAGUE_SOURCES.includes(source)) throw new Error("UNKNOWN_OFFICIAL_SOURCE")
+  if (source !== PUNJAB_SOURCE && !OFFICIAL_LEAGUE_SOURCES.some(known => known === source)) throw new Error("UNKNOWN_OFFICIAL_SOURCE")
   const signal = AbortSignal.timeout(8000)
   const response = await fetcher(source.sourceUrl, {
     redirect: "manual", cache: "no-store", signal,
@@ -53,7 +56,9 @@ export async function fetchOfficialLeagueBytes(source: OfficialSource, fetcher: 
   if (length !== source.bytes || createHash("sha256").update(bytes).digest("hex") !== source.contentHash) {
     throw new Error("BRACK_BYTES_REJECTED")
   }
-  if (source === ISL_SOURCE ? !isReviewedIslSvg(bytes) :
+  const jpeg = source === CYPRUS_SOURCE ? jpegDimensions(bytes) : null
+  if (source === PUNJAB_SOURCE ? !isReviewedPunjabSvg(bytes) : source === ISL_SOURCE ? !isReviewedIslSvg(bytes) : source === CYPRUS_SOURCE ?
+      jpeg?.width !== source.width || jpeg?.height !== source.height :
       bytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" ||
       bytes.toString("ascii", 12, 16) !== "IHDR" || bytes.readUInt32BE(16) !== source.width ||
       bytes.readUInt32BE(20) !== source.height) throw new Error("OFFICIAL_FORMAT_REJECTED")
@@ -80,6 +85,27 @@ export function createBrackRequestGate(clock: () => number = () => performance.n
 const requestGate = createBrackRequestGate()
 const islRequestGate = createBrackRequestGate()
 const roshnRequestGate = createBrackRequestGate()
+const aleagueRequestGate = createBrackRequestGate()
+const cyprusRequestGate = createBrackRequestGate()
+const punjabRequestGate = createBrackRequestGate()
+
+export async function servePunjabAsset(request: Request, read: () => Promise<AssetReference | undefined>,
+  fetcher: typeof fetch = fetch, admit = punjabRequestGate,
+  enabled = process.env.PUNJAB_BRAND_ASSET_DELIVERY_ENABLED === "true"): Promise<Response> {
+  return serveOfficialLeagueAsset(PUNJAB_SOURCE, request, read, fetcher, admit, enabled)
+}
+
+export async function serveAleagueAsset(request: Request, read: () => Promise<AssetReference | undefined>,
+  fetcher: typeof fetch = fetch, admit = aleagueRequestGate,
+  enabled = process.env.ALEAGUE_BRAND_ASSET_DELIVERY_ENABLED === "true"): Promise<Response> {
+  return serveOfficialLeagueAsset(ALEAGUE_SOURCE, request, read, fetcher, admit, enabled)
+}
+
+export async function serveCyprusAsset(request: Request, read: () => Promise<AssetReference | undefined>,
+  fetcher: typeof fetch = fetch, admit = cyprusRequestGate,
+  enabled = process.env.CYPRUS_BRAND_ASSET_DELIVERY_ENABLED === "true"): Promise<Response> {
+  return serveOfficialLeagueAsset(CYPRUS_SOURCE, request, read, fetcher, admit, enabled)
+}
 
 export async function serveBrackAsset(request: Request, read: () => Promise<AssetReference | undefined>,
   fetcher: typeof fetch = fetch, admit = requestGate,
@@ -103,7 +129,8 @@ async function serveOfficialLeagueAsset(source: OfficialSource, request: Request
   read: () => Promise<AssetReference | undefined>, fetcher: typeof fetch,
   admit: () => (() => void) | null, enabled: boolean): Promise<Response> {
   const responseHeaders = { ...headers, "Content-Type": mimeFor(source),
-    ...(source === ISL_SOURCE ? { "Content-Disposition": 'attachment; filename="isl.svg"' } : {}) }
+    ...(source === ISL_SOURCE || source === PUNJAB_SOURCE ? { "Content-Disposition": `attachment; filename="${source === ISL_SOURCE ? "isl" : "punjab"}.svg"` } : {}) }
+  const kind = source === PUNJAB_SOURCE ? "club" : "league"
   const deny = (status: number) => new Response(null, { status, headers: responseHeaders })
   // Independent release gate: the writer allowlist is not a reader authorization control.
   // Fail closed before rate admission, database access or downloading any image.
@@ -113,11 +140,11 @@ async function serveOfficialLeagueAsset(source: OfficialSource, request: Request
   if (!release) return new Response(null, { status: 429, headers: { ...responseHeaders, "Retry-After": "60" } })
   try {
     const before = await read()
-    if (!before || resolveAssetSource(before, "league") !== source.deliveryPath) return deny(404)
+    if (!before || resolveAssetSource(before, kind) !== source.deliveryPath) return deny(404)
     const bytes = await fetchOfficialLeagueBytes(source, fetcher)
     // A revocation during the fetch must not release bytes selected before it.
     const after = await read()
-    if (!after || resolveAssetSource(after, "league") !== source.deliveryPath ||
+    if (!after || resolveAssetSource(after, kind) !== source.deliveryPath ||
         JSON.stringify(before) !== JSON.stringify(after)) return deny(404)
     return new Response(bytes as BodyInit, { headers: responseHeaders })
   } catch {

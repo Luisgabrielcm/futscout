@@ -4034,6 +4034,11 @@ a[href]:focus-visible { outline: 2px solid var(--green); outline-offset: 4px; bo
 .catalogContextLabel { font-size: 10px; font-weight: 600; color: var(--gray); letter-spacing: .5px; }
 .playerHeaderInfo h1 { font-weight: 650; letter-spacing: -.6px; }
 .playerHeaderLeague .leagueLogo { width: 24px; height: 24px; object-fit: contain; }
+/* Preserve complete official horizontal artwork, with readable minimum dimensions. */
+.leagueLogo.leagueLogo-aleague { width: 224px; height: 36px; padding: 5px; background: #fff; border-radius: 4px; }
+.leagueLogo.leagueLogo-cyprus { width: 160px; height: 68px; background: #fff; border-radius: 4px; }
+.playerHeaderLeague:has(.leagueLogo-wide), .entityLeagueLink:has(.leagueLogo-wide),
+.directoryCardLeague:has(.leagueLogo-wide) { flex-wrap: wrap; }
 .profileTextLink { color: var(--beige-light); font-size: 13px; }
 .clubBadge { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .clubBadge-small { width: 24px; height: 24px; }

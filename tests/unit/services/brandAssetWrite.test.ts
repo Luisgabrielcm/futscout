@@ -3,12 +3,15 @@ import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { test } from "node:test"
 import { OFFICIAL_LEAGUE_SOURCES } from "../../../lib/brackBrandSource"
+import { PUNJAB_SOURCE } from "../../../lib/punjabBrandSource"
 import { BRAND_ASSET_PILOT_ALLOWLIST, persistBrandAssetAtomically, prepareBrandAssetPilotDryRun,
   type BrandAssetAudit, type BrandAssetCandidate, type BrandAssetRow, type BrandAssetWriteStore,
   type BrandIdentityRow, type BrandAssetPilotIdentity } from "../../../services/brandAssetWrite"
 
 const now = new Date("2026-09-17T15:00:00.000Z")
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex")
+const sources = [...OFFICIAL_LEAGUE_SOURCES, PUNJAB_SOURCE]
+const firstApiIndex = BRAND_ASSET_PILOT_ALLOWLIST.findIndex(row => row.provider === "api-football" && row.entityType === "CLUB")
 
 test("the 25 newly authorized leagues match the immutable owner-reviewed manifest", () => {
   const bytes = readFileSync("docs/league-logos-25-manifest-2026-09-23.json")
@@ -16,20 +19,25 @@ test("the 25 newly authorized leagues match the immutable owner-reviewed manifes
     "b86f64b18714736d2911692c7d6f74e15e258bee598b0ef1acded0854ddeb401")
   const manifest = JSON.parse(bytes.toString("utf8")) as { entries: { leagueId: string; providerId: string }[] }
   assert.equal(manifest.entries.length, 25)
-  assert.deepEqual(BRAND_ASSET_PILOT_ALLOWLIST.slice(584, 609), manifest.entries.map(entry => ({
+  assert.deepEqual(manifest.entries.map(entry => BRAND_ASSET_PILOT_ALLOWLIST.find(row => row.entityId === entry.leagueId)), manifest.entries.map(entry => ({
     entityType: "LEAGUE", entityId: entry.leagueId, provider: "api-football",
     providerEntityId: entry.providerId, assetType: "LOGO",
   })))
 })
 
-function candidate(index = 0, changes: Partial<BrandAssetCandidate> = {}): BrandAssetCandidate {
+function candidate(index = firstApiIndex, changes: Partial<BrandAssetCandidate> = {}): BrandAssetCandidate {
   const identity = BRAND_ASSET_PILOT_ALLOWLIST[index]
+  const source = sources.find(row => row.provider === identity.provider)
   const folder = identity.entityType === "CLUB" ? "teams" : "leagues"
   return { ...identity, identityStatus: "VERIFIED", sourceUrl: `https://media.api-sports.io/football/${folder}/${identity.providerEntityId}.png`,
     storageUrl: null, contentHash: "a".repeat(64), fetchedAt: "2026-09-17T14:00:00.000Z",
     rightsStatus: "APPROVED", displayPolicy: "DISPLAY_ALLOWED", operationalDecision: "NOT_AUTHORIZED", operationalAuthorizedAt: null,
     operationalDecisionRef: null, operatorRiskAccepted: false, riskAcceptedAt: null, riskAcceptedBy: null,
-    riskReason: null, sourceTermsUrl: null, revocable: true, deliveryStatus: "VALIDATED", ...changes }
+    riskReason: null, sourceTermsUrl: null, revocable: true, deliveryStatus: "VALIDATED",
+    ...(source ? { sourceUrl: source.sourceUrl, contentHash: source.contentHash, rightsStatus: "REVIEW_REQUIRED" as const,
+      operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE" as const, operationalAuthorizedAt: now.toISOString(),
+      operationalDecisionRef: "synthetic", operatorRiskAccepted: true, riskAcceptedAt: now.toISOString(),
+      riskAcceptedBy: "test", riskReason: "test", sourceTermsUrl: source.evidenceUrl } : {}), ...changes }
 }
 
 function currentPilot() {
@@ -40,13 +48,13 @@ function currentPilot() {
     operatorRiskAccepted: true, riskAcceptedAt: "2026-09-17T14:30:00.000Z", riskAcceptedBy: "FutScout owner",
     riskReason: "Controlled remote beta pilot; trademark rights remain unverified.",
     sourceTermsUrl: "https://www.api-football.com/terms", revocable: true,
-    deliveryStatus: "UNVERIFIED", contentHash: OFFICIAL_LEAGUE_SOURCES.find(source => source.provider === _identity.provider)?.contentHash ?? null,
-    ...(_identity.provider !== "api-football" ? { sourceUrl: OFFICIAL_LEAGUE_SOURCES.find(source => source.provider === _identity.provider)!.sourceUrl } : {}),
+    deliveryStatus: "UNVERIFIED", contentHash: sources.find(source => source.provider === _identity.provider)?.contentHash ?? null,
+    ...(_identity.provider !== "api-football" ? { sourceUrl: sources.find(source => source.provider === _identity.provider)!.sourceUrl } : {}),
   }))
 }
 
 type State = { identities: BrandIdentityRow[]; assets: BrandAssetRow[] }
-function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; mutateProtectedAfterCommit?: boolean; identityConflict?: string } = {}) {
+function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; mutateProtectedAfterCommit?: boolean; identityConflict?: string; clubApiId?: string; omitOfficialClubGuard?: boolean } = {}) {
   let state: State = { identities: [], assets: [] }, transactions = 0, audits = 0
   const retries = 0
   const protectedState = { Club: { count: "582", hash: "club-safe" }, League: { count: "45", hash: "league-safe" } }
@@ -61,6 +69,11 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
     transactions++
     const draft = structuredClone(state)
     const result = await work({
+      ...(options.omitOfficialClubGuard ? {} : { async hasOfficialClubPublicationBlock(entityId: string, provider: string) {
+        return draft.identities.some(identity => identity.entityType === "CLUB" && identity.entityId === entityId && identity.provider === provider &&
+          (identity.status === "BLOCKED" || draft.assets.some(asset => asset.identityId === identity.id &&
+            (asset.rightsStatus === "BLOCKED" || asset.operationalDecision === "REVOKED" || asset.displayPolicy === "DISPLAY_BLOCKED"))))
+      } }),
       async hasLeaguePublicationBlock(entityId) {
         return draft.identities.some(identity => identity.entityType === "LEAGUE" && identity.entityId === entityId &&
           (identity.status === "BLOCKED" || draft.assets.some(asset => asset.identityId === identity.id &&
@@ -68,7 +81,8 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
       },
       async readLocalEntity(entityType, entityId) {
         const identity = BRAND_ASSET_PILOT_ALLOWLIST.find(item => item.entityType === entityType && item.entityId === entityId)
-        return identity ? { id: entityId, providerEntityId: entityType === "CLUB" ? identity.providerEntityId : null } : null
+        return identity ? { id: entityId, providerEntityId: entityType === "CLUB" ? options.clubApiId ??
+          (identity.provider === PUNJAB_SOURCE.provider ? String(PUNJAB_SOURCE.expectedApiFootballId) : identity.providerEntityId) : null } : null
       },
       async findIdentityByLocal(input) {
         return draft.identities.find(row => row.entityType === input.entityType && row.entityId === input.entityId && row.provider === input.provider && row.status !== "BLOCKED") ?? null
@@ -120,6 +134,56 @@ function fakeStore(options: { failAsset?: boolean; unknownCommit?: boolean; muta
 
 const emptyExpected = { identity: null, latestAsset: null, activeAssetId: null }
 
+for (const options of [{}, { failAsset: true }, { identityConflict: "P2002" }, { unknownCommit: true }]) {
+  test(`official Punjab atomically preserves revoked 7179 history: ${JSON.stringify(options)}`, async () => {
+    const input = candidate(BRAND_ASSET_PILOT_ALLOWLIST.findIndex(row => row.provider === PUNJAB_SOURCE.provider))
+    const base = existingState({ operationalDecision: "REVOKED", displayPolicy: "DISPLAY_BLOCKED", status: "STALE", version: 2 })
+    const historical = { ...base.identity, entityId: PUNJAB_SOURCE.entityId, provider: "api-football", providerEntityId: "7179", status: "BLOCKED" as const, version: 2 }
+    const state = { identities: [historical], assets: [base.asset] }
+    const f = fakeStore(options); f.set(state)
+    const result = await persistBrandAssetAtomically(f.store, { candidate: input, expected: emptyExpected }, () => now)
+    const expected = "failAsset" in options ? "ROLLED_BACK" : "identityConflict" in options ? "CONCURRENT_MODIFICATION" :
+      "unknownCommit" in options ? "INDETERMINATE_COMMIT" : "CREATED"
+    assert.equal(result.status, expected); assert.equal(result.retries, 0); assert.equal(f.transactions(), 1)
+    assert.deepEqual(f.state().identities[0], historical); assert.deepEqual(f.state().assets[0], base.asset)
+    if (expected === "ROLLED_BACK" || expected === "CONCURRENT_MODIFICATION") assert.deepEqual(f.state(), state)
+    else {
+      assert.equal(f.state().identities[1].provider, PUNJAB_SOURCE.provider)
+      assert.equal(f.state().assets[1].contentHash, PUNJAB_SOURCE.contentHash)
+      assert.equal(f.state().assets[1].rightsStatus, "REVIEW_REQUIRED")
+      assert.equal(f.state().assets[1].storageUrl, null)
+    }
+  })
+}
+
+test("Punjab writer requires local API 3466 and a fail-closed official revocation guard", async () => {
+  const input = candidate(BRAND_ASSET_PILOT_ALLOWLIST.findIndex(row => row.provider === PUNJAB_SOURCE.provider))
+  for (const options of [{ clubApiId: "7179" }, { clubApiId: PUNJAB_SOURCE.providerEntityId }, { omitOfficialClubGuard: true }]) {
+    const f = fakeStore(options)
+    const result = await persistBrandAssetAtomically(f.store, { candidate: input, expected: emptyExpected }, () => now)
+    assert.equal(result.status, "IDENTITY_CONFLICT"); assert.equal(result.retries, 0)
+    assert.deepEqual(f.state(), { identities: [], assets: [] })
+  }
+  for (const blockedIdentity of [true, false]) {
+    const f = fakeStore()
+    const base = existingState()
+    const identity = { ...base.identity, entityId: PUNJAB_SOURCE.entityId, provider: PUNJAB_SOURCE.provider,
+      providerEntityId: PUNJAB_SOURCE.providerEntityId, status: blockedIdentity ? "BLOCKED" as const : "VERIFIED" as const }
+    const asset = { ...base.asset, operationalDecision: "REVOKED" as const, displayPolicy: "DISPLAY_BLOCKED" as const }
+    const state = { identities: [identity], assets: [asset] }; f.set(state)
+    const result = await persistBrandAssetAtomically(f.store, { candidate: input, expected: emptyExpected }, () => now)
+    assert.equal(result.status, "IDENTITY_CONFLICT"); assert.equal(result.reason, "OFFICIAL_SOURCE_PUBLICATION_BLOCK")
+    assert.deepEqual(f.state(), state)
+  }
+  const occupied = fakeStore()
+  const state: State = { identities: [{ id: "occupied-official-punjab", entityType: "CLUB", entityId: "other-club",
+    provider: PUNJAB_SOURCE.provider, providerEntityId: PUNJAB_SOURCE.providerEntityId, status: "VERIFIED", version: 1 }], assets: [] }
+  occupied.set(state)
+  const conflict = await persistBrandAssetAtomically(occupied.store, { candidate: input, expected: emptyExpected }, () => now)
+  assert.equal(conflict.status, "IDENTITY_CONFLICT"); assert.equal(conflict.reason, "PROVIDER_OCCUPIED")
+  assert.deepEqual(occupied.state(), state)
+})
+
 for (const source of OFFICIAL_LEAGUE_SOURCES) test(`synthetically authorized ${source.provider} uses existing atomic writer, rollback, conflict and indeterminate controls`, async () => {
   // In-memory authorization fixture only; the checked-in allowlist stays unchanged.
   const allowlist = BRAND_ASSET_PILOT_ALLOWLIST as unknown as BrandAssetPilotIdentity[]
@@ -156,24 +220,25 @@ test("four independently verified league logos are the only new identities after
     ["cmt9d4pi304mtukucja4z7u2q", "141"], ["cmta7vu7o02496wucuxpwquwr", "41"],
     ["cmtad946t03lq9gucelzi806s", "80"], ["cmt9b3q3i00alukuc087t3u4x", "128"],
   ]
-  assert.deepEqual(BRAND_ASSET_PILOT_ALLOWLIST.slice(610, 614), rows.map(([entityId, providerEntityId]) => ({
+  assert.deepEqual(rows.map(([entityId]) => BRAND_ASSET_PILOT_ALLOWLIST.find(row => row.entityId === entityId)), rows.map(([entityId, providerEntityId]) => ({
     entityType: "LEAGUE", entityId, provider: "api-football", providerEntityId, assetType: "LOGO",
   })))
   assert.equal(BRAND_ASSET_PILOT_ALLOWLIST.filter(row => row.entityType === "LEAGUE" &&
     ["188", "207", "323", "318", "307"].includes(row.providerEntityId)).length, 0)
-  for (let index = 610; index < 614; index++) {
+  for (const [entityId, providerEntityId] of rows) {
+    const index = BRAND_ASSET_PILOT_ALLOWLIST.findIndex(row => row.entityId === entityId)
     const f = fakeStore()
     const result = await persistBrandAssetAtomically(f.store, { candidate: candidate(index), expected: emptyExpected }, () => now)
     assert.equal(result.status, "CREATED"); assert.equal(result.retries, 0)
-    assert.equal(f.state().identities[0].providerEntityId, rows[index - 610][1])
+    assert.equal(f.state().identities[0].providerEntityId, providerEntityId)
   }
 })
 
-test("closed 574-club and 43-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
+test("closed 577-club and 45-league dry-run records owner authorization but stays blocked by unverified delivery", () => {
   const result = prepareBrandAssetPilotDryRun(currentPilot(), now)
-  assert.equal(result.length, 617)
-  assert.equal(result.filter(row => row.identity.entityType === "CLUB").length, 574)
-  assert.equal(result.filter(row => row.identity.entityType === "LEAGUE").length, 43)
+  assert.equal(result.length, 622)
+  assert.equal(result.filter(row => row.identity.entityType === "CLUB").length, 577)
+  assert.equal(result.filter(row => row.identity.entityType === "LEAGUE").length, 45)
   assert.deepEqual(result.map(row => row.identity), [...BRAND_ASSET_PILOT_ALLOWLIST])
   assert.ok(result.every(row => !row.writable && row.action === "NOT_WRITABLE" && row.rightsStatus === "REVIEW_REQUIRED" &&
     row.displayPolicy === "DISPLAY_ALLOWED" &&
@@ -183,7 +248,7 @@ test("closed 574-club and 43-league dry-run records owner authorization but stay
     !row.blockers.includes("RIGHTS_REVIEW_REQUIRED") && row.blockers.includes("DELIVERY_NOT_VALIDATED")))
 })
 
-test("allow-list rejects a 618th candidate, replacement, reordering and Club/League type mismatch", () => {
+test("allow-list rejects a 623rd candidate, replacement, reordering and Club/League type mismatch", () => {
   const pilot = currentPilot()
   assert.throws(() => prepareBrandAssetPilotDryRun([...pilot, pilot[0]], now), /ALLOWLIST/)
   assert.throws(() => prepareBrandAssetPilotDryRun([pilot[1], pilot[0], ...pilot.slice(2)], now), /ALLOWLIST/)
@@ -192,8 +257,8 @@ test("allow-list rejects a 618th candidate, replacement, reordering and Club/Lea
 })
 
 test("pilot source URL is bound to the exact API-Football provider identity", async () => {
-  const changed = candidate(0, { sourceUrl: "https://media.api-sports.io/football/teams/999.png" })
-  assert.throws(() => prepareBrandAssetPilotDryRun([changed, ...currentPilot().slice(1)], now), /CANDIDATE_INVALID/)
+  const changed = candidate(firstApiIndex, { sourceUrl: "https://media.api-sports.io/football/teams/999.png" })
+  assert.throws(() => prepareBrandAssetPilotDryRun(currentPilot().map((row, index) => index === firstApiIndex ? changed : row), now), /CANDIDATE_INVALID/)
   const f = fakeStore(), result = await persistBrandAssetAtomically(f.store,
     { candidate: changed, expected: emptyExpected }, () => now)
   assert.equal(result.status, "AUTHORIZATION_MISMATCH")
@@ -207,7 +272,7 @@ test("Red Star 4396 remains forbidden and 104 is authorized only for the exact l
   }])
   for (const [entityId, providerEntityId] of [["cmt9g1wkq037v1sucum6ntyxn", "4396"], ["other-club", "104"]]) {
     const f = fakeStore()
-    const result = await persistBrandAssetAtomically(f.store, { expected: emptyExpected, candidate: candidate(0, {
+    const result = await persistBrandAssetAtomically(f.store, { expected: emptyExpected, candidate: candidate(firstApiIndex, {
       entityType: "CLUB", entityId, provider: "api-football", providerEntityId,
       assetType: "CREST", sourceUrl: `https://media.api-sports.io/football/teams/${providerEntityId}.png`,
     }) }, () => now)
@@ -337,7 +402,7 @@ for (const code of ["P2002", "23505", "P2034", "40001"]) test(`${code}: concurre
   assert.equal(f.transactions(), 1); assert.deepEqual(f.state(), { identities: [], assets: [] })
 })
 
-test("all 574 authorized club mappings keep the existing create and idempotent behavior", async () => {
+test("all 577 authorized club mappings keep the existing create and idempotent behavior", async () => {
   let checked = 0
   for (const [index, identity] of BRAND_ASSET_PILOT_ALLOWLIST.entries()) {
     if (identity.entityType !== "CLUB") continue
@@ -346,7 +411,7 @@ test("all 574 authorized club mappings keep the existing create and idempotent b
     assert.equal((await persistBrandAssetAtomically(f.store, request, () => now)).status, "NO_OP")
     checked++
   }
-  assert.equal(checked, 574)
+  assert.equal(checked, 577)
 })
 
 for (const scenario of ["active", "version", "rights"] as const) test(`${scenario} concurrent drift is rejected by CAS`, async () => {
@@ -373,13 +438,13 @@ for (const changes of [
   { deliveryStatus: "UNVERIFIED" as const, contentHash: null }, { deliveryStatus: "FAILED" as const, contentHash: null },
 ]) test(`rights/delivery gate blocks ${JSON.stringify(changes)} before transaction`, async () => {
   const f = fakeStore(), result = await persistBrandAssetAtomically(f.store,
-    { candidate: candidate(0, changes), expected: emptyExpected }, () => now)
+    { candidate: candidate(firstApiIndex, changes), expected: emptyExpected }, () => now)
   assert.equal(result.status, "NOT_WRITABLE"); assert.equal(result.transactionState, "NOT_STARTED")
   assert.equal(f.transactions(), 0); assert.deepEqual(f.state(), { identities: [], assets: [] })
 })
 
 test("delivered REVIEW_REQUIRED asset becomes writable only with explicit owner remote authorization", async () => {
-  const input = candidate(0, { rightsStatus: "REVIEW_REQUIRED", operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE",
+  const input = candidate(firstApiIndex, { rightsStatus: "REVIEW_REQUIRED", operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE",
     operationalAuthorizedAt: "2026-09-17T14:30:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j",
     operatorRiskAccepted: true, riskAcceptedAt: "2026-09-17T14:30:00.000Z", riskAcceptedBy: "FutScout owner",
     riskReason: "Controlled remote beta pilot; trademark rights remain unverified.",
@@ -401,7 +466,7 @@ test("incomplete or non-revocable risk acceptance never becomes writable", async
   for (const incomplete of [{ ...accepted, riskAcceptedBy: null }, { ...accepted, riskReason: "" },
     { ...accepted, sourceTermsUrl: "http://insecure.test/terms" }, { ...accepted, revocable: false }]) {
     const f = fakeStore(), result = await persistBrandAssetAtomically(f.store,
-      { candidate: candidate(0, incomplete), expected: emptyExpected }, () => now)
+      { candidate: candidate(firstApiIndex, incomplete), expected: emptyExpected }, () => now)
     assert.equal(result.status, "NOT_WRITABLE")
     assert.match(result.reason, /OPERATIONAL_AUTHORIZATION_INVALID/)
     assert.equal(f.transactions(), 0)
@@ -409,7 +474,7 @@ test("incomplete or non-revocable risk acceptance never becomes writable", async
 })
 
 test("BLOCKED remains absolute even with owner authorization", async () => {
-  const f = fakeStore(), result = await persistBrandAssetAtomically(f.store, { candidate: candidate(0, {
+  const f = fakeStore(), result = await persistBrandAssetAtomically(f.store, { candidate: candidate(firstApiIndex, {
     rightsStatus: "BLOCKED", operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE",
     operationalAuthorizedAt: "2026-09-17T14:30:00.000Z", operationalDecisionRef: "owner-decision:brand-assets-phase-j",
     operatorRiskAccepted: true, riskAcceptedAt: "2026-09-17T14:30:00.000Z", riskAcceptedBy: "FutScout owner",

@@ -14,6 +14,9 @@ export default function ClubBadge({ locale = "pt", name, src, asset, size = "med
     <PlayerImage locale={locale} src={imageSrc ?? undefined} alt={name} kind="club"
       width={sizes[size]} height={sizes[size]} loading="lazy" className={className}
       proxyRemote={Boolean(asset)}
+      fallbackLabel={locale === "en"
+        ? `${name}: generic representation — official crest unavailable`
+        : `${name}: representação genérica — escudo oficial indisponível`}
       fallbackClassName={`clubBadgeFallback brandAssetFallback brandAssetFallback-club ${className}`}
       fallback={<BrandAssetFallback kind="club" />} />
   </span>

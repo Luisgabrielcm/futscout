@@ -18,6 +18,7 @@ type PlayerImageProps = {
   fallbackClassName?: string
   kind?: ImageKind
   fallbackText?: string
+  fallbackLabel?: string
   fallback?: ReactNode
   width?: number
   height?: number
@@ -32,6 +33,7 @@ export default function PlayerImage({ locale = "pt",
   fallbackClassName,
   kind = "player",
   fallbackText,
+  fallbackLabel,
   fallback,
   width,
   height,
@@ -57,7 +59,9 @@ export default function PlayerImage({ locale = "pt",
     return (
       <span
         role={fallbackText === "" ? undefined : "img"}
-        aria-label={fallbackText === "" ? undefined : t(locale, "imageUnavailable", { name: alt })}
+        aria-label={fallbackText === "" ? undefined : fallbackLabel ?? t(locale, "imageUnavailable", { name: alt })}
+        title={fallbackText === "" ? undefined : fallbackLabel}
+        data-generic-crest={kind === "club" ? "true" : undefined}
         aria-hidden={fallbackText === "" ? true : undefined}
         className={
           fallbackClassName

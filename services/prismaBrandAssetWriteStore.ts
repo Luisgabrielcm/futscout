@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "../app/generated/prisma/client"
 import { withPrismaReadOnly } from "../lib/prismaReadOnly"
 import { officialLeagueSource } from "../lib/brackBrandSource"
+import { PUNJAB_SOURCE } from "../lib/punjabBrandSource"
 import type { BrandAssetAudit, BrandAssetCandidate, BrandAssetPilotIdentity, BrandAssetRow,
   BrandAssetType, BrandAssetWriteStore, BrandEntityType, BrandIdentityRow } from "./brandAssetWrite"
 
@@ -32,6 +33,13 @@ async function audit(db: Pick<PrismaClient, "$transaction">): Promise<BrandAsset
 
 function transactionPort(tx: Prisma.TransactionClient) {
   return {
+    async hasOfficialClubPublicationBlock(entityId: string, provider: string) {
+      return (await tx.brandAssetIdentity.findFirst({ where: { entityType: "CLUB", entityId, provider, OR: [
+        { status: "BLOCKED" }, { assets: { some: { assetType: "CREST", OR: [
+          { rightsStatus: "BLOCKED" }, { operationalDecision: "REVOKED" }, { displayPolicy: "DISPLAY_BLOCKED" },
+        ] } } },
+      ] }, select: { id: true } })) !== null
+    },
     async hasLeaguePublicationBlock(entityId: string) {
       return (await tx.brandAssetIdentity.findFirst({ where: { entityType: "LEAGUE", entityId, OR: [
         { status: "BLOCKED" }, { assets: { some: { assetType: "LOGO", OR: [
@@ -77,7 +85,7 @@ function transactionPort(tx: Prisma.TransactionClient) {
       return row ? decodeAsset(row) : null
     },
     async createIdentity(input: BrandAssetCandidate) {
-      const source = officialLeagueSource(input.entityId)
+      const source = input.entityType === "CLUB" && input.entityId === PUNJAB_SOURCE.entityId ? PUNJAB_SOURCE : officialLeagueSource(input.entityId)
       return decodeIdentity(await tx.brandAssetIdentity.create({ data: { entityType: input.entityType, entityId: input.entityId,
         provider: input.provider, providerEntityId: input.providerEntityId, status: "VERIFIED", version: 1,
         verifiedAt: new Date(input.fetchedAt), evidence: source && input.provider === source.provider

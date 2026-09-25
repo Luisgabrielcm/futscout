@@ -1,5 +1,6 @@
 import { getVisualAssetSrc, type ImageKind } from "./visualAssets"
 import { OFFICIAL_LEAGUE_SOURCES, officialLeagueSource, matchesOfficialLeagueSource, isOfficialLeagueRemoteUrl } from "./brackBrandSource"
+import { PUNJAB_SOURCE, matchesPunjabSource, isPunjabRemoteUrl } from "./punjabBrandSource"
 
 export type AssetRightsStatus =
   | "APPROVED"
@@ -102,8 +103,12 @@ export function resolveAssetByIdentity(identity: AssetIdentity | null | undefine
 }
 
 function permittedAssetUrl(reference: AssetReference, policy: AssetPublicationPolicy): string | null {
-  const source = officialLeagueSource(reference.entityId)
-  const official = !!source || OFFICIAL_LEAGUE_SOURCES.some(item => item.provider === reference.identity.provider) ||
+  const punjab = reference.entityId === PUNJAB_SOURCE.entityId || reference.identity.provider === PUNJAB_SOURCE.provider ||
+    isPunjabRemoteUrl(reference.sourceUrl) || isPunjabRemoteUrl(reference.storageUrl ?? "")
+  if (punjab && !matchesPunjabSource({ ...reference, ...reference.identity })) return null
+  const leagueSource = officialLeagueSource(reference.entityId)
+  const source = punjab ? PUNJAB_SOURCE : leagueSource
+  const official = !!leagueSource || OFFICIAL_LEAGUE_SOURCES.some(item => item.provider === reference.identity.provider) ||
     isOfficialLeagueRemoteUrl(reference.sourceUrl) || isOfficialLeagueRemoteUrl(reference.storageUrl ?? "")
   if (official && !matchesOfficialLeagueSource({ ...reference, ...reference.identity })) return null
   if (reference.status !== "ACTIVE") return null
@@ -158,7 +163,7 @@ export function deduplicateAssetReferences(references: readonly AssetReference[]
 export function resolveAssetSource(input: string | AssetReference | null | undefined, kind: ImageKind,
   policy = brandAssetPublicationPolicyFromEnvironment()): string | null {
   if (!input) return null
-  if (typeof input === "string") return isOfficialLeagueRemoteUrl(input) ? null : getVisualAssetSrc(input, kind)
+  if (typeof input === "string") return isOfficialLeagueRemoteUrl(input) || isPunjabRemoteUrl(input) ? null : getVisualAssetSrc(input, kind)
   if (input.identity.entityType !== kind || !normalizeAssetReference(input, policy)) return null
   return permittedAssetUrl(input, policy)
 }

@@ -25,6 +25,8 @@ import * as nationalityDirectory from "../../lib/nationalityDirectory"
 import * as careerPresentation from "../../lib/playerCareerPresentation"
 import * as visualAssets from "../../lib/visualAssets"
 import * as assetPipeline from "../../lib/assetPipeline"
+import * as brandSources from "../../lib/brackBrandSource"
+import * as punjabSource from "../../lib/punjabBrandSource"
 import * as countryFlags from "../../lib/countryFlags"
 import * as React from "react"
 import { createElement, type ReactNode } from "react"
@@ -68,6 +70,8 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/playerCareerPresentation": careerPresentation,
       "lib/visualAssets": visualAssets,
       "lib/assetPipeline": assetPipeline,
+      "lib/brackBrandSource": brandSources,
+      "lib/punjabBrandSource": punjabSource,
       "lib/countryFlags": countryFlags,
     }
     const pureName = name.replace(/^(?:\.\.\/)+/, "")

@@ -1,3 +1,5 @@
+import { PUNJAB_SOURCE } from "./punjabBrandSource"
+
 // Technical provenance only. This does not grant publication or writer authorization.
 export const BRACK_SOURCE = Object.freeze({
   entityId: "cmt9cdhm202ycukuc9eatc0la",
@@ -31,7 +33,24 @@ export const ROSHN_SOURCE = Object.freeze({
   evidenceUrl: "https://www.spl.com.sa/en", season: "2026/27",
   deliveryPath: "/api/brand-assets/roshn", bytes: 32409, width: 512, height: 512,
 })
-export const OFFICIAL_LEAGUE_SOURCES = Object.freeze([BRACK_SOURCE, ISL_SOURCE, ROSHN_SOURCE])
+// Current official men's mark, introduced in 2021; extension is WebP but bytes/MIME are PNG.
+export const ALEAGUE_SOURCE = Object.freeze({
+  entityId: "cmt9i85450055q4ucarbpij51", provider: "official-aleagues",
+  providerEntityId: "2023/08/A-Leagues-Logo_Men_Horizontal_Colour_Black_RGB_061021-1.webp",
+  sourceUrl: "https://aleagues.com.au/wp-content/uploads/sites/17/2023/08/A-Leagues-Logo_Men_Horizontal_Colour_Black_RGB_061021-1.webp",
+  contentHash: "875736909a53b648a8beac5444ceccb551d9c4d785e448aee80f3c64414a8fac",
+  evidenceUrl: "https://aleagues.com.au/more/about-the-a-leagues/", season: "current-2026/27",
+  deliveryPath: "/api/brand-assets/aleague", bytes: 15388, width: 2693, height: 301,
+})
+export const CYPRUS_SOURCE = Object.freeze({
+  entityId: "cmt9gj2es04801sucqqr7lpq7", provider: "official-cfa",
+  providerEntityId: "images/SponsorPics/1765366878.jpg",
+  sourceUrl: "https://www.cfa.com.cy/images/SponsorPics/1765366878.jpg",
+  contentHash: "3adf4cca488288be34dc0a505a5c6490e376671c3d4a66aa1958eafb736139d3",
+  evidenceUrl: "https://www.cfa.com.cy/En/competitions/65403824", season: "2025/26",
+  deliveryPath: "/api/brand-assets/cyprus", bytes: 36663, width: 800, height: 337,
+})
+export const OFFICIAL_LEAGUE_SOURCES = Object.freeze([BRACK_SOURCE, ISL_SOURCE, ROSHN_SOURCE, ALEAGUE_SOURCE, CYPRUS_SOURCE])
 export function officialLeagueSource(entityId: string) {
   return OFFICIAL_LEAGUE_SOURCES.find(source => source.entityId === entityId)
 }
@@ -78,12 +97,19 @@ export function selectBrandIdentities<T extends SelectableIdentity>(identities: 
   }
   const selected: T[] = []
   for (const group of groups.values()) {
+    const punjab = group[0].entityType === "CLUB" && group[0].entityId === PUNJAB_SOURCE.entityId
+    // The wrong historical API identity is retained BLOCKED; it must not veto its replacement.
+    // Revocation of the exact official provider does veto every alternative source.
+    if (punjab && group.some(identity => identity.provider === PUNJAB_SOURCE.provider &&
+      (identity.status === "BLOCKED" || identity.assets.some(asset => asset.assetType === "CREST" &&
+        (asset.rightsStatus === "BLOCKED" || asset.operationalDecision === "REVOKED" || asset.displayPolicy === "DISPLAY_BLOCKED"))))) continue
     const source = group[0].entityType === "LEAGUE" ? officialLeagueSource(group[0].entityId) : undefined
     if (source && group.some(identity => identity.status === "BLOCKED" || identity.assets.some(asset =>
       asset.assetType === "LOGO" && (asset.rightsStatus === "BLOCKED" ||
         asset.operationalDecision === "REVOKED" || asset.displayPolicy === "DISPLAY_BLOCKED")))) continue
     const candidates = group.filter(identity => identity.status === "VERIFIED" && (source
       ? identity.provider === source.provider && identity.providerEntityId === source.providerEntityId
+      : punjab ? identity.provider === PUNJAB_SOURCE.provider && identity.providerEntityId === PUNJAB_SOURCE.providerEntityId
       : identity.provider === "api-football"))
     if (candidates.length !== 1) continue
     const identity = candidates[0]

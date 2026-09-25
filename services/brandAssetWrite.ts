@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util"
 import { getVisualAssetSrc } from "../lib/visualAssets"
 import { officialLeagueSource, matchesOfficialLeagueSource } from "../lib/brackBrandSource"
+import { PUNJAB_SOURCE, matchesPunjabSource } from "../lib/punjabBrandSource"
 
 export type BrandEntityType = "CLUB" | "LEAGUE"
 export type BrandAssetType = "CREST" | "LOGO"
@@ -14,12 +15,18 @@ export type BrandAssetLifecycle = "DISCOVERED" | "VALIDATED" | "ACTIVE" | "STALE
 export type BrandAssetPilotIdentity = Readonly<{
   entityType: BrandEntityType
   entityId: string
-  provider: "api-football" | "official-brack-media" | "official-isl" | "official-spl"
+  provider: "api-football" | "official-brack-media" | "official-isl" | "official-spl" | "official-aleagues" | "official-cfa" | "official-punjab"
   providerEntityId: string
   assetType: BrandAssetType
 }>
 
 export const BRAND_ASSET_PILOT_ALLOWLIST = [
+  { entityType: "CLUB", entityId: "cmtbpdgt2009zpkuc9j70jvc8", provider: "official-punjab", providerEntityId: "wp-content/uploads/website-logo-3.svg", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmtaomvzv05wbtwucnpukho0o", provider: "api-football", providerEntityId: "9585", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmtar6hia00o2dcuc2062khh9", provider: "api-football", providerEntityId: "9364", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmtaroykv01tsdcucom3yilwa", provider: "api-football", providerEntityId: "12867", assetType: "CREST" },
+  { entityType: "LEAGUE", entityId: "cmt9i85450055q4ucarbpij51", provider: "official-aleagues", providerEntityId: "2023/08/A-Leagues-Logo_Men_Horizontal_Colour_Black_RGB_061021-1.webp", assetType: "LOGO" },
+  { entityType: "LEAGUE", entityId: "cmt9gj2es04801sucqqr7lpq7", provider: "official-cfa", providerEntityId: "images/SponsorPics/1765366878.jpg", assetType: "LOGO" },
   { entityType: "CLUB", entityId: "cmt7hnsah0004z0ucqy6yoeqz", provider: "api-football", providerEntityId: "541", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmt94sq79001l5guc4g4zj7y3", provider: "api-football", providerEntityId: "529", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmt94sibe001a5guc60z2rphl", provider: "api-football", providerEntityId: "50", assetType: "CREST" },
@@ -371,13 +378,13 @@ export const BRAND_ASSET_PILOT_ALLOWLIST = [
   { entityType: "CLUB", entityId: "cmtacaezq01bo9gucr791k958", provider: "api-football", providerEntityId: "870", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtddqwzk02ogg4uccb8ukdn2", provider: "api-football", providerEntityId: "2361", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtddqpp902ngg4ucl56bmja9", provider: "api-football", providerEntityId: "2827", assetType: "CREST" },
-  { entityType: "CLUB", entityId: "cmtaby9ul00jq9gucapdbciar", provider: "api-football", providerEntityId: "790", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmtaby9ul00jq9gucapdbciar", provider: "api-football", providerEntityId: "1065", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtalz61p08bwq0ucrsje4cec", provider: "api-football", providerEntityId: "1364", assetType: "CREST" },
-  { entityType: "CLUB", entityId: "cmt99ho3e00aivsuchz4fddri", provider: "api-football", providerEntityId: "8097", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt99ho3e00aivsuchz4fddri", provider: "api-football", providerEntityId: "2932", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtaebvjk06289gucpchbinqe", provider: "api-football", providerEntityId: "834", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmta7p1n501ot6wucievbl1x4", provider: "api-football", providerEntityId: "174", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtabvjod00d69gucsmcsum94", provider: "api-football", providerEntityId: "1338", assetType: "CREST" },
-  { entityType: "CLUB", entityId: "cmt9by8hf021jukucpa6u2ifp", provider: "api-football", providerEntityId: "27751", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt9by8hf021jukucpa6u2ifp", provider: "api-football", providerEntityId: "450", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmt9gjazn048n1suceaf19zvf", provider: "api-football", providerEntityId: "64", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtafm5ob098u9gucdbf2zysj", provider: "api-football", providerEntityId: "3476", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtajhyra0291q0uck0t451rg", provider: "api-football", providerEntityId: "1351", assetType: "CREST" },
@@ -386,11 +393,11 @@ export const BRAND_ASSET_PILOT_ALLOWLIST = [
   { entityType: "CLUB", entityId: "cmtdcjmw604nxu4ucvhfb7q5q", provider: "api-football", providerEntityId: "1174", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtadx0r7056x9guc9ksl857a", provider: "api-football", providerEntityId: "3479", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtacliuq02239gucwoehu7sa", provider: "api-football", providerEntityId: "1660", assetType: "CREST" },
-  { entityType: "CLUB", entityId: "cmtaiv2mt00ovq0ucxcv1hdth", provider: "api-football", providerEntityId: "22652", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmtaiv2mt00ovq0ucxcv1hdth", provider: "api-football", providerEntityId: "61", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtala2jc06oaq0ucavlsuum9", provider: "api-football", providerEntityId: "1337", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtan0pqf01rztwuc2gblf54h", provider: "api-football", providerEntityId: "1376", assetType: "CREST" },
-  { entityType: "CLUB", entityId: "cmta7is7w01ao6wuchv2tf1x7", provider: "api-football", providerEntityId: "21371", assetType: "CREST" },
-  { entityType: "CLUB", entityId: "cmt9gj2j404811suc2ug3rreg", provider: "api-football", providerEntityId: "557", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmta7is7w01ao6wuchv2tf1x7", provider: "api-football", providerEntityId: "441", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmt9gj2j404811suc2ug3rreg", provider: "api-football", providerEntityId: "2247", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtafqru109jj9guc7jq86lfx", provider: "api-football", providerEntityId: "255", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmt9g6uam03i51sucz15erw00", provider: "api-football", providerEntityId: "535", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmt9c855e02ngukucsdi32174", provider: "api-football", providerEntityId: "1579", assetType: "CREST" },
@@ -414,9 +421,8 @@ export const BRAND_ASSET_PILOT_ALLOWLIST = [
   { entityType: "CLUB", entityId: "cmtdd1v0u00tzg4uchfj5c38d", provider: "api-football", providerEntityId: "2369", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtantmat03w1twucsi5qnfg2", provider: "api-football", providerEntityId: "3473", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtdevhs0013go4ucxmmkd60h", provider: "api-football", providerEntityId: "3706", assetType: "CREST" },
-  { entityType: "CLUB", entityId: "cmtakuew205n6q0ucfkjqrmms", provider: "api-football", providerEntityId: "19008", assetType: "CREST" },
+  { entityType: "CLUB", entityId: "cmtakuew205n6q0ucfkjqrmms", provider: "api-football", providerEntityId: "941", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtdbjbje01ocu4uc30lcuwl3", provider: "api-football", providerEntityId: "1131", assetType: "CREST" },
-  { entityType: "CLUB", entityId: "cmtbpdgt2009zpkuc9j70jvc8", provider: "api-football", providerEntityId: "7179", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmtdbu5bw02lsu4ucqlfi5rra", provider: "api-football", providerEntityId: "1136", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmt9gh9jj043c1sucxc7o1tmo", provider: "api-football", providerEntityId: "2762", assetType: "CREST" },
   { entityType: "CLUB", entityId: "cmt9g4cqq03dh1suche82tzng", provider: "api-football", providerEntityId: "2750", assetType: "CREST" },
@@ -693,7 +699,7 @@ const validHttpsUrl = (value: string | null) => {
 
 export function validateBrandAssetCandidate(candidate: BrandAssetCandidate, now: Date) {
   const compatible = candidate.entityType === "CLUB" ? candidate.assetType === "CREST" : candidate.assetType === "LOGO"
-  const sourceMatches = candidate.provider !== "api-football" ? matchesOfficialLeagueSource(candidate) :
+  const sourceMatches = candidate.provider !== "api-football" ? (matchesOfficialLeagueSource(candidate) || matchesPunjabSource(candidate)) :
     candidate.provider === "api-football" && candidate.sourceUrl === expectedSourceUrl(candidate)
   if (!compatible || !sourceMatches ||
       !getVisualAssetSrc(candidate.sourceUrl, kind(candidate.entityType)) ||
@@ -786,6 +792,7 @@ export type BrandAssetAudit = Readonly<{
 }>
 
 export type BrandAssetWriteTransaction = {
+  hasOfficialClubPublicationBlock?(entityId: string, provider: string): Promise<boolean>
   hasLeaguePublicationBlock?(entityId: string): Promise<boolean>
   readLocalEntity(entityType: BrandEntityType, entityId: string): Promise<{ id: string; providerEntityId: string | null } | null>
   findIdentityByLocal(input: BrandAssetPilotIdentity): Promise<BrandIdentityRow | null>
@@ -852,8 +859,12 @@ export async function persistBrandAssetAtomically(store: BrandAssetWriteStore, r
     const committed = await store.transaction(async tx => {
       entered = true
       const local = await tx.readLocalEntity(candidate.entityType, candidate.entityId)
-      if (!local || (candidate.entityType === "CLUB" && local.providerEntityId !== candidate.providerEntityId)) {
+      const requiredClubId = matchesPunjabSource(candidate) ? String(PUNJAB_SOURCE.expectedApiFootballId) : candidate.providerEntityId
+      if (!local || (candidate.entityType === "CLUB" && local.providerEntityId !== requiredClubId)) {
         throw new BrandWriteAbort("IDENTITY_CONFLICT", "LOCAL_IDENTITY_MISMATCH")
+      }
+      if (matchesPunjabSource(candidate) && (!tx.hasOfficialClubPublicationBlock || await tx.hasOfficialClubPublicationBlock(candidate.entityId, candidate.provider))) {
+        throw new BrandWriteAbort("IDENTITY_CONFLICT", "OFFICIAL_SOURCE_PUBLICATION_BLOCK")
       }
       if (officialLeagueSource(candidate.entityId) && candidate.provider !== "api-football" && (!tx.hasLeaguePublicationBlock ||
           await tx.hasLeaguePublicationBlock(candidate.entityId))) {

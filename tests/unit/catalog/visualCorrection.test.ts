@@ -106,7 +106,7 @@ test("club absence and wrong-context image use a neutral shield, never another c
   for (const src of [null, "/player-shields/1.png", "/players/1.png", "/leagues/1.png"]) {
     const html = renderToStaticMarkup(createElement(Badge, { name: "Fixture Club", src }))
     assert.doesNotMatch(html, /<img/)
-    assert.match(html, /Fixture Club — imagem indisponível/)
+    assert.match(html, /Fixture Club: representação genérica — escudo oficial indisponível/)
     assert.match(html, /brandAssetFallbackIcon/)
     assert.doesNotMatch(html, />F<\/span>/)
   }

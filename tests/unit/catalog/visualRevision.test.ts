@@ -155,7 +155,7 @@ test("card consumes supplied Manchester City badge and preserves missing optiona
   assert.match(html, /—/)
   const fallback = renderToStaticMarkup(React.createElement(Card, { ...player, club: "Manchester City", clubImageUrl: "/player-shields/123.png" }))
   assert.doesNotMatch(fallback, /src="\/player-shields/)
-  assert.match(fallback, /Manchester City — imagem indisponível/)
+  assert.match(fallback, /Manchester City: representação genérica — escudo oficial indisponível/)
 })
 test("salary is independent, sourced, finite and explicitly weekly or annual; missing is not estimated", () => {
   assert.equal(displaySalary(null, "pt"), null)

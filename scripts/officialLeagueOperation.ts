@@ -6,15 +6,15 @@ import { pathToFileURL } from "node:url"
 import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "../app/generated/prisma/client"
 import { withPrismaReadOnly } from "../lib/prismaReadOnly"
-import { BRACK_SOURCE, ISL_SOURCE, ROSHN_SOURCE } from "../lib/brackBrandSource"
+import { BRACK_SOURCE, ISL_SOURCE, ROSHN_SOURCE, ALEAGUE_SOURCE, CYPRUS_SOURCE } from "../lib/brackBrandSource"
 import { fetchOfficialLeagueBytes } from "../services/brackBrandDelivery"
 import { createPrismaBrandAssetWriteStore } from "../services/prismaBrandAssetWriteStore"
 import { BRAND_ASSET_PILOT_ALLOWLIST, persistBrandAssetAtomically, type BrandAssetCandidate, type BrandAssetPilotIdentity } from "../services/brandAssetWrite"
 
 const production = "rknsog8tmbl5u4xqbogxfux5"
 export const operationSource = (key: string) => {
-  assert.ok(key === "brack" || key === "isl" || key === "roshn", "UNKNOWN_SOURCE")
-  return key === "brack" ? BRACK_SOURCE : key === "isl" ? ISL_SOURCE : ROSHN_SOURCE
+  assert.ok(key === "brack" || key === "isl" || key === "roshn" || key === "aleague" || key === "cyprus", "UNKNOWN_SOURCE")
+  return key === "brack" ? BRACK_SOURCE : key === "isl" ? ISL_SOURCE : key === "roshn" ? ROSHN_SOURCE : key === "aleague" ? ALEAGUE_SOURCE : CYPRUS_SOURCE
 }
 type Approval = { approved: boolean; databaseId: string; entityId: string; provider: string;
   providerEntityId: string; sourceUrl: string; contentHash: string; decisionRef: string;
