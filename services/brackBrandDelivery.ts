@@ -43,7 +43,7 @@ export async function fetchOfficialLeagueBytes(source: OfficialSource, fetcher: 
   observe?.({ phase: "fetch-headers" })
   const response = await fetcher(source.sourceUrl, {
     redirect: "manual", cache: "no-store", signal,
-    headers: { Accept: mimeFor(source) },
+    headers: { Accept: mimeFor(source), "Accept-Encoding": "identity", "Cache-Control": "no-cache" },
   })
   // fetch decodes gzip/br/deflate but keeps the wire Content-Length header.
   // Bound both declared wire size and the decoded stream; hash pins decoded bytes.
