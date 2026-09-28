@@ -5,6 +5,7 @@ import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import type { NormalizedPlayer } from "../../../types/normalizedPlayer"
 import { separatePlayerClubDimensions } from "../../../lib/currentClubPresentation"
 import * as semanticSync from "../../../lib/eaCatalogSemanticSync"
+import * as clubIdentity from "../../../services/clubIdentityAliases"
 
 test("actual EA sync with fake storage keeps real-life B intact while EA/catalog becomes A", async () => {
   const realState = Object.freeze({ playerId: "player", clubId: "real-B", providerTeamId: 202, status: "APPROVED" })
@@ -13,7 +14,9 @@ test("actual EA sync with fake storage keeps real-life B intact while EA/catalog
   const operations: string[] = []
   const prisma = new Proxy({
     league: { upsert: async () => { operations.push("EA league"); return { id: "ea-league" } } },
-    club: { upsert: async () => { operations.push("EA club"); return { id: "ea-A" } } },
+    club: { findUnique: async ({ where }: { where: { externalId?: string; slug?: string } }) =>
+      where.externalId === "ea-club" ? { id: "ea-A", externalId: "ea-club" } : null,
+      update: async () => { operations.push("EA club"); return { id: "ea-A" } } },
     player: {
       findMany: async () => [structuredClone(legacyPlayer)],
       update: async ({ data }: { data: Record<string, unknown> }) => { operations.push("EA player"); assert.equal("currentClubState" in data, false); Object.assign(legacyPlayer, data); return legacyPlayer },
@@ -24,6 +27,7 @@ test("actual EA sync with fake storage keeps real-life B intact while EA/catalog
   const eaSync = loadCatalogModule<{ syncPlayers(players: NormalizedPlayer[], options: { onError(context: { error: unknown }): void }): Promise<{ success: number; failed: number }> }>("services/syncPlayers.ts", {
     "../lib/prisma": { prisma }, "../lib/databaseRetry": { databaseRetry: <T>(fn: () => Promise<T>) => fn() },
     "../lib/eaCatalogSemanticSync": semanticSync,
+    "./clubIdentityAliases": clubIdentity,
   })
   const result = await eaSync.syncPlayers([{ externalId: "ea-id", source: "ea", name: "Example", position: "MC", secondaryPositions: [],
     officialOverall: 80, attributes: Object.fromEntries(("pace acceleration sprintSpeed shooting positioning finishing shotPower longShots volleys penalties " +

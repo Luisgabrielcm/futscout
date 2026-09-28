@@ -1,5 +1,3 @@
-import { isDeepStrictEqual } from "node:util"
-
 import type { Prisma, PrismaClient } from "../app/generated/prisma/client"
 import { EA_CATALOG_PROVENANCE_SCHEMA_VERSION } from "../lib/eaCatalogSemanticSync"
 import { withPrismaReadOnly } from "../lib/prismaReadOnly"
@@ -7,6 +5,7 @@ import type {
   EaGoalkeeperAudit, EaGoalkeeperCursor, EaGoalkeeperOperationalState, EaGoalkeeperSourcePage,
   EaGoalkeeperWritePlan, EaGoalkeeperWriteStore,
 } from "./eaGoalkeeperAttributesSync"
+import { runEaGoalkeeperReadBackQuery, verifyEaGoalkeeperReadBack } from "./eaGoalkeeperAttributesSync"
 
 const protectedTables = [
   "Player", "Club", "League", "PlayerAttributes", "PlayerPlayStyle", "PlayerTransferObservation",
@@ -18,24 +17,30 @@ const POSITION_CURSOR = "ea-ratings-players:fc27:position-write-v1"
 function state(row: {
   id: string; externalId: string | null; name: string; position: string; updatedAt: Date
   goalkeeperAttributes: null | { id: string; diving: number; handling: number; kicking: number;
-    positioning: number; reflexes: number; payloadHash: string; updatedAt: Date }
+    positioning: number; reflexes: number; payloadHash: string; updatedAt: Date; sourceObservationId?: string | null }
 } | null): EaGoalkeeperOperationalState | null {
   if (!row?.externalId) return null
   return {
     playerId: row.id, externalId: row.externalId, name: row.name,
     position: row.position as EaGoalkeeperOperationalState["position"], playerUpdatedAt: row.updatedAt.toISOString(),
-    attributes: row.goalkeeperAttributes ? { ...row.goalkeeperAttributes,
-      updatedAt: row.goalkeeperAttributes.updatedAt.toISOString() } : null,
+    attributes: row.goalkeeperAttributes ? {
+      id: row.goalkeeperAttributes.id,
+      diving: row.goalkeeperAttributes.diving,
+      handling: row.goalkeeperAttributes.handling,
+      kicking: row.goalkeeperAttributes.kicking,
+      positioning: row.goalkeeperAttributes.positioning,
+      reflexes: row.goalkeeperAttributes.reflexes,
+      payloadHash: row.goalkeeperAttributes.payloadHash,
+      updatedAt: row.goalkeeperAttributes.updatedAt.toISOString(),
+    } : null,
   }
 }
 
-async function readPlayer(tx: Prisma.TransactionClient, externalId: string) {
-  return state(await tx.player.findUnique({ where: { externalId }, select: {
-    id: true, externalId: true, name: true, position: true, updatedAt: true,
-    goalkeeperAttributes: { select: { id: true, diving: true, handling: true, kicking: true,
-      positioning: true, reflexes: true, payloadHash: true, updatedAt: true } },
-  } }))
-}
+const playerStateSelect = {
+  id: true, externalId: true, name: true, position: true, updatedAt: true,
+  goalkeeperAttributes: { select: { id: true, diving: true, handling: true, kicking: true,
+    positioning: true, reflexes: true, payloadHash: true, updatedAt: true, sourceObservationId: true } },
+} as const
 
 const cursor = (row: { key: string; offset: number; batchSize: number; status: string; updatedAt: Date } | null): EaGoalkeeperCursor | null =>
   row && ({ ...row, updatedAt: row.updatedAt.toISOString() })
@@ -93,41 +98,52 @@ function transactionPort(tx: Prisma.TransactionClient) {
   return {
     readHistoricalCheckpoint: (key: string) => checkpoint(tx, key),
     readCursor: (key: string) => readCursor(tx, key),
-    readPlayer: (externalId: string) => readPlayer(tx, externalId),
+    async readPlayers(externalIds: readonly string[]) {
+      const rows = await tx.player.findMany({ where: { externalId: { in: [...externalIds] } }, select: playerStateSelect })
+      return new Map(rows.flatMap(row => {
+        const current = state(row)
+        return current ? [[current.externalId, current] as const] : []
+      }))
+    },
     createProvenance: (page: EaGoalkeeperSourcePage, plans: readonly EaGoalkeeperWritePlan[]) =>
       createProvenance(tx, page, plans),
-    async createAttributes(plan: EaGoalkeeperWritePlan, observationId: string, observedAt: Date) {
-      if (!plan.playerId || !plan.after) return 0
-      await tx.playerGoalkeeperAttributes.create({ data: { playerId: plan.playerId,
-        ...values(plan, observationId, observedAt) } })
-      return 1
+    async createAttributesBatch(items: readonly Readonly<{ plan: EaGoalkeeperWritePlan; observationId: string;
+      observedAt: Date }>[]) {
+      const data = items.flatMap(({ plan, observationId, observedAt }) =>
+        plan.playerId && plan.after ? [{ playerId: plan.playerId, ...values(plan, observationId, observedAt) }] : [])
+      if (data.length !== items.length || !data.length) return 0
+      return (await tx.playerGoalkeeperAttributes.createMany({ data })).count
     },
-    async updateAttributes(plan: EaGoalkeeperWritePlan, observationId: string, observedAt: Date) {
-      if (!plan.playerId || !plan.after) return 0
-      const current = await tx.playerGoalkeeperAttributes.findUnique({ where: { playerId: plan.playerId },
-        select: { id: true, payloadHash: true, updatedAt: true } })
+    async updateAttributes(plan: EaGoalkeeperWritePlan, expected: EaGoalkeeperOperationalState,
+      observationId: string, observedAt: Date) {
+      if (!plan.playerId || !plan.after || !expected.attributes) return 0
       const result = await tx.playerGoalkeeperAttributes.updateMany({ where: {
         playerId: plan.playerId,
-        id: current?.id,
-        payloadHash: current?.payloadHash,
-        updatedAt: current?.updatedAt,
+        id: expected.attributes.id,
+        payloadHash: expected.attributes.payloadHash,
+        updatedAt: new Date(expected.attributes.updatedAt),
       }, data: values(plan, observationId, observedAt) })
       return result.count
     },
     async verify(plans: readonly EaGoalkeeperWritePlan[], observationIds: ReadonlyMap<number, string>) {
+      const rows = await runEaGoalkeeperReadBackQuery({ step: "PLAYER_BATCH_READ",
+        externalId: plans.length === 1 ? plans[0]!.externalId : null,
+        query: () => tx.player.findMany({ where: { externalId: { in: plans.map(plan => plan.externalId) } },
+          select: playerStateSelect }) })
+      const currentPlayers = new Map(rows.flatMap(row => {
+        const current = state(row)
+        return current ? [[current.externalId, { state: current,
+          sourceObservationId: row.goalkeeperAttributes?.sourceObservationId }] as const] : []
+      }))
       for (const plan of plans) {
-        const current = await readPlayer(tx, plan.externalId)
-        if (!current || current.position !== "GOL" || !plan.after || !current.attributes ||
-            !isDeepStrictEqual(Object.fromEntries(["diving", "handling", "kicking", "positioning", "reflexes"]
-              .map(field => [field, current.attributes?.[field as keyof typeof current.attributes]])), plan.after) ||
-            current.attributes.payloadHash !== plan.payloadHash) return false
-        if (plan.action !== "NO_OP") {
-          const persisted = await tx.playerGoalkeeperAttributes.findUnique({ where: { playerId: current.playerId },
-            select: { sourceObservationId: true } })
-          if (persisted?.sourceObservationId !== observationIds.get(plan.sourcePage)) return false
-        }
+        const persisted = currentPlayers.get(plan.externalId)
+        const current = persisted?.state ?? null
+        const result = verifyEaGoalkeeperReadBack({ plan, current,
+          expectedSourceObservationId: observationIds.get(plan.sourcePage),
+          persistedSourceObservationId: persisted?.sourceObservationId })
+        if (!result.ok) return result
       }
-      return true
+      return { ok: true as const }
     },
     async advanceCursor(input: { key: string; expected: EaGoalkeeperCursor | null; offset: number; batchSize: number;
       completed: boolean; now: Date }) {

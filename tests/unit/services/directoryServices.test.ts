@@ -6,6 +6,7 @@ import * as directory from "../../../lib/directoryCatalogParams"
 import * as params from "../../../lib/playerCatalogParams"
 import * as order from "../../../lib/playerCatalogOrder"
 import * as mapper from "../../../mappers/mapDatabasePlayer"
+import * as clubIdentityAliases from "../../../services/clubIdentityAliases"
 import { catalogPlayer } from "../../fixtures/catalogPlayer"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 
@@ -47,6 +48,7 @@ function fixture(missing = false) {
     "server-only": {}, react: { cache }, "../lib/prisma": { prisma },
     "../lib/directoryCatalogParams": directory, "./playerService": playerService,
     "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
+    "./clubIdentityAliases": clubIdentityAliases,
   })
   const leagueService = loadCatalogModule<typeof import("../../../services/leagueService")>("services/leagueService.ts", {
     "server-only": {}, react: { cache }, "../lib/prisma": { prisma },

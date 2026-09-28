@@ -45,6 +45,7 @@ test("Home waits for a request before any catalog read", async () => {
 
 test("global metadata and language are honest and fonts require no external module", async () => {
   const layout = loadCatalogModule<typeof import("../../../app/[locale]/layout")>("app/[locale]/layout.tsx", {
+    "next/root-params": { locale: async () => "pt" },
     "../globals.css": {}, "next/server": { connection: async () => {} }, "next/navigation": { redirect: () => { throw new Error("unexpected redirect") } }, "../components/SiteNav": () => null,
   })
   const props = { children: null, params: Promise.resolve({ locale: "pt" }) }

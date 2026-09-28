@@ -17,6 +17,7 @@ import {
   type EaSemanticSnapshot,
   type EaSemanticSyncPlan,
 } from "../lib/eaCatalogSemanticSync"
+import { resolveEaClubSyncIdentity } from "./clubIdentityAliases"
 
 /* ========================================
    TIPOS
@@ -234,8 +235,13 @@ async function syncClub(
       player.club.name
     )
 
+  const eaExternalId = player.club.externalId
+  if (!eaExternalId) {
+    throw new Error(`EA_CLUB_IDENTITY_CONFLICT:EA_ID_MISSING:${player.club.name}`)
+  }
+
   const cacheKey =
-    `${leagueId}:${slug}`
+    `${leagueId}:${eaExternalId}`
 
   /* ========================================
      CACHE
@@ -256,51 +262,37 @@ async function syncClub(
      BANCO
   ======================================== */
 
-  const club =
-    await databaseRetry(
-      () =>
-        prisma.club.upsert({
-          where: {
-            slug,
-          },
+  const identityOwner = await databaseRetry(
+    () => prisma.club.findUnique({
+      where: { externalId: eaExternalId },
+      select: { id: true, externalId: true },
+    }),
+    `Club EA identity: ${eaExternalId}`
+  )
 
-          update: {
-            name:
-              player.club!.name,
+  const slugOwner = identityOwner ? null : await databaseRetry(
+    () => prisma.club.findUnique({
+      where: { slug },
+      select: { id: true, externalId: true },
+    }),
+    `Club slug identity: ${slug}`
+  )
 
-            leagueId,
+  const resolution = resolveEaClubSyncIdentity({ eaExternalId, identityOwner, slugOwner })
+  if (resolution.kind === "CONFLICT") {
+    throw new Error(`EA_CLUB_IDENTITY_CONFLICT:${resolution.reason}:${eaExternalId}`)
+  }
 
-            ...(player.club!
-              .externalId
-              ? {
-                  externalId:
-                    player.club!
-                      .externalId,
-                }
-              : {}),
-          },
-
-          create: {
-            slug,
-
-            name:
-              player.club!.name,
-
-            leagueId,
-
-            externalId:
-              player.club!
-                .externalId,
-
-          },
-
-          select: {
-            id: true,
-          },
-        }),
-
-      `Club: ${player.club.name}`
-    )
+  const club = resolution.kind === "MATCH"
+    ? await databaseRetry(() => prisma.club.update({
+        where: { id: resolution.clubId },
+        data: { name: player.club!.name, leagueId },
+        select: { id: true },
+      }), `Club EA identity update: ${eaExternalId}`)
+    : await databaseRetry(() => prisma.club.create({
+        data: { slug, name: player.club!.name, leagueId, externalId: eaExternalId },
+        select: { id: true },
+      }), `Club EA identity create: ${eaExternalId}`)
 
   /* ========================================
      CACHE

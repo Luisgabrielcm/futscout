@@ -4,6 +4,7 @@ import { cache } from "react"
 import * as directory from "../../../lib/directoryCatalogParams"
 import * as order from "../../../lib/playerCatalogOrder"
 import * as mapper from "../../../mappers/mapDatabasePlayer"
+import * as clubIdentityAliases from "../../../services/clubIdentityAliases"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import type { Prisma } from "../../../app/generated/prisma/client"
 
@@ -14,6 +15,7 @@ test("overview shares one compact roster query for XI and full position panel wi
     "server-only": {}, react: { cache }, "../lib/prisma": { prisma: { player: {
       findMany: async (args: Prisma.PlayerFindManyArgs) => { queries.push(args); return rows },
     } } }, "../lib/directoryCatalogParams": directory, "./playerService": {},
+    "./clubIdentityAliases": clubIdentityAliases,
     "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
   })
   const result = await service.getClubRoster("one-club")
@@ -37,6 +39,7 @@ test("best clubs sorts across all matching club metadata BEFORE pagination, ties
   }, player: { groupBy: async (args: Prisma.PlayerGroupByArgs) => { aggregate.push(args); return clubs.map((club, i) => ({ clubId: club.id, position: "MC", _sum: { officialOverall: i }, _count: { _all: 1 } })) } } }
   const service = loadCatalogModule<typeof import("../../../services/clubService")>("services/clubService.ts", {
     "server-only": {}, react: { cache }, "../lib/prisma": { prisma }, "../lib/directoryCatalogParams": directory, "./playerService": {},
+    "./clubIdentityAliases": clubIdentityAliases,
     "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
   })
   const result = await service.getClubs({ sort: "best", page: 2, league: "league" })

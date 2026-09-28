@@ -33,3 +33,139 @@ Inspeção visual dos bytes arquivados: Real Sociedad apresenta bola, coroa e ba
 Cobertura esperada se as três transações e exibição forem confirmadas: 574→577 escudos elegíveis, com cinco representações genéricas separadas. Isso não resolve automaticamente as dez associações suspeitas, cuja revisão é independente.
 
 Execução posterior concluída: os três reservas foram cadastrados por operações individuais, com leitura independente, preservando EA, liga e jogadores. As três páginas e imagens públicas retornaram HTTP 200; os cinco casos genéricos apresentam identificação explícita e nenhum escudo oficial. Evidência `audit/output/public-missing-clubs-confirmation-20260925.json`; resultado consolidado em [remaining-images-operational-execution-20260925.md](remaining-images-operational-execution-20260925.md).
+
+## Bayer Leverkusen — alias de rota verificado (2026-09-25)
+
+O preflight READ ONLY confirmou que o slug legado `bayer-leverkusen` pertence
+ao placeholder EA `mock-bayer-leverkusen`, sem jogadores, enquanto o registro
+populado tem EA `externalId=32`, API-Football `apiFootballId=168` e 26 jogadores.
+O serviço de detalhe resolve o slug legado ao registro populado somente quando
+EA ID, API ID e Bundesliga coincidem exatamente; mantém a URL legada e usa o
+`Club.id` populado para o elenco. Nenhuma relação ou histórico foi movido.
+
+O sync EA de clubes agora procura primeiro por `Club.externalId` da EA, usa
+cache separado por essa identidade e bloqueia um slug ocupado por outra
+identidade. O ID 168 permanece exclusivamente `apiFootballId`; ele nunca é
+interpretado como ID EA. Nenhuma escrita no banco foi necessária para esta
+correção de alias.
+
+## Fechamento Bayer / GK / TypeScript — 2026-09-28
+
+### Código local e validação Bayer
+
+Base de revisão: branch `beta-next`, HEAD `14db9f0`. As correções desta seção
+continuam no diff local; não foram commitadas, publicadas ou implantadas nesta
+revisão. O conteúdo anterior sobre escudos/reservas foi preservado.
+
+O teste de integração local com Prisma mockado executa `getClubBySlug` e
+`getClubRoster`: `bayer-leverkusen` resolve ao Club populado de identidade EA
+`32` / API-Football `168`, mantém a URL legada e consulta seus 26 jogadores pelo
+ID interno. Os testes também rejeitam identidades/liga divergentes e colisões
+de slug, e verificam o vínculo `Player.clubId` no sync. A contagem real de 26
+vem do preflight READ ONLY já documentado acima, não de nova consulta em
+2026-09-28. O teste mockado não é apresentado como novo smoke HTTP/Production.
+
+O layout utiliza `LayoutProps<"/[locale]">` e o getter `locale()` de
+`next/root-params`, conforme a documentação instalada do Next.js 16.3.4
+(`next-root-params.md`). Não houve edição de tipos gerados ou supressão de erros.
+
+### GK já persistido em Production
+
+Resultado operacional de 2026-09-27 reutilizado nesta revisão, sem nova
+sincronização nem auditoria completa do banco:
+
+| Indicador | Resultado confirmado |
+|---|---|
+| Cobertura GK | 1.816 / 1.816 goleiros primários |
+| Lotes | 37, incluindo o primeiro; no máximo 50 goleiros por transação |
+| Criações | 50 no primeiro lote + 1.766 na retomada |
+| UPDATE / NO_OP / INVALID / CONFLICT na retomada | 0 / 0 / 0 / 0 |
+| Falhas / retries na execução concluída | 0 / 0 |
+| Cursor GK | 16.228, `completed` |
+| Checkpoints EA / posições | 16.228, `completed`, preservados |
+| Observações de catálogo | 325 antes do primeiro lote; 330 após ele; 484 ao final |
+| Observações de jogador | 16.228 antes do primeiro lote; 16.278 após ele; 18.044 ao final |
+
+Os cinco atributos, hashes e vínculos de origem foram conferidos em leitura.
+Player, Club, League, atributos de linha, PlayStyles, Current Club V1/V2,
+TransferObservations e Brand Assets permaneceram intactos na auditoria
+operacional. Não foi criado GK Speed nem reinterpretado PAC.
+
+O writer local preserva `Serializable`, timeout de 30 segundos, CAS, leitura e
+criação em lote, provenance, read-back e cursor atômico, rollback e zero retries.
+`AUDIT_FAILED`/`AUDIT_MISMATCH` após commit mantêm `COMMIT_CONFIRMED`, quantidade
+e IDs de provenance; o runner continua encerrando com erro, sem repetir o lote.
+Commit realmente desconhecido permanece `COMMIT_INDETERMINATE`.
+
+Tempos de transação são separados das auditorias; incluem espera para iniciar a
+transação. O overhead não medido não é interpretado como tempo isolado de commit.
+Nos 35 recibos completos disponíveis da retomada, as transações duraram
+1,95–5,09 segundos. O lote **27 da retomada** teve a saída original truncada:
+seus 50 registros e a provenance foram reconciliados em READ ONLY, mas o tempo
+original não foi recuperado. Também faltam trechos dos planos originais dos
+lotes 16, 19, 24 e 28; isso não foi ocultado nem reconstruído como payload EA.
+
+Evidências operacionais externas ao repositório: `gk-first50-confirmed-20260927.json`,
+`gk-remaining-20260927-summary.json`, recibos por lote e
+`gk-remaining-20260927-batch-27-reconciliation.json`. Não incluir esses artefatos
+no commit. O manifesto local `audit/gk-first-batch-transcribed-20260927.json`
+contém apenas IDs transcritos do histórico, não payload/CAS aprovado; também
+fica fora da proposta de commit, preservado no disco.
+
+### Gates do fechamento
+
+Sem novas consultas operacionais à EA/API-Football ou ao banco. Os comandos
+usam placeholders locais de CI para as conexões e `SITE_URL=https://example.invalid`,
+somente no ambiente dos processos; nenhum arquivo `.env` foi alterado.
+
+- Suíte completa, conforme CI, `npm test -- --test-concurrency=1`: 1.638 casos,
+  1.626 PASS, 4 FAIL e 8 SSR skipped, em 185,96 s. As quatro falhas eram mocks
+  ausentes de `next/root-params` nos testes de layout, não falhas do writer GK.
+- Correção restrita aos mocks de `i18n.test.ts` e `productionConfig.test.ts`:
+  reexecução dos dois arquivos, 33 PASS / 0 FAIL, em 7,19 s. Os demais testes,
+  incluindo Bayer/sync/GK, passaram na execução completa e seu código não mudou
+  depois dela. Essa evidência é reutilizada; não se declara uma segunda execução
+  completa inexistente. Os oito testes SSR dependem de servidor HTTP e permanecem
+  skipped nesta revisão sem smoke Production.
+- `npx next typegen`: PASS.
+- `npx tsc --noEmit`: PASS.
+- `git diff --check`: PASS; avisos de conversão LF/CRLF não são erros de diff.
+- `npm run lint`: PASS, sem erros ou warnings.
+- `npm run build`: PASS, com `Collecting page data using 2 workers`, 5/5 páginas
+  estáticas geradas e otimização concluída; sem OOM, erros ou warnings. Sem
+  alterar `next.config.ts`. Nesta
+  instalação, `config-shared.js` calcula o default de `experimental.cpus` como
+  `CIRCLE_NODE_TOTAL - 1`; foi usado `CIRCLE_NODE_TOTAL=3` apenas no processo.
+  Esse mecanismo foi conferido no código instalado, não presumido como API
+  pública estável. Não houve aumento de heap ou supressão de TypeScript.
+
+### Proposta de commit (não executada)
+
+Mensagem sugerida: `fix: resolve Bayer identity and harden goalkeeper sync`.
+Lista explícita de arquivos da etapa:
+
+```text
+app/[locale]/layout.tsx
+docs/missing-clubs-resolution-20260925.md
+services/clubIdentityAliases.ts
+services/clubService.ts
+services/eaGoalkeeperAttributesSync.ts
+services/prismaEaGoalkeeperAttributesSyncStore.ts
+services/syncPlayers.ts
+sync/runEAGoalkeeperAttributesSync.ts
+tests/unit/lib/i18n.test.ts
+tests/unit/lib/productionConfig.test.ts
+tests/unit/services/clubIdentityAliases.test.ts
+tests/unit/services/clubExperienceServices.test.ts
+tests/unit/services/currentClubCompatibility.test.ts
+tests/unit/services/directoryServices.test.ts
+tests/unit/services/eaGoalkeeperAttributesSync.test.ts
+tests/unit/services/eaSemanticSyncPersistence.test.ts
+```
+
+Os ajustes dos três testes de catálogo/Current Club são adaptações de mocks à
+nova dependência de identidade; não representam outro trabalho de produto.
+Os dois novos arquivos de código/teste de alias foram revisados. Nenhum segredo,
+credencial real ou recibo temporário pertence à lista proposta. O manifesto
+operacional não rastreado é preservado e explicitamente excluído; não usar
+`git add .`. Aprovação de commit ainda é necessária.

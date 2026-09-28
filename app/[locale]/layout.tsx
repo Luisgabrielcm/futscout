@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
+import { locale as rootLocale } from "next/root-params"
 import "../globals.css"
 import SiteNav from "../components/SiteNav"
 import { t, localeTags } from "../../lib/i18n"
@@ -15,8 +16,8 @@ export async function generateMetadata({ params }: Pick<Props, "params">): Promi
     icons: { icon: "/icon.svg" },
   }
 }
-export default async function RootLayout({ children, params }: Props) {
-  const { locale } = await params
+export default async function RootLayout({ children }: LayoutProps<"/[locale]">) {
+  const locale = await rootLocale()
   if (!isLocale(locale)) redirect("/pt")
   return <html lang={localeTags[locale]} className="h-full antialiased">
     <body className="min-h-full flex flex-col">

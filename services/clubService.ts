@@ -6,6 +6,7 @@ import { directoryPagination, parseDirectoryParams, type DirectoryInput } from "
 import { getPlayers } from "./playerService"
 import { calculateClubRating, compareRatedClubs } from "../lib/clubRating"
 import { getBrandAssetsForEntities } from "./brandAssetReadService"
+import { BAYER_LEVERKUSEN_LEGACY_ALIAS, isVerifiedLegacyClubAlias } from "./clubIdentityAliases"
 
 const clubSelect = {
   id: true, name: true, slug: true, imageUrl: true,
@@ -55,10 +56,29 @@ export function getClubRoster(clubId: string) {
 
 // Request-local memoization shares the detail lookup with generateMetadata.
 export const getClubBySlug = cache(async (slug: string) => {
-  const club = await prisma.club.findUnique({ where: { slug }, select: clubSelect })
-  if (!club) return null
+  const identitySelect = { ...clubSelect, externalId: true, apiFootballId: true, leagueId: true } satisfies Prisma.ClubSelect
+  const requested = await prisma.club.findUnique({ where: { slug }, select: identitySelect })
+  if (!requested) return null
+
+  let club = requested
+  if (slug === BAYER_LEVERKUSEN_LEGACY_ALIAS.slug &&
+      requested.externalId === BAYER_LEVERKUSEN_LEGACY_ALIAS.placeholderEaExternalId) {
+    const target = await prisma.club.findUnique({
+      where: { apiFootballId: BAYER_LEVERKUSEN_LEGACY_ALIAS.targetApiFootballId },
+      select: identitySelect,
+    })
+    if (target && isVerifiedLegacyClubAlias({ requestedSlug: slug, placeholder: requested, target })) {
+      club = {
+        ...target,
+        // Keep the already published legacy path resolving; links inside the detail stay on it.
+        slug,
+      }
+    }
+  }
+
   const assets = await getBrandAssetsForEntities({ clubIds: [club.id], leagueIds: [club.league.id] })
-  return { ...club, asset: assets.clubs.get(club.id) ?? null,
+  return { id: club.id, name: club.name, slug: club.slug, imageUrl: club.imageUrl,
+    _count: club._count, asset: assets.clubs.get(club.id) ?? null,
     league: { ...club.league, asset: assets.leagues.get(club.league.id) ?? null } }
 })
 

@@ -138,6 +138,7 @@ for (const locale of ["pt", "en"] as const) {
 
   test(locale + ": server root renders correct html language and metadata without hydration changes", async () => {
     const layout = loadCatalogModule<typeof import("../../../app/[locale]/layout")>("app/[locale]/layout.tsx", {
+      "next/root-params": { locale: async () => locale },
       "../globals.css": {}, "next/server": { connection: async () => {} }, "../components/SiteNav": empty,
       "next/navigation": { redirect: () => { throw new Error("redirect") } },
     })
@@ -185,6 +186,7 @@ for (const locale of ["pt", "en"] as const) {
 test("invalid root locale redirects safely instead of using an undefined dictionary", async () => {
   const signal = new Error("redirect")
   const layout = loadCatalogModule<typeof import("../../../app/[locale]/layout")>("app/[locale]/layout.tsx", {
+    "next/root-params": { locale: async () => "fr" },
     "../globals.css": {}, "next/server": { connection: async () => {} }, "../components/SiteNav": empty,
     "next/navigation": { redirect: (path: string) => { assert.equal(path, "/pt"); throw signal } },
   })

@@ -43,6 +43,57 @@ export type EaGoalkeeperWritePlan = Readonly<{
   expectedStateHash: string | null
 }>
 
+export type EaGoalkeeperReadBackCategory =
+  | "PLAYER_OR_POSITION"
+  | "GK_ROW_MISSING"
+  | "GK_DIVING_MISMATCH"
+  | "GK_HANDLING_MISMATCH"
+  | "GK_KICKING_MISMATCH"
+  | "GK_POSITIONING_MISMATCH"
+  | "GK_REFLEXES_MISMATCH"
+  | "PAYLOAD_HASH_MISMATCH"
+  | "SOURCE_OBSERVATION_MISMATCH"
+  | "INVALID_PLAN"
+
+export type EaGoalkeeperReadBackResult =
+  | Readonly<{ ok: true }>
+  | Readonly<{ ok: false; category: EaGoalkeeperReadBackCategory; externalId: string }>
+
+const readBackValueMismatchCategory: Record<GoalkeeperAttributeField, EaGoalkeeperReadBackCategory> = {
+  diving: "GK_DIVING_MISMATCH",
+  handling: "GK_HANDLING_MISMATCH",
+  kicking: "GK_KICKING_MISMATCH",
+  positioning: "GK_POSITIONING_MISMATCH",
+  reflexes: "GK_REFLEXES_MISMATCH",
+}
+
+export function verifyEaGoalkeeperReadBack(input: {
+  plan: EaGoalkeeperWritePlan
+  current: EaGoalkeeperOperationalState | null
+  expectedSourceObservationId: string | undefined
+  persistedSourceObservationId: string | null | undefined
+}): EaGoalkeeperReadBackResult {
+  const { plan, current } = input
+  const mismatch = (category: EaGoalkeeperReadBackCategory): EaGoalkeeperReadBackResult =>
+    ({ ok: false, category, externalId: plan.externalId })
+
+  if (!plan.after) return mismatch("INVALID_PLAN")
+  if (!current || current.externalId !== plan.externalId || current.playerId !== plan.playerId ||
+      current.position !== "GOL") return mismatch("PLAYER_OR_POSITION")
+  if (!current.attributes) return mismatch("GK_ROW_MISSING")
+  for (const field of GOALKEEPER_ATTRIBUTE_FIELDS) {
+    if (current.attributes[field] !== plan.after[field]) {
+      return mismatch(readBackValueMismatchCategory[field])
+    }
+  }
+  if (current.attributes.payloadHash !== plan.payloadHash) return mismatch("PAYLOAD_HASH_MISMATCH")
+  if (plan.action !== "NO_OP" && (!input.expectedSourceObservationId ||
+      input.persistedSourceObservationId !== input.expectedSourceObservationId)) {
+    return mismatch("SOURCE_OBSERVATION_MISMATCH")
+  }
+  return { ok: true }
+}
+
 export function eaGoalkeeperOperationalStateHash(state: EaGoalkeeperOperationalState): string {
   return createHash("sha256").update(JSON.stringify({
     playerId: state.playerId,
@@ -116,11 +167,13 @@ export type EaGoalkeeperSourcePage = Readonly<{
 export type EaGoalkeeperWriteTransaction = {
   readHistoricalCheckpoint(key: string): Promise<{ offset: number; updatedAt: string } | null>
   readCursor(key: string): Promise<EaGoalkeeperCursor | null>
-  readPlayer(externalId: string): Promise<EaGoalkeeperOperationalState | null>
+  readPlayers(externalIds: readonly string[]): Promise<ReadonlyMap<string, EaGoalkeeperOperationalState>>
   createProvenance(page: EaGoalkeeperSourcePage, plans: readonly EaGoalkeeperWritePlan[]): Promise<string>
-  createAttributes(plan: EaGoalkeeperWritePlan, observationId: string, observedAt: Date): Promise<number>
-  updateAttributes(plan: EaGoalkeeperWritePlan, observationId: string, observedAt: Date): Promise<number>
-  verify(plans: readonly EaGoalkeeperWritePlan[], observationIds: ReadonlyMap<number, string>): Promise<boolean>
+  createAttributesBatch(items: readonly Readonly<{ plan: EaGoalkeeperWritePlan; observationId: string;
+    observedAt: Date }>[]): Promise<number>
+  updateAttributes(plan: EaGoalkeeperWritePlan, expected: EaGoalkeeperOperationalState,
+    observationId: string, observedAt: Date): Promise<number>
+  verify(plans: readonly EaGoalkeeperWritePlan[], observationIds: ReadonlyMap<number, string>): Promise<EaGoalkeeperReadBackResult>
   advanceCursor(input: { key: string; expected: EaGoalkeeperCursor | null; offset: number; batchSize: number;
     completed: boolean; now: Date }): Promise<number>
 }
@@ -142,22 +195,82 @@ export type EaGoalkeeperWriteRequest = Readonly<{
   plans: readonly EaGoalkeeperWritePlan[]
 }>
 
+export type EaGoalkeeperWriteFailurePhase =
+  | "TRANSACTION_START"
+  | "CHECKPOINT_CURSOR_READ"
+  | "PLAYER_REVALIDATION"
+  | "PROVENANCE_CREATE"
+  | "GK_ATTRIBUTE_CREATE"
+  | "GK_ATTRIBUTE_UPDATE"
+  | "READ_BACK"
+  | "CURSOR_ADVANCE"
+  | "COMMIT"
+  | "POST_COMMIT_AUDIT"
+
+export type EaGoalkeeperReadBackStep = "PLAYER_STATE_READ" | "SOURCE_OBSERVATION_READ" | "PLAYER_BATCH_READ"
+
+export class EaGoalkeeperReadBackStoreError extends Error {
+  constructor(readonly step: EaGoalkeeperReadBackStep, readonly externalId: string | null,
+    readonly elapsedMs: number, cause: unknown) {
+    super("GOALKEEPER_READ_BACK_STORAGE_FAILURE")
+    this.name = "EaGoalkeeperReadBackStoreError"
+    Object.defineProperty(this, "cause", { value: cause, configurable: true })
+  }
+}
+
+export async function runEaGoalkeeperReadBackQuery<T>(input: {
+  step: EaGoalkeeperReadBackStep
+  externalId?: string | null
+  query: () => Promise<T>
+  now?: () => number
+}): Promise<T> {
+  const now = input.now ?? Date.now
+  const startedAt = now()
+  try {
+    return await input.query()
+  } catch (cause) {
+    throw new EaGoalkeeperReadBackStoreError(input.step, input.externalId ?? null,
+      Math.max(0, Math.round(now() - startedAt)), cause)
+  }
+}
+
 export type EaGoalkeeperWriteResult = Readonly<{
-  status: "COMMITTED" | "BLOCKED" | "CONCURRENT_MODIFICATION" | "ROLLED_BACK" | "INDETERMINATE_COMMIT" | "AUDIT_MISMATCH"
+  status: "COMMITTED" | "BLOCKED" | "CONCURRENT_MODIFICATION" | "ROLLED_BACK" | "INDETERMINATE_COMMIT" | "AUDIT_MISMATCH" | "AUDIT_FAILED"
   written: number
   nextOffset: number
   provenanceIds: string[]
   transactionState: "NOT_STARTED" | "ROLLED_BACK" | "COMMIT_CONFIRMED" | "COMMIT_INDETERMINATE"
   retries: 0
   reason: string
+  // Transaction wall time includes waiting to acquire/start the transaction, but excludes audits.
+  // Unmeasured overhead includes acquisition, driver work and commit/rollback; it is NOT commit time.
+  timing?: Readonly<{ transactionTotalMs: number; unmeasuredOverheadMs: number;
+    preAuditMs: number; postAuditMs: number | null;
+    phasesMs: Partial<Record<EaGoalkeeperWriteFailurePhase, number>> }>
+  diagnostic?: Readonly<{ phase: EaGoalkeeperWriteFailurePhase; code: string | null;
+    category?: EaGoalkeeperReadBackCategory; externalId?: string;
+    readBack?: Readonly<{ step: EaGoalkeeperReadBackStep; externalId?: string; elapsedMs: number }> }>
 }>
 
 class GoalkeeperWriteAbort extends Error {
-  constructor(readonly status: EaGoalkeeperWriteResult["status"], readonly safeReason: string) { super(safeReason) }
+  constructor(readonly status: EaGoalkeeperWriteResult["status"], readonly safeReason: string,
+    readonly readBack?: Extract<EaGoalkeeperReadBackResult, { ok: false }>) { super(safeReason) }
 }
 
-const errorCode = (error: unknown) => typeof error === "object" && error !== null && "code" in error &&
-  typeof error.code === "string" ? error.code : null
+function safeErrorCode(error: unknown): string | null {
+  let current = error
+  for (let depth = 0; depth < 4 && typeof current === "object" && current !== null; depth++) {
+    if ("code" in current && typeof current.code === "string" &&
+        /^(?:P\d{4}|[0-9A-Z]{5}|E[A-Z0-9_]{3,30})$/.test(current.code)) return current.code
+    current = "cause" in current ? current.cause : null
+  }
+  return null
+}
+
+function directErrorCode(error: unknown): string | null {
+  return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
+    ? error.code : null
+}
 
 function result(request: EaGoalkeeperWriteRequest, status: EaGoalkeeperWriteResult["status"],
   transactionState: EaGoalkeeperWriteResult["transactionState"], reason: string, written = 0,
@@ -186,69 +299,138 @@ function validRequest(request: EaGoalkeeperWriteRequest): boolean {
 }
 
 export async function persistEaGoalkeeperBatchAtomically(store: EaGoalkeeperWriteStore,
-  request: EaGoalkeeperWriteRequest, now: () => Date = () => new Date()): Promise<EaGoalkeeperWriteResult> {
+  request: EaGoalkeeperWriteRequest, now: () => Date = () => new Date(),
+  clock: () => number = () => performance.now()): Promise<EaGoalkeeperWriteResult> {
   if (!validRequest(request)) return result(request, "BLOCKED", "NOT_STARTED", "FIELD_SCOPE_OR_BATCH_INVALID")
+  const preAuditStartedAt = clock()
   const beforeAudit = await store.audit()
+  const preAuditMs = Math.max(0, clock() - preAuditStartedAt)
   if (!isDeepStrictEqual(beforeAudit.historicalCheckpoint, request.expectedHistoricalCheckpoint)) {
     return result(request, "CONCURRENT_MODIFICATION", "NOT_STARTED", "HISTORICAL_CHECKPOINT_CHANGED")
   }
   let callbackReturned = false
+  let failurePhase: EaGoalkeeperWriteFailurePhase = "TRANSACTION_START"
+  let transactionStartedAt: number | undefined
+  let transactionEndedAt: number | undefined
+  let postAuditMs: number | null = null
+  let committed: { written: number; provenanceIds: string[] }
+  const phasesMs: Partial<Record<EaGoalkeeperWriteFailurePhase, number>> = {}
+  const measure = async <T>(phase: EaGoalkeeperWriteFailurePhase, work: () => Promise<T>): Promise<T> => {
+    failurePhase = phase
+    const startedAt = clock()
+    try { return await work() }
+    finally { phasesMs[phase] = (phasesMs[phase] ?? 0) + Math.max(0, clock() - startedAt) }
+  }
+  const addTiming = (output: EaGoalkeeperWriteResult): EaGoalkeeperWriteResult => {
+    if (transactionStartedAt === undefined || transactionEndedAt === undefined) return output
+    const transactionTotalMs = Math.max(0, transactionEndedAt - transactionStartedAt)
+    const measuredMs = Object.values(phasesMs).reduce((total, elapsed) => total + (elapsed ?? 0), 0)
+    return { ...output, timing: { transactionTotalMs, preAuditMs, postAuditMs,
+      unmeasuredOverheadMs: Math.max(0, transactionTotalMs - measuredMs), phasesMs: { ...phasesMs } } }
+  }
   try {
-    const committed = await store.transaction(async tx => {
-      const historical = await tx.readHistoricalCheckpoint(request.historicalKey)
-      const cursor = await tx.readCursor(request.key)
-      if (!isDeepStrictEqual(historical, request.expectedHistoricalCheckpoint) ||
-          !isDeepStrictEqual(cursor, request.expectedCursor) || (cursor?.offset ?? 0) !== request.sourceOffset) {
-        throw new GoalkeeperWriteAbort("CONCURRENT_MODIFICATION", "CURSOR_OR_CHECKPOINT_CHANGED")
-      }
-      for (const plan of request.plans) {
-        const current = await tx.readPlayer(plan.externalId)
-        if (!current || current.playerId !== plan.playerId || current.playerUpdatedAt !== plan.expectedPlayerUpdatedAt ||
-            current.position !== "GOL" || eaGoalkeeperOperationalStateHash(current) !== plan.expectedStateHash) {
-          throw new GoalkeeperWriteAbort("CONCURRENT_MODIFICATION", `PLAYER_OR_GK_STATE_CHANGED:${plan.externalId}`)
+    transactionStartedAt = clock()
+    try {
+      committed = await store.transaction(async tx => {
+      await measure("CHECKPOINT_CURSOR_READ", async () => {
+        const historical = await tx.readHistoricalCheckpoint(request.historicalKey)
+        const cursor = await tx.readCursor(request.key)
+        if (!isDeepStrictEqual(historical, request.expectedHistoricalCheckpoint) ||
+            !isDeepStrictEqual(cursor, request.expectedCursor) || (cursor?.offset ?? 0) !== request.sourceOffset) {
+          throw new GoalkeeperWriteAbort("CONCURRENT_MODIFICATION", "CURSOR_OR_CHECKPOINT_CHANGED")
         }
-      }
+        return { historical, cursor }
+      })
+      const currentPlayers = await measure("PLAYER_REVALIDATION", async () => {
+        const players = await tx.readPlayers(request.plans.map(plan => plan.externalId))
+        for (const plan of request.plans) {
+          const current = players.get(plan.externalId) ?? null
+          if (!current || current.playerId !== plan.playerId || current.playerUpdatedAt !== plan.expectedPlayerUpdatedAt ||
+              current.position !== "GOL" || eaGoalkeeperOperationalStateHash(current) !== plan.expectedStateHash) {
+            throw new GoalkeeperWriteAbort("CONCURRENT_MODIFICATION", `PLAYER_OR_GK_STATE_CHANGED:${plan.externalId}`)
+          }
+        }
+        return players
+      })
       const observationIds = new Map<number, string>()
-      for (const page of request.sourcePages) {
-        observationIds.set(page.pageIndex, await tx.createProvenance(page,
-          request.plans.filter(plan => plan.sourcePage === page.pageIndex)))
-      }
+      await measure("PROVENANCE_CREATE", async () => {
+        for (const page of request.sourcePages) {
+          observationIds.set(page.pageIndex, await tx.createProvenance(page,
+            request.plans.filter(plan => plan.sourcePage === page.pageIndex)))
+        }
+      })
       let written = 0
-      for (const plan of request.plans) {
-        if (plan.action === "NO_OP") continue
-        const observationId = observationIds.get(plan.sourcePage)!
-        const observedAt = request.sourcePages.find(page => page.pageIndex === plan.sourcePage)!.provenance.observedAt
-        const count = plan.action === "CREATE"
-          ? await tx.createAttributes(plan, observationId, observedAt)
-          : await tx.updateAttributes(plan, observationId, observedAt)
-        if (count !== 1) throw new GoalkeeperWriteAbort("CONCURRENT_MODIFICATION", `GOALKEEPER_CAS_FAILED:${plan.externalId}`)
-        written++
+      const creates = request.plans.filter(plan => plan.action === "CREATE").map(plan => ({
+        plan, observationId: observationIds.get(plan.sourcePage)!,
+        observedAt: request.sourcePages.find(page => page.pageIndex === plan.sourcePage)!.provenance.observedAt,
+      }))
+      if (creates.length) {
+        const count = await measure("GK_ATTRIBUTE_CREATE", () => tx.createAttributesBatch(creates))
+        if (count !== creates.length) throw new GoalkeeperWriteAbort("CONCURRENT_MODIFICATION", "GOALKEEPER_CAS_FAILED")
+        written += count
       }
-      if (!await tx.verify(request.plans, observationIds)) {
-        throw new GoalkeeperWriteAbort("ROLLED_BACK", "GOALKEEPER_READ_BACK_MISMATCH")
+      await measure("GK_ATTRIBUTE_UPDATE", async () => {
+        for (const plan of request.plans) {
+          if (plan.action !== "UPDATE") continue
+          const expected = currentPlayers.get(plan.externalId)!
+          const observationId = observationIds.get(plan.sourcePage)!
+          const observedAt = request.sourcePages.find(page => page.pageIndex === plan.sourcePage)!.provenance.observedAt
+          const count = await tx.updateAttributes(plan, expected, observationId, observedAt)
+          if (count !== 1) throw new GoalkeeperWriteAbort("CONCURRENT_MODIFICATION", `GOALKEEPER_CAS_FAILED:${plan.externalId}`)
+          written++
+        }
+      })
+      const readBack = await measure("READ_BACK", () => tx.verify(request.plans, observationIds))
+      if (!readBack.ok) {
+        throw new GoalkeeperWriteAbort("ROLLED_BACK", "GOALKEEPER_READ_BACK_MISMATCH", readBack)
       }
-      if (await tx.advanceCursor({ key: request.key, expected: request.expectedCursor, offset: request.nextOffset,
-        batchSize: EA_GOALKEEPER_BATCH_SIZE, completed: request.nextOffset >= request.totalItems, now: now() }) !== 1) {
+      if (await measure("CURSOR_ADVANCE", () => tx.advanceCursor({ key: request.key, expected: request.expectedCursor,
+        offset: request.nextOffset, batchSize: EA_GOALKEEPER_BATCH_SIZE,
+        completed: request.nextOffset >= request.totalItems, now: now() })) !== 1) {
         throw new GoalkeeperWriteAbort("CONCURRENT_MODIFICATION", "CURSOR_CAS_FAILED")
       }
+      failurePhase = "COMMIT"
       callbackReturned = true
       return { written, provenanceIds: [...observationIds.values()] }
-    })
-    const afterAudit = await store.audit()
-    if (!isDeepStrictEqual(beforeAudit, afterAudit)) {
-      return result(request, "AUDIT_MISMATCH", "COMMIT_CONFIRMED", "PROTECTED_STATE_CHANGED",
-        committed.written, committed.provenanceIds)
+      })
+    } finally {
+      transactionEndedAt = clock()
     }
-    return result(request, "COMMITTED", "COMMIT_CONFIRMED", "GOALKEEPER_BATCH_COMMITTED",
-      committed.written, committed.provenanceIds)
   } catch (error) {
-    if (error instanceof GoalkeeperWriteAbort) return result(request, error.status, "ROLLED_BACK", error.safeReason)
-    const code = errorCode(error)
-    const concurrent = ["P2034", "40001", "40P01"].includes(code ?? "")
-    if (callbackReturned && !concurrent) {
-      return result(request, "INDETERMINATE_COMMIT", "COMMIT_INDETERMINATE", "COMMIT_ACKNOWLEDGEMENT_UNKNOWN")
+    if (error instanceof GoalkeeperWriteAbort) {
+      const output = addTiming(result(request, error.status, "ROLLED_BACK", error.safeReason))
+      return error.readBack ? { ...output, diagnostic: { phase: "READ_BACK", code: null,
+        category: error.readBack.category, externalId: error.readBack.externalId } } : output
     }
-    return result(request, concurrent ? "CONCURRENT_MODIFICATION" : "ROLLED_BACK", "ROLLED_BACK",
-      concurrent ? "DATABASE_CONCURRENCY_CONFLICT" : "TRANSACTION_FAILED")
+    const code = safeErrorCode(error)
+    // Keep the pre-existing classification semantics; nested codes enrich diagnostics only.
+    const concurrent = ["P2034", "40001", "40P01"].includes(directErrorCode(error) ?? "")
+    if (callbackReturned && !concurrent) {
+      return { ...addTiming(result(request, "INDETERMINATE_COMMIT", "COMMIT_INDETERMINATE", "COMMIT_ACKNOWLEDGEMENT_UNKNOWN")),
+        diagnostic: { phase: failurePhase, code } }
+    }
+    const readBack = error instanceof EaGoalkeeperReadBackStoreError
+      ? { step: error.step, ...(error.externalId ? { externalId: error.externalId } : {}), elapsedMs: error.elapsedMs }
+      : undefined
+    return { ...addTiming(result(request, concurrent ? "CONCURRENT_MODIFICATION" : "ROLLED_BACK", "ROLLED_BACK",
+      concurrent ? "DATABASE_CONCURRENCY_CONFLICT" : "TRANSACTION_FAILED")),
+    diagnostic: { phase: failurePhase, code, ...(readBack ? { externalId: readBack.externalId, readBack } : {}) } }
   }
+  // The transaction promise resolved: subsequent audit failures cannot undo commit certainty.
+  const postAuditStartedAt = clock()
+  let afterAudit: EaGoalkeeperAudit
+  try {
+    try { afterAudit = await store.audit() }
+    finally { postAuditMs = Math.max(0, clock() - postAuditStartedAt) }
+  } catch (error) {
+    return { ...addTiming(result(request, "AUDIT_FAILED", "COMMIT_CONFIRMED", "POST_COMMIT_AUDIT_FAILED",
+      committed.written, committed.provenanceIds)),
+    diagnostic: { phase: "POST_COMMIT_AUDIT", code: safeErrorCode(error) } }
+  }
+  if (!isDeepStrictEqual(beforeAudit, afterAudit)) {
+    return addTiming(result(request, "AUDIT_MISMATCH", "COMMIT_CONFIRMED", "PROTECTED_STATE_CHANGED",
+      committed.written, committed.provenanceIds))
+  }
+  return addTiming(result(request, "COMMITTED", "COMMIT_CONFIRMED", "GOALKEEPER_BATCH_COMMITTED",
+    committed.written, committed.provenanceIds))
 }

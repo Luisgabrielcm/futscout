@@ -3,6 +3,7 @@ import test from "node:test"
 import { readFileSync } from "node:fs"
 
 import * as semanticSync from "../../../lib/eaCatalogSemanticSync"
+import * as clubIdentity from "../../../services/clubIdentityAliases"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import type { NormalizedPlayer } from "../../../types/normalizedPlayer"
 
@@ -38,6 +39,7 @@ function loadSync(prisma: object) {
     "../lib/prisma": { prisma },
     "../lib/databaseRetry": { databaseRetry: <T>(run: () => Promise<T>) => run() },
     "../lib/eaCatalogSemanticSync": semanticSync,
+    "./clubIdentityAliases": clubIdentity,
   })
 }
 
@@ -73,7 +75,7 @@ test("invalid batch never records provenance, allowing checkpoint to remain bloc
   const prisma = {
     player: { findMany: async () => [] },
     league: { upsert: async () => ({ id: "league" }) },
-    club: { upsert: async () => ({ id: "club" }) },
+    club: { findUnique: async () => null, create: async () => ({ id: "club" }) },
     $transaction: async () => { provenanceWrites++; return { id: "unexpected" } },
   }
   const failures: unknown[] = []
@@ -145,7 +147,8 @@ test("league-only change updates League and Club without touching Player", async
   const prisma = new Proxy({
     player: { findMany: async () => [storedRow()] },
     league: { upsert: async () => { operations.push("league"); return { id: "new-league" } } },
-    club: { upsert: async () => { operations.push("club"); return { id: "player-club" } } },
+    club: { findUnique: async () => null,
+      create: async () => { operations.push("club"); return { id: "player-club" } } },
   }, { get(target, key) {
     if (!(key in target)) throw new Error(`Unexpected layer touch: ${String(key)}`)
     return Reflect.get(target, key)
@@ -167,8 +170,9 @@ test("Club asset metadata never enters semantic diff or the Club writer", async 
   const prisma = {
     league: { upsert: async () => ({ id: "league" }) },
     club: {
-      upsert: async (input: Record<string, unknown>) => {
-        clubWrite = input
+      findUnique: async () => ({ id: "club", externalId: "10" }),
+      update: async (input: Record<string, unknown>) => {
+        clubWrite = input.data as Record<string, unknown>
         return { id: "club" }
       },
     },
@@ -190,9 +194,41 @@ test("Club asset metadata never enters semantic diff or the Club writer", async 
   assert.equal(result.updated, 1)
   assert.deepEqual(result.items[0].changedFields, ["club.name"])
   assert.ok(clubWrite)
-  const write = clubWrite as { update: Record<string, unknown>; create: Record<string, unknown> }
-  assert.equal("imageUrl" in write.update, false)
-  assert.equal("imageUrl" in write.create, false)
+  assert.equal("imageUrl" in clubWrite!, false)
+})
+
+test("EA externalId lookup preserves Bayer player links despite the occupied legacy slug and provider ID", async () => {
+  let linkedClubId: string | null = null
+  const operations: string[] = []
+  const bayerPlayer = { ...normalized, club: { externalId: "32", name: "Bayer Leverkusen" } }
+  const prisma = {
+    league: { upsert: async () => ({ id: "bundesliga" }) },
+    club: {
+      findUnique: async ({ where }: { where: { externalId?: string; slug?: string } }) => {
+        if (where.externalId === "32") return { id: "populated", externalId: "32", apiFootballId: 168 }
+        if (where.slug === "bayer-leverkusen") return { id: "placeholder", externalId: "mock-bayer-leverkusen", apiFootballId: null }
+        return null
+      },
+      update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+        operations.push(`club:${where.id}`)
+        assert.equal("apiFootballId" in data, false)
+        return { id: where.id }
+      },
+    },
+    player: {
+      findMany: async () => [storedRow()],
+      update: async ({ data }: { data: Record<string, unknown> }) => {
+        linkedClubId = String(data.clubId)
+        operations.push("player")
+        return { id: "player", externalId: "231866", slug: "rodri" }
+      },
+    },
+  }
+
+  const result = await loadSync(prisma).syncPlayers([bayerPlayer])
+  assert.equal(result.success, 1)
+  assert.equal(linkedClubId, "populated")
+  assert.deepEqual(operations, ["club:populated", "player"])
 })
 
 test("automatic CREATE rejects ambiguous legacy slug instead of silently attaching EA identity", async () => {

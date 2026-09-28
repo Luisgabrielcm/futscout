@@ -112,8 +112,8 @@ async function main() {
       selectedGoalkeepers: page.externalIds.length, batchHash: page.batchHash })),
     candidates: plans,
     writesExecuted: mode === "write" ? writeResult?.written ?? 0 : 0,
-    provenancePersisted: mode === "write" && writeResult?.status === "COMMITTED",
-    cursorChanged: mode === "write" && writeResult?.status === "COMMITTED",
+    provenancePersisted: mode === "write" && writeResult?.transactionState === "COMMIT_CONFIRMED",
+    cursorChanged: mode === "write" && writeResult?.transactionState === "COMMIT_CONFIRMED",
     writeResult,
   }, null, 2))
 }
