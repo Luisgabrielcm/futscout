@@ -43,7 +43,7 @@ export default async function LeaguePage({ params, searchParams }: Props) {
     <header className="playersPageHeader directoryHeader">
       <LeagueLogo locale={locale} name={league.name} asset={league.asset} size="large" />
       <div><h1>{league.name}</h1>{country && <p>{displayNationality(country, locale)}</p>}
-        <p>{league._count.clubs} {t(locale, "clubes cadastrados")}</p>
+        <p>{clubs.total} {t(locale, "clubes cadastrados")}</p>
       </div>
     </header>
     <section id="clubes" className="directorySection" aria-labelledby="clubs-title">

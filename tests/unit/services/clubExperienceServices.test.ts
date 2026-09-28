@@ -34,6 +34,7 @@ test("best clubs sorts across all matching club metadata BEFORE pagination, ties
   const aggregate: Prisma.PlayerGroupByArgs[] = []
   const clubs = Array.from({ length: 25 }, (_, i) => ({ id: String(i), name: `Club ${String(i).padStart(2, "0")}`, slug: String(i), imageUrl: null, league: { id: "league", name: "League", slug: "league" }, _count: { players: 1 } }))
   const prisma = { club: {
+    findUnique: async () => null,
     count: async () => 25,
     findMany: async (args: Prisma.ClubFindManyArgs) => { queries.push(args); return clubs },
   }, player: { groupBy: async (args: Prisma.PlayerGroupByArgs) => { aggregate.push(args); return clubs.map((club, i) => ({ clubId: club.id, position: "MC", _sum: { officialOverall: i }, _count: { _all: 1 } })) } } }

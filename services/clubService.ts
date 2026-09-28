@@ -16,9 +16,23 @@ const clubSelect = {
 
 export async function getClubs(input: DirectoryInput = {}) {
   const { search, league, page, pageSize, sort } = parseDirectoryParams(input)
+  const identitySelect = { id: true, name: true, externalId: true, apiFootballId: true, leagueId: true,
+    _count: { select: { players: true } } } satisfies Prisma.ClubSelect
+  const [placeholder, target] = await Promise.all([
+    prisma.club.findUnique({ where: { slug: BAYER_LEVERKUSEN_LEGACY_ALIAS.slug }, select: identitySelect }),
+    prisma.club.findUnique({ where: { apiFootballId: BAYER_LEVERKUSEN_LEGACY_ALIAS.targetApiFootballId }, select: identitySelect }),
+  ])
+  const alias = placeholder && target && placeholder._count.players === 0 &&
+    isVerifiedLegacyClubAlias({ requestedSlug: BAYER_LEVERKUSEN_LEGACY_ALIAS.slug, placeholder, target })
+    ? { placeholder, target } : null
+  // Exclude only the verified empty legacy row BEFORE count, ordering and pagination.
+  // The canonical row owns the roster, rating and registry asset; no database mutation.
   const where: Prisma.ClubWhereInput = {
-    ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
+    ...(search ? alias && alias.placeholder.name.toLowerCase().includes(search.toLowerCase())
+      ? { OR: [{ name: { contains: search, mode: "insensitive" } }, { id: alias.target.id }] }
+      : { name: { contains: search, mode: "insensitive" } } : {}),
     ...(league ? { league: { is: { slug: league } } } : {}),
+    ...(alias ? { id: { not: alias.placeholder.id } } : {}),
   }
   const [total, clubs] = await Promise.all([
     prisma.club.count({ where }),
@@ -29,7 +43,9 @@ export async function getClubs(input: DirectoryInput = {}) {
   ])
   const ratings = await getClubRatings(clubs.map(club => ({ id: club.id, total: club._count.players })))
   const assets = await getBrandAssetsForEntities({ clubIds: clubs.map(club => club.id), leagueIds: clubs.map(club => club.league.id) })
-  const rated = clubs.map(club => ({ ...club, asset: assets.clubs.get(club.id) ?? null,
+  const rated = clubs.map(club => ({ ...club,
+    slug: alias && club.id === alias.target.id ? BAYER_LEVERKUSEN_LEGACY_ALIAS.slug : club.slug,
+    asset: assets.clubs.get(club.id) ?? null,
     league: { ...club.league, asset: assets.leagues.get(club.league.id) ?? null }, rating: ratings.get(club.id)! }))
   // Rank compact club metadata + DB aggregates, never all player rows or a single page.
   const result = sort === "best" ? rated.sort(compareRatedClubs).slice((page - 1) * pageSize, page * pageSize) : rated
