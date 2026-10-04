@@ -29,22 +29,8 @@ function getOrderBy(
     ====================================== */
 
     case "potential-desc":
-      return [
-        {
-          potential:
-            { sort: "desc", nulls: "last" },
-        },
-
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ]
+    case "potential-asc":
+      throw new Error("FUTSCOUT_POTENTIAL_REQUIRES_DERIVED_SQL_ORDER")
 
     /* ======================================
        MAIS JOVEM

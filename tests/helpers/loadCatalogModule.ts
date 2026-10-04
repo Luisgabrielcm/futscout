@@ -29,6 +29,8 @@ import * as brandSources from "../../lib/brackBrandSource"
 import * as punjabSource from "../../lib/punjabBrandSource"
 import * as countryFlags from "../../lib/countryFlags"
 import * as React from "react"
+import * as potentialRead from "../../lib/futscoutPotential/read"
+import * as potentialCatalog from "../../lib/futscoutPotential/catalog"
 import { createElement, type ReactNode } from "react"
 
 // Compile TSX in memory using React's automatic runtime, without starting Next.
@@ -73,6 +75,8 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/brackBrandSource": brandSources,
       "lib/punjabBrandSource": punjabSource,
       "lib/countryFlags": countryFlags,
+      "lib/futscoutPotential/read": potentialRead,
+      "lib/futscoutPotential/catalog": potentialCatalog,
     }
     const pureName = name.replace(/^(?:\.\.\/)+/, "")
     if (Object.hasOwn(presentation, pureName)) return presentation[pureName]

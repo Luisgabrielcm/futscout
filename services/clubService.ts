@@ -7,6 +7,7 @@ import { getPlayers } from "./playerService"
 import { calculateClubRating, compareRatedClubs } from "../lib/clubRating"
 import { getBrandAssetsForEntities } from "./brandAssetReadService"
 import { BAYER_LEVERKUSEN_LEGACY_ALIAS, isVerifiedLegacyClubAlias } from "./clubIdentityAliases"
+import { futscoutPotentialReadSelect, readFutscoutPotential } from "../lib/futscoutPotential/read"
 
 const clubSelect = {
   id: true, name: true, slug: true, imageUrl: true,
@@ -63,11 +64,17 @@ export async function getClubRatings(clubs: { id: string; total: number }[]) {
 }
 
 // Overview loads only one club's compact roster. No stats/PlayStyle/attribute joins.
-export function getClubRoster(clubId: string) {
-  return prisma.player.findMany({ where: { clubId }, select: {
+export async function getClubRoster(clubId: string) {
+  const rows = await prisma.player.findMany({ where: { clubId }, select: {
     id: true, slug: true, name: true, imageUrl: true, position: true, officialOverall: true,
     secondaryPosition: true, secondaryPositions: true, potential: true, marketValue: true,
+    currentFutscoutPotential: futscoutPotentialReadSelect,
   }, orderBy: [{ officialOverall: "desc" }, { name: "asc" }, { id: "asc" }] })
+  return rows.map(row => {
+    const { currentFutscoutPotential: _current, ...fields } = row
+    void _current
+    return { ...fields, ...readFutscoutPotential(row) }
+  })
 }
 
 // Request-local memoization shares the detail lookup with generateMetadata.

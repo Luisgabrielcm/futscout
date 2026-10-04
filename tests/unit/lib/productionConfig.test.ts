@@ -39,7 +39,7 @@ test("Home waits for a request before any catalog read", async () => {
     "../components/HomeSearch": () => null, "../components/PlayerCard": () => null,
   })
   assert.deepEqual(events, [])
-  await Home()
+  await Home({})
   assert.deepEqual(events, ["request", "database"])
 })
 

@@ -1,0 +1,15 @@
+{
+  "contractVersion": "futscout-potential-input-v1",
+  "cases": [
+    {
+      "input": { "birthDate": "2000-01-01T00:00:00.000Z", "referenceAt": "2026-09-29T00:00:00.000Z", "overall": 80, "primaryPosition": "MC" },
+      "canonical": "{\"agePolicy\":\"utc-elapsed-365.2425-v1\",\"contractVersion\":\"futscout-potential-input-v1\",\"inputs\":{\"birthDate\":\"2000-01-01T00:00:00.000Z\",\"overall\":80,\"primaryPosition\":\"MC\",\"referenceAt\":\"2026-09-29T00:00:00.000Z\"},\"modelArtifactHash\":\"e6971c191436110477728714cdd9f09648bf2c0d776b78aef63863092d21b216\",\"modelVersion\":\"potential-model-e-v1\"}",
+      "hash": "796fba30f0678f843b964fc9d2f4bfdcadf8f839560f9878d44c3b54fb0cd273"
+    },
+    {
+      "input": { "birthDate": "2000-02-29T00:00:00.000Z", "referenceAt": "2026-09-29T00:00:00.000Z", "overall": 78.5, "primaryPosition": "GOL" },
+      "canonical": "{\"agePolicy\":\"utc-elapsed-365.2425-v1\",\"contractVersion\":\"futscout-potential-input-v1\",\"inputs\":{\"birthDate\":\"2000-02-29T00:00:00.000Z\",\"overall\":78.5,\"primaryPosition\":\"GOL\",\"referenceAt\":\"2026-09-29T00:00:00.000Z\"},\"modelArtifactHash\":\"e6971c191436110477728714cdd9f09648bf2c0d776b78aef63863092d21b216\",\"modelVersion\":\"potential-model-e-v1\"}",
+      "hash": "b3f16cda1170b1eaa9456623a3e4c66561b7cb70720a816737cce733a20f5756"
+    }
+  ]
+}

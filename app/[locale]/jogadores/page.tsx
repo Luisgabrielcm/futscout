@@ -9,7 +9,7 @@ import type { CatalogSearchParams } from "../../../lib/playerCatalogParams"
 import PlayersSearch from "../../components/PlayersSearch"
 import CatalogPagination from "../../components/CatalogPagination"
 
-type PlayersPageProps = { params?: Promise<{ locale: string }>; locale?: Locale; searchParams: Promise<CatalogSearchParams> }
+type PlayersPageProps = { params?: Promise<{ locale: string }>; searchParams: Promise<CatalogSearchParams> }
 
 // Local Suspense is intentional: a route-level loading file would also stream
 // the player detail before its existence check, preventing an HTTP 404.
@@ -29,7 +29,7 @@ export default async function PlayersPage(props: PlayersPageProps) {
   )
 }
 
-async function PlayersResults({ searchParams, locale = "pt" }: PlayersPageProps) {
+async function PlayersResults({ searchParams, locale = "pt" }: PlayersPageProps & { locale?: Locale }) {
   const params = parsePlayerCatalogParams(await searchParams)
   const [result, leagues] = await Promise.all([
     getPlayers({ ...params, pageSize: 24 }),
@@ -78,7 +78,7 @@ async function PlayersResults({ searchParams, locale = "pt" }: PlayersPageProps)
   )
 }
 
-export async function generateMetadata({ params }: { params?: Promise<{ locale: string }> } = {}) {
+export async function generateMetadata({ params }: { params?: Promise<{ locale: string }> }) {
   const locale = requireLocale((await params)?.locale ?? "pt")
   return localizedMetadata(locale, "/jogadores", t(locale, "Jogadores"), false)
 }

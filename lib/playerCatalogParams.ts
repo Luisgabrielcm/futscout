@@ -2,7 +2,7 @@ import type { PlayerPosition } from "../types/player"
 import { styles } from "./playStyleAssets"
 
 export const PLAYER_SORTS = [
-  "overall-desc", "overall-asc", "potential-desc", "age-asc",
+  "overall-desc", "overall-asc", "potential-desc", "potential-asc", "age-asc",
   "pace-desc", "passing-desc", "dribbling-desc", "value-asc",
   "value-desc", "name-asc", "name-desc", "position-asc",
 ] as const
@@ -18,6 +18,7 @@ export const NUMERIC_FILTER_LIMITS = {
   maxAge: [0, 120],
   minOverall: [0, 99],
   minPotential: [0, 99],
+  maxPotential: [0, 99],
   maxValue: [0, Number.MAX_SAFE_INTEGER],
   minPace: [0, 99],
   minShooting: [0, 99],

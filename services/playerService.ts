@@ -20,6 +20,8 @@ import type {
   Prisma,
 } from "../app/generated/prisma/client"
 import { getBrandAssetsForEntities } from "./brandAssetReadService"
+import { futscoutPotentialReadSelect, readFutscoutPotential } from "../lib/futscoutPotential/read"
+import { potentialWhere, potentialPageSql } from "../lib/futscoutPotential/catalog"
 
 async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapDatabasePlayer>[0][]): Promise<Player[]> {
   const assets = await getBrandAssetsForEntities({
@@ -27,7 +29,7 @@ async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapD
     leagueIds: databasePlayers.flatMap(player => player.club?.league.id ? [player.club.league.id] : []),
   })
   return databasePlayers.map(databasePlayer => {
-    const player = mapDatabasePlayer(databasePlayer)
+    const player = { ...mapDatabasePlayer(databasePlayer), ...readFutscoutPotential(databasePlayer) }
     if (player.club && databasePlayer.club?.id) player.club.asset = assets.clubs.get(databasePlayer.club.id) ?? null
     if (databasePlayer.club?.league.id) player.leagueAsset = assets.leagues.get(databasePlayer.club.league.id) ?? null
     return player
@@ -40,6 +42,7 @@ async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapD
 ======================================== */
 
 const playerInclude = {
+  currentFutscoutPotential: futscoutPotentialReadSelect,
   club: {
     include: {
       league: true,
@@ -227,12 +230,9 @@ export async function getPlayers(
   ======================================== */
 
   if (
-    params.minPotential !== undefined
+    params.minPotential !== undefined || params.maxPotential !== undefined
   ) {
-    where.potential = {
-      gte:
-        params.minPotential,
-    }
+    Object.assign(where, potentialWhere(params.minPotential, params.maxPotential))
   }
 
   /* ========================================
@@ -341,7 +341,13 @@ export async function getPlayers(
         where,
       }),
 
-      prisma.player.findMany({
+      params.sort.startsWith("potential-") ? (async () => {
+        const ids = await prisma.$queryRaw<{ id: string }[]>(potentialPageSql(params, scope,
+          params.maxAge !== undefined ? getBirthDateForMaxAge(params.maxAge) : undefined))
+        const rows = await prisma.player.findMany({ where: { id: { in: ids.map(row => row.id) } }, include: playerInclude })
+        const byId = new Map(rows.map(row => [row.id, row]))
+        return ids.map(row => byId.get(row.id)!).filter(Boolean)
+      })() : prisma.player.findMany({
         where,
 
         include:
@@ -559,37 +565,10 @@ export async function getFeaturedPlayers(): Promise<
       take: 4,
     })
 
-  const prospects =
-    await prisma.player.findMany({
-      where: {
-        potential: {
-          not: null,
-
-          gte: 87,
-        },
-
-        attributes: {
-          isNot: null,
-        },
-      },
-
-      include:
-        playerInclude,
-
-      orderBy: [
-        {
-          potential:
-            "desc",
-        },
-
-        {
-          officialOverall:
-            "desc",
-        },
-      ],
-
-      take: 4,
-    })
+  const prospectIds = await prisma.$queryRaw<{ id: string }[]>(potentialPageSql({ minPotential: 87, sort: "potential-desc", pageSize: 4 }))
+  const prospectRows = await prisma.player.findMany({ where: { id: { in: prospectIds.map(row => row.id) } }, include: playerInclude })
+  const prospectMap = new Map(prospectRows.map(row => [row.id, row]))
+  const prospects = prospectIds.map(row => prospectMap.get(row.id)!).filter(Boolean)
 
   const combinedPlayers = [
     ...elite,

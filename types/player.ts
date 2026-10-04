@@ -253,6 +253,10 @@ export type Player = {
   dynamicOverall: number | null
 
   potential: number | null
+  // Service projection; imported Player.potential is retained separately, never a fallback.
+  legacyPotential?: number | null
+  futscoutPotential?: import("../lib/futscoutPotential/read").FutscoutPotentialRead["futscoutPotential"]
+  potentialReadState?: import("../lib/futscoutPotential/read").FutscoutPotentialRead["potentialReadState"]
 
   /* ======================================
      FORMA

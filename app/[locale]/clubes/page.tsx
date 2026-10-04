@@ -28,7 +28,7 @@ export default async function ClubsPage({ searchParams, params: routeParams }: {
   </main>
 }
 
-export async function generateMetadata({ params }: { params?: Promise<{ locale: string }> } = {}) {
+export async function generateMetadata({ params }: { params?: Promise<{ locale: string }> }) {
   const locale = requireLocale((await params)?.locale ?? "pt")
   return localizedMetadata(locale, "/clubes", t(locale, "Clubes"), false)
 }

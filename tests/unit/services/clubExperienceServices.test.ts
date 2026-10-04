@@ -8,7 +8,7 @@ import * as clubIdentityAliases from "../../../services/clubIdentityAliases"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import type { Prisma } from "../../../app/generated/prisma/client"
 
-test("overview shares one compact roster query for XI and full position panel without pagination or joins", async () => {
+test("overview shares one compact roster query with current potential, without pagination or attribute joins", async () => {
   const queries: Prisma.PlayerFindManyArgs[] = []
   const rows = [{ id: "p", secondaryPosition: "VOL", secondaryPositions: ["MC"], potential: null, marketValue: BigInt(0) }]
   const service = loadCatalogModule<typeof import("../../../services/clubService")>("services/clubService.ts", {
@@ -21,7 +21,7 @@ test("overview shares one compact roster query for XI and full position panel wi
   const result = await service.getClubRoster("one-club")
   assert.equal(queries.length, 1)
   assert.deepEqual(JSON.parse(JSON.stringify(queries[0].where)), { clubId: "one-club" })
-  assert.deepEqual(Object.keys(queries[0].select!).sort(), ["id", "slug", "name", "imageUrl", "position", "officialOverall", "secondaryPosition", "secondaryPositions", "potential", "marketValue"].sort())
+  assert.deepEqual(Object.keys(queries[0].select!).sort(), ["id", "slug", "name", "imageUrl", "position", "officialOverall", "secondaryPosition", "secondaryPositions", "potential", "marketValue", "currentFutscoutPotential"].sort())
   assert.equal(queries[0].take, undefined)
   assert.equal(queries[0].skip, undefined)
   assert.equal(queries[0].include, undefined)

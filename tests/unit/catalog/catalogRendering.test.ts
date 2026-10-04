@@ -112,7 +112,7 @@ test("header labels the base EA overall and does not invent market stability", (
 })
 
 test("Home has no placeholder links or unsupported coverage claims", async () => {
-  const { default: Home } = loadCatalogModule<{ default: () => Promise<ReactNode> }>(
+  const { default: Home } = loadCatalogModule<{ default: (props: { params?: Promise<{ locale: string }> }) => Promise<ReactNode> }>(
     "app/[locale]/page.tsx", {
       "next/server": { connection: async () => {} },
       "next/link": link,
@@ -121,7 +121,7 @@ test("Home has no placeholder links or unsupported coverage claims", async () =>
       "../components/PlayerCard": marker("card"),
     },
   )
-  const html = renderToStaticMarkup(await Home())
+  const html = renderToStaticMarkup(await Home({}))
   assert.doesNotMatch(html, /href="#"|70\.000\+|900\+|60\+|24H|compare atletas/)
   assert.match(html, /href="\/pt\/jogadores"/)
   assert.doesNotMatch(html, /class="sidebar"|class="menu"/)

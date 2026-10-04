@@ -2,6 +2,7 @@ import type { PrismaClient } from "../app/generated/prisma/client"
 import { decodeLineupSnapshot, toSourcePayload } from "../lib/officialLineupSnapshot"
 import { LINEUP_WINDOW_DAYS } from "../lib/officialLineup"
 import type { LineupReadStore } from "./officialLineupService"
+import { futscoutPotentialReadSelect, readFutscoutPotential } from "../lib/futscoutPotential/read"
 
 type ReadDatabase = Pick<PrismaClient, "club" | "player" | "clubOfficialLineupSnapshot">
 export function createOfficialLineupReadStore(db: ReadDatabase, now: Date): LineupReadStore {
@@ -24,11 +25,17 @@ export function createOfficialLineupReadStore(db: ReadDatabase, now: Date): Line
           ...toSourcePayload(lineup), fetchedAt: row.fetchedAt.toISOString() }] : []
       })
     },
-    readPlayersByApiIds(ids) {
-      return db.player.findMany({ where: { apiFootballId: { in: [...new Set(ids)] } }, select: {
+    async readPlayersByApiIds(ids) {
+      const players = await db.player.findMany({ where: { apiFootballId: { in: [...new Set(ids)] } }, select: {
         id: true, apiFootballId: true, slug: true, name: true, imageUrl: true, position: true,
         secondaryPosition: true, secondaryPositions: true, officialOverall: true, potential: true, marketValue: true,
+        currentFutscoutPotential: futscoutPotentialReadSelect,
       } })
+      return players.map(player => {
+        const { currentFutscoutPotential: _current, ...fields } = player
+        void _current
+        return { ...fields, ...readFutscoutPotential(player) }
+      })
     },
   }
 }

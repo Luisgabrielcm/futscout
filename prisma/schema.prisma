@@ -368,6 +368,10 @@ model Player {
   currentClubProposals PlayerCurrentClubProposal[]
   eaCatalogObservations EaPlayerCatalogObservation[]
 
+  // Separate estimated FutScout domain; legacy potential scalar stays untouched.
+  futscoutPotentialEstimates PlayerFutscoutPotentialEstimate[]
+  currentFutscoutPotential   PlayerFutscoutPotentialCurrent?
+
   /**
    * MATCHER API-FOOTBALL
    */
@@ -515,6 +519,73 @@ model PlayerApprovedCurrentClub {
 
   @@unique([sourceProposalId, playerId])
   @@index([approvedClubId])
+}
+
+// PREPARED ONLY. Immutable model registration; no model is registered by migration.
+// SQL adds nonempty/hash checks and append-only guards not expressible in Prisma.
+model FutscoutPotentialModel {
+  version              String @id
+  artifactHash         String
+  inputContractVersion String
+  createdAt            DateTime @default(now())
+
+  estimates PlayerFutscoutPotentialEstimate[]
+}
+
+enum FutscoutPotentialEstimateStatus {
+  EXPERIMENTAL
+  INVALID
+}
+
+// Immutable evaluation history, not Player.potential and not source-observed data.
+// SQL enforces result/input domains, JSON projection consistency and append-only history.
+model PlayerFutscoutPotentialEstimate {
+  id           String @id @default(cuid())
+  playerId     String
+  player       Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "futscout_potential_player_fkey")
+  modelVersion String
+  model        FutscoutPotentialModel @relation(fields: [modelVersion], references: [version], onDelete: Restrict, onUpdate: Restrict, map: "futscout_potential_model_fkey")
+
+  inputHash         String
+  inputSnapshot     Json
+  inputAge          Float?
+  inputOverall      Float?
+  inputPosition     String?
+  inputDateOfBirth   DateTime?
+  referenceAt       DateTime
+  // Source metadata is evidence per input, NOT an assertion that the estimate is EA data.
+  provenance        Json
+
+  status           FutscoutPotentialEstimateStatus
+  invalidReason    String?
+  potentialRaw     Float?
+  potentialRounded Int?
+  peakSeason       Int?
+  computedAt       DateTime
+  createdAt        DateTime @default(now())
+
+  selectedBy PlayerFutscoutPotentialCurrent?
+
+  @@unique([playerId, modelVersion, inputHash], map: "futscout_potential_input_key")
+  @@unique([id, playerId], map: "futscout_potential_identity_key")
+  @@index([playerId, computedAt(sort: Desc)], map: "futscout_potential_player_history_idx")
+  @@index([modelVersion, status, potentialRounded, playerId], map: "futscout_potential_filter_idx")
+}
+
+// One selection slot per Player across model versions; null estimateId withdraws it.
+// SQL guards EXPERIMENTAL-only targets, revision increments and no deletion/recreation.
+// Selection alone does NOT publish a value; freshness/publication gates remain future work.
+model PlayerFutscoutPotentialCurrent {
+  playerId     String @id
+  player       Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "futscout_potential_current_player_fkey")
+  estimateId   String? @unique
+  estimate     PlayerFutscoutPotentialEstimate? @relation(fields: [estimateId, playerId], references: [id, playerId], onDelete: Restrict, onUpdate: Restrict, map: "futscout_potential_current_estimate_fkey")
+  version      Int @default(1)
+  selectedAt   DateTime
+  decisionRef  String
+  createdAt    DateTime @default(now())
+
+  @@unique([estimateId, playerId], map: "futscout_potential_current_identity_key")
 }
 
 model PlayerAttributes {

@@ -58,6 +58,10 @@ export type DatabasePlayer = {
     | number
     | null
 
+  currentFutscoutPotential?: import("../app/generated/prisma/client").Prisma.PlayerFutscoutPotentialCurrentGetPayload<
+    typeof import("../lib/futscoutPotential/read").futscoutPotentialReadSelect
+  > | null
+
   marketValue:
     | bigint
     | null

@@ -27,7 +27,7 @@ export default async function LeaguesPage({ searchParams, params: routeParams }:
   </main>
 }
 
-export async function generateMetadata({ params }: { params?: Promise<{ locale: string }> } = {}) {
+export async function generateMetadata({ params }: { params?: Promise<{ locale: string }> }) {
   const locale = requireLocale((await params)?.locale ?? "pt")
   return localizedMetadata(locale, "/ligas", t(locale, "Ligas"), false)
 }

@@ -11,7 +11,7 @@ import {
 import HomeSearch from "../components/HomeSearch"
 import PlayerCard from "../components/PlayerCard"
 
-export default async function Home({ params }: { params?: Promise<{ locale: string }> } = {}) {
+export default async function Home({ params }: { params?: Promise<{ locale: string }> }) {
   const locale = requireLocale((await params)?.locale ?? "pt")
   // Catalog data is read per request, never frozen into the deployment artifact.
   await connection()
@@ -132,7 +132,7 @@ export default async function Home({ params }: { params?: Promise<{ locale: stri
   )
 }
 
-export async function generateMetadata({ params }: { params?: Promise<{ locale: string }> } = {}) {
+export async function generateMetadata({ params }: { params?: Promise<{ locale: string }> }) {
   const locale = requireLocale((await params)?.locale ?? "pt")
   return localizedMetadata(locale, "/", undefined, false)
 }

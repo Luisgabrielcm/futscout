@@ -20,7 +20,7 @@ function contractFixture(row: mapper.DatabasePlayer) {
   const service = loadCatalogModule<typeof import("../../../services/playerService")>(
     "services/playerService.ts", {
       "server-only": {},
-      "../lib/prisma": { prisma: { player: {
+      "../lib/prisma": { prisma: { $queryRaw: async () => [], player: {
         count: async () => 1,
         findMany: async (args: Prisma.PlayerFindManyArgs) => {
           // include retains scalar columns. Fail if a future query excludes them.
@@ -72,15 +72,19 @@ for (const scenario of [
   { name: "true nulls without overall/form/value fallback", potential: null, form: null, marketValue: null,
     expectedPotential: "—", expectedMarket: "—" },
   { name: "zero values without mistaking them for null", potential: 0, form: "Normal", marketValue: BigInt(0),
-    expectedPotential: "0", expectedMarket: "€0" },
+    expectedPotential: "—", expectedMarket: "€0" },
 ]) {
   test(`catalog query → mapper → callers → PlayerCard preserves ${scenario.name}`, async () => {
     const { service, Search, Home } = contractFixture(catalogPlayer({
       potential: scenario.potential, form: scenario.form, marketValue: scenario.marketValue,
+      currentFutscoutPotential: scenario.potential && scenario.potential > 0 ? { estimate: {
+        modelVersion: "potential-model-e-v1", status: "EXPERIMENTAL", inputOverall: 80, potentialRaw: scenario.potential,
+      } } : null,
     }))
     const { players } = await service.getPlayers()
     assert.equal(players.length, 1)
-    assert.equal(players[0].potential, scenario.potential)
+    assert.equal(players[0].potential, scenario.potential || null)
+    assert.equal(players[0].legacyPotential, scenario.potential)
     assert.equal(players[0].form, scenario.form)
     assert.equal(players[0].marketValue, scenario.marketValue === null ? null : Number(scenario.marketValue))
     // The client DTO must not retain Prisma's bigint.
@@ -88,7 +92,7 @@ for (const scenario of [
 
     for (const html of [
       renderToStaticMarkup(createElement(Search, { players, leagues: [] })),
-      renderToStaticMarkup(await Home()),
+      renderToStaticMarkup(await Home({})),
     ]) {
       assert.ok(html.includes(`<span>Potencial</span><strong>${scenario.expectedPotential}</strong>`))
       assert.doesNotMatch(html, /Forma|OVR FUTSCOUT/)

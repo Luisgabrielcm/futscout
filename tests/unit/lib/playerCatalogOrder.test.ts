@@ -6,7 +6,8 @@ import { PLAYER_SORTS, type PlayerSort } from "../../../lib/playerCatalogParams"
 const expectedPrimary = {
   "overall-desc": { officialOverall: "desc" },
   "overall-asc": { officialOverall: "asc" },
-  "potential-desc": { potential: { sort: "desc", nulls: "last" } },
+  "potential-desc": {},
+  "potential-asc": {},
   "age-asc": { dateOfBirth: { sort: "desc", nulls: "last" } },
   "pace-desc": { attributes: { pace: "desc" } },
   "passing-desc": { attributes: { passing: "desc" } },
@@ -20,6 +21,10 @@ const expectedPrimary = {
 
 for (const sort of PLAYER_SORTS) {
   test(sort + " preserves existing ordering and ends with unique ID", () => {
+    if (sort.startsWith("potential-")) {
+      assert.throws(() => getPlayerOrderBy(sort), /REQUIRES_DERIVED_SQL_ORDER/)
+      return
+    }
     const order = getPlayerOrderBy(sort)
     const oldOrder = [expectedPrimary[sort]]
     if (!sort.startsWith("name-")) {

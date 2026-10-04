@@ -10,6 +10,9 @@ export type SelectedPlayer = {
   clubAsset?: AssetReference | null
   secondaryPosition?: string | null; secondaryPositions?: string[]
   baseOverall: number; dynamicOverall: number | null; potential: number | null
+  legacyPotential?: number | null
+  futscoutPotential?: import("../lib/futscoutPotential/read").FutscoutPotentialRead["futscoutPotential"]
+  potentialReadState?: import("../lib/futscoutPotential/read").FutscoutPotentialRead["potentialReadState"]
   marketValue: number | null; form: string | null; valueTrend: null
   attributes: Record<ComparisonAttribute, number | null> | null
 }
