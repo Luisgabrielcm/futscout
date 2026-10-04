@@ -1,4 +1,5 @@
 import type { AssetReference } from "../lib/assetPipeline"
+import type { RealStatisticView } from "../lib/realStatistics"
 
 export type RealLifeClub = {
   id: string
@@ -15,6 +16,7 @@ export type RealLifeClub = {
 }
 
 export type PlayerRealLifeProfile = {
+  statistics?: RealStatisticView[]
   id: string
   slug: string
   name: string

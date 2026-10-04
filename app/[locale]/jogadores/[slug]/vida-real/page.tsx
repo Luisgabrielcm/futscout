@@ -6,7 +6,7 @@ import { playerExperienceText } from "../../../../../lib/i18n/playerExperience"
 import { requireLocale } from "../../../../../lib/i18n/server"
 import { getPlayerRealLifeBySlug } from "../../../../../services/playerRealLifeService"
 import PlayerCareer from "../../../../components/PlayerCareer"
-import PlayerCurrentStatistics from "../../../../components/PlayerCurrentStatistics"
+import PlayerSeasonStatistics from "../../../../components/PlayerSeasonStatistics"
 import PlayerExperienceNav from "../../../../components/PlayerExperienceNav"
 import PlayerHistory from "../../../../components/PlayerHistory"
 import PlayerRealLifeHeader from "../../../../components/PlayerRealLifeHeader"
@@ -38,7 +38,7 @@ export default async function PlayerRealLifePage({ params }: RealLifePageProps) 
       <h2 id="real-market-title">{playerExperienceText(locale, "marketValue")}</h2>
       <p className="careerEmpty">{playerExperienceText(locale, "marketValueMissing")}</p>
     </section>
-    <PlayerCurrentStatistics locale={locale} />
+    <PlayerSeasonStatistics locale={locale} rows={player.statistics ?? []} />
     {/* A public transfer projection stays empty until revision resolution is safe. */}
     <PlayerHistory locale={locale} />
   </main>
