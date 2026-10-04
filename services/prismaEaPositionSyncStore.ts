@@ -1,4 +1,6 @@
 import { isDeepStrictEqual } from "node:util"
+import { persistEaRatingSnapshots } from "./eaRatingSnapshotPersistence"
+import type { NormalizedPlayer } from "../types/normalizedPlayer"
 
 import type { Prisma, PrismaClient } from "../app/generated/prisma/client"
 
@@ -82,6 +84,15 @@ async function audit(db: Pick<PrismaClient, "$transaction">, historicalKey: stri
 
 async function createProvenance(tx: Prisma.TransactionClient, input: EaPositionProvenanceInput) {
   const source = input.provenance
+  // Position read-back has already passed in this transaction. Other rating fields
+  // are confirmed carried state, not newly measured attributes from the position page.
+  const accepted = await tx.player.findMany({ where: { id: { in: input.plans.flatMap(plan => plan.playerId ? [plan.playerId] : []) } },
+    select: { id: true, externalId: true, name: true, dateOfBirth: true, position: true, officialOverall: true } })
+  const inputs: NormalizedPlayer[] = accepted.map(row => ({ externalId: row.externalId!, source: "ea-ratings",
+    name: row.name, dateOfBirth: row.dateOfBirth ?? undefined, position: row.position as NormalizedPlayer["position"],
+    secondaryPositions: [], officialOverall: row.officialOverall, attributes: {}, playStyles: [] }))
+  if (inputs.length !== input.plans.length) throw new Error("EA_POSITION_HISTORY_STATE_MISSING")
+  const snapshots = await persistEaRatingSnapshots(tx, inputs, source, input.plans)
   const row = await tx.eaCatalogObservation.create({ data: {
     provider: source.provider,
     endpoint: source.endpoint,
@@ -110,6 +121,7 @@ async function createProvenance(tx: Prisma.TransactionClient, input: EaPositionP
       payloadHash: plan.payloadHash,
       action: plan.status === "READY" ? "UPDATE" : "NO_OP",
       changedFields: plan.changedFields,
+      ratingSnapshotId: snapshots.get(plan.externalId),
     })) },
   }, select: { id: true } })
   return row.id

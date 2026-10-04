@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import * as ratingHistory from "../../../services/eaRatingSnapshotPersistence"
 import test from "node:test"
 import { readFileSync } from "node:fs"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
@@ -25,6 +26,7 @@ test("actual EA sync with fake storage keeps real-life B intact while EA/catalog
   }, { get(target, key) { if (!(key in target)) throw new Error(`Forbidden model: ${String(key)}`); return Reflect.get(target, key) } })
   const failures: unknown[] = []
   const eaSync = loadCatalogModule<{ syncPlayers(players: NormalizedPlayer[], options: { onError(context: { error: unknown }): void }): Promise<{ success: number; failed: number }> }>("services/syncPlayers.ts", {
+    "./eaRatingSnapshotPersistence": ratingHistory,
     "../lib/prisma": { prisma }, "../lib/databaseRetry": { databaseRetry: <T>(fn: () => Promise<T>) => fn() },
     "../lib/eaCatalogSemanticSync": semanticSync,
     "./clubIdentityAliases": clubIdentity,

@@ -6,6 +6,7 @@ import type {
   EaGoalkeeperWritePlan, EaGoalkeeperWriteStore,
 } from "./eaGoalkeeperAttributesSync"
 import { runEaGoalkeeperReadBackQuery, verifyEaGoalkeeperReadBack } from "./eaGoalkeeperAttributesSync"
+import { persistEaRatingSnapshots } from "./eaRatingSnapshotPersistence"
 
 const protectedTables = [
   "Player", "Club", "League", "PlayerAttributes", "PlayerPlayStyle", "PlayerTransferObservation",
@@ -95,6 +96,7 @@ function values(plan: EaGoalkeeperWritePlan, observationId: string, observedAt: 
 }
 
 function transactionPort(tx: Prisma.TransactionClient) {
+  const pages = new Map<number, EaGoalkeeperSourcePage>()
   return {
     readHistoricalCheckpoint: (key: string) => checkpoint(tx, key),
     readCursor: (key: string) => readCursor(tx, key),
@@ -105,8 +107,10 @@ function transactionPort(tx: Prisma.TransactionClient) {
         return current ? [[current.externalId, current] as const] : []
       }))
     },
-    createProvenance: (page: EaGoalkeeperSourcePage, plans: readonly EaGoalkeeperWritePlan[]) =>
-      createProvenance(tx, page, plans),
+    createProvenance: (page: EaGoalkeeperSourcePage, plans: readonly EaGoalkeeperWritePlan[]) => {
+      pages.set(page.pageIndex, page)
+      return createProvenance(tx, page, plans)
+    },
     async createAttributesBatch(items: readonly Readonly<{ plan: EaGoalkeeperWritePlan; observationId: string;
       observedAt: Date }>[]) {
       const data = items.flatMap(({ plan, observationId, observedAt }) =>
@@ -142,6 +146,27 @@ function transactionPort(tx: Prisma.TransactionClient) {
           expectedSourceObservationId: observationIds.get(plan.sourcePage),
           persistedSourceObservationId: persisted?.sourceObservationId })
         if (!result.ok) return result
+      }
+      // Same transaction as GK write/read-back/cursor. No history survives a later abort.
+      for (const [pageIndex, page] of pages) {
+        const pagePlans = plans.filter(plan => plan.sourcePage === pageIndex)
+        const accepted = await tx.player.findMany({ where: { id: { in: pagePlans.flatMap(p => p.playerId ? [p.playerId] : []) } },
+          select: { id: true, externalId: true, name: true, dateOfBirth: true, position: true, officialOverall: true } })
+        const inputs = accepted.map(row => {
+          const plan = pagePlans.find(p => p.playerId === row.id)!
+          return { externalId: row.externalId!, source: "ea-ratings", name: row.name,
+            dateOfBirth: row.dateOfBirth ?? undefined, position: "GOL" as const, secondaryPositions: [],
+            officialOverall: row.officialOverall, attributes: {}, playStyles: [],
+            goalkeeperAttributes: Object.fromEntries(Object.entries(plan.after ?? {}).filter(([key]) =>
+              !plan.preservedFields.includes(key as typeof plan.preservedFields[number]))) }
+        })
+        const snapshots = await persistEaRatingSnapshots(tx, inputs, page.provenance, pagePlans)
+        for (const [externalId, ratingSnapshotId] of snapshots) {
+          const linked = await tx.eaPlayerCatalogObservation.updateMany({ where: {
+            observationId: observationIds.get(pageIndex), externalId, ratingSnapshotId: null,
+          }, data: { ratingSnapshotId } })
+          if (linked.count !== 1) throw new Error("EA_GK_HISTORY_LINK_MISMATCH")
+        }
       }
       return { ok: true as const }
     },

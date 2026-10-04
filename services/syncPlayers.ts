@@ -18,6 +18,7 @@ import {
   type EaSemanticSyncPlan,
 } from "../lib/eaCatalogSemanticSync"
 import { resolveEaClubSyncIdentity } from "./clubIdentityAliases"
+import { persistEaRatingSnapshots } from "./eaRatingSnapshotPersistence"
 
 /* ========================================
    TIPOS
@@ -1719,8 +1720,11 @@ export async function syncPlayers(
     )
 
     await databaseRetry(
-      () => prisma.$transaction((tx) =>
-        tx.eaCatalogObservation.create({
+      () => prisma.$transaction(async (tx) => {
+        // GK attributes are accepted by the dedicated GK writer, not this catalog writer.
+        const ratingSnapshots = await persistEaRatingSnapshots(tx,
+          players.map(player => ({ ...player, goalkeeperAttributes: undefined })), provenance, result.items)
+        return tx.eaCatalogObservation.create({
           data: {
             provider: provenance.provider,
             endpoint: provenance.endpoint,
@@ -1750,12 +1754,13 @@ export async function syncPlayers(
                 payloadHash: item.payloadHash,
                 action: item.action,
                 changedFields: item.changedFields,
+                ratingSnapshotId: ratingSnapshots.get(item.externalId),
               })),
             },
           },
           select: { id: true },
         })
-      ),
+      }, { isolationLevel: "Serializable", maxWait: 5000, timeout: 30000 }),
       `Registrar provenance EA de ${result.items.length} jogador(es)`
     )
   }

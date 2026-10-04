@@ -114,12 +114,35 @@ model EaPlayerCatalogObservation {
   payloadHash        String
   action             EaSemanticSyncAction
   changedFields      String[]              @default([])
+  ratingSnapshotId   String?
+  ratingSnapshot     EaPlayerRatingSnapshot? @relation(fields: [ratingSnapshotId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   createdAt          DateTime              @default(now())
 
   @@unique([observationId, externalId])
   @@index([playerId, payloadHash])
   @@index([externalId, createdAt(sort: Desc)])
   @@index([action, createdAt(sort: Desc)])
+  @@index([ratingSnapshotId])
+}
+
+// Immutable accepted EA rating state; observation timestamps live on the source observation.
+model EaPlayerRatingSnapshot {
+  id              String @id @default(cuid())
+  playerId        String
+  player          Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  externalId      String
+  sourceContext   String
+  dateOfBirth     DateTime?
+  primaryPosition String
+  overall         Int
+  attributes      Json
+  contentHash     String
+  snapshotVersion Int @default(1)
+  createdAt       DateTime @default(now())
+  observations    EaPlayerCatalogObservation[]
+
+  @@unique([externalId, sourceContext, snapshotVersion, contentHash], map: "ea_rating_snapshot_content_key")
+  @@index([playerId, createdAt])
 }
 
 /**
@@ -367,6 +390,7 @@ model Player {
   approvedCurrentClub PlayerApprovedCurrentClub?
   currentClubProposals PlayerCurrentClubProposal[]
   eaCatalogObservations EaPlayerCatalogObservation[]
+  eaRatingSnapshots EaPlayerRatingSnapshot[]
 
   // Separate estimated FutScout domain; legacy potential scalar stays untouched.
   futscoutPotentialEstimates PlayerFutscoutPotentialEstimate[]

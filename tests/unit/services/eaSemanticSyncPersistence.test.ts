@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs"
 
 import * as semanticSync from "../../../lib/eaCatalogSemanticSync"
 import * as clubIdentity from "../../../services/clubIdentityAliases"
+import * as ratingHistory from "../../../services/eaRatingSnapshotPersistence"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import type { NormalizedPlayer } from "../../../types/normalizedPlayer"
 
@@ -40,6 +41,7 @@ function loadSync(prisma: object) {
     "../lib/databaseRetry": { databaseRetry: <T>(run: () => Promise<T>) => run() },
     "../lib/eaCatalogSemanticSync": semanticSync,
     "./clubIdentityAliases": clubIdentity,
+    "./eaRatingSnapshotPersistence": ratingHistory,
   })
 }
 
@@ -48,6 +50,9 @@ test("NO_OP records provenance without touching Player, Club, League or Current 
   const prisma = new Proxy({
     player: { findMany: async () => [storedRow()] },
     $transaction: async (work: (tx: object) => Promise<unknown>) => work({
+      player: { findMany: async () => [storedRow()] },
+      eaPlayerRatingSnapshot: { createMany: async () => ({ count: 1 }),
+        findMany: async () => [{ id: "rating", playerId: "player", externalId: normalized.externalId }] },
       eaCatalogObservation: { create: async (input: unknown) => { writes.push(input); return { id: "observation" } } },
     }),
   }, { get(target, key) {
@@ -68,6 +73,8 @@ test("NO_OP records provenance without touching Player, Club, League or Current 
   assert.equal(result.updated, 0)
   assert.equal(result.items[0].action, "NO_OP")
   assert.equal(writes.length, 1)
+  assert.equal((writes[0] as { data: { players: { create: { ratingSnapshotId: string }[] } } })
+    .data.players.create[0].ratingSnapshotId, "rating")
 })
 
 test("invalid batch never records provenance, allowing checkpoint to remain blocked", async () => {

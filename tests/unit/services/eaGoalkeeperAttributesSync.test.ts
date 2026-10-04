@@ -400,6 +400,7 @@ test("Prisma adapter batches reads/creates and keeps source provenance outside t
   const plans = [updatePlan, ...batch.request.plans.slice(1)]
   const byId = new Map(batch.players.map(item => [item.playerId, {
     id: item.playerId, externalId: item.externalId, name: item.name, position: item.position,
+    dateOfBirth: null, officialOverall: 85, attributes: null,
     updatedAt: new Date(item.playerUpdatedAt), goalkeeperAttributes: null as null | Record<string, unknown>,
   }]))
   byId.get(existing.playerId)!.goalkeeperAttributes = { ...existing.attributes,
@@ -407,11 +408,20 @@ test("Prisma adapter batches reads/creates and keeps source provenance outside t
   let playerFindManyCalls = 0
   let createManyCalls = 0
   let updateManyCalls = 0
+  let historyCreates = 0
+  let historyLinks = 0
   const tx = {
-    player: { async findMany({ where }: { where: { externalId: { in: string[] } } }) {
+    eaCatalogObservation: { create: async () => ({ id: "obs-0" }) },
+    eaPlayerRatingSnapshot: { createMany: async ({ data }: { data: unknown[] }) => {
+      historyCreates += data.length; return { count: data.length }
+    }, findMany: async () => [...byId.values()].map(row => ({
+      id: `history-${row.id}`, playerId: row.id, externalId: row.externalId,
+    })) },
+    eaPlayerCatalogObservation: { updateMany: async () => { historyLinks++; return { count: 1 } } },
+    player: { async findMany({ where }: { where: { externalId?: { in: string[] }; id?: { in: string[] } } }) {
       playerFindManyCalls++
-      const ids = new Set(where.externalId.in)
-      return [...byId.values()].filter(row => ids.has(row.externalId))
+      const ids = new Set(where.externalId?.in ?? where.id?.in)
+      return [...byId.values()].filter(row => ids.has(where.externalId ? row.externalId : row.id))
     } },
     playerGoalkeeperAttributes: { async createMany({ data }: { data: Array<Record<string, unknown> & { playerId: string }> }) {
       createManyCalls++
@@ -435,6 +445,7 @@ test("Prisma adapter batches reads/creates and keeps source provenance outside t
   const db = { async $transaction<T>(work: (client: unknown) => Promise<T>) { return work(tx) } }
   const store = createPrismaEaGoalkeeperWriteStore(db as never, EA_GOALKEEPER_HISTORICAL_SYNC_KEY)
   await store.transaction(async port => {
+    await port.createProvenance(batch.request.sourcePages[0]!, plans)
     const revalidated = await port.readPlayers(plans.map(item => item.externalId))
     assert.equal(revalidated.size, 50)
     assert.deepEqual(revalidated.get("1"), existing)
@@ -445,7 +456,9 @@ test("Prisma adapter batches reads/creates and keeps source provenance outside t
     const verified = await port.verify(plans, new Map([[0, "obs-0"]]))
     assert.deepEqual(verified, { ok: true })
   })
-  assert.equal(playerFindManyCalls, 2)
+  assert.equal(playerFindManyCalls, 4)
+  assert.equal(historyCreates, 50)
+  assert.equal(historyLinks, 50)
   assert.equal(createManyCalls, 1)
   assert.equal(updateManyCalls, 1)
 })
