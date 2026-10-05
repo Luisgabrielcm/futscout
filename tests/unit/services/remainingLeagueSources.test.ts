@@ -1,7 +1,8 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import { readFileSync } from "node:fs"
-import { ALEAGUE_SOURCE, CYPRUS_SOURCE, selectBrandIdentities } from "../../../lib/brackBrandSource"
+import { createHash } from "node:crypto"
+import { ALEAGUE_SOURCE, ALEAGUE_REVIEWED_ENCODING_HASH, CYPRUS_SOURCE, selectBrandIdentities, matchesOfficialLeagueSource } from "../../../lib/brackBrandSource"
 import { fetchOfficialLeagueBytes, serveAleagueAsset, serveCyprusAsset } from "../../../services/brackBrandDelivery"
 import { jpegDimensions } from "../../../lib/reviewedJpeg"
 import type { AssetReference } from "../../../lib/assetPipeline"
@@ -48,6 +49,34 @@ for (const [source, file, mime, serve] of [
     const identity = { ...source, entityType: "LEAGUE", status: "VERIFIED", assets: [asset] }
     assert.deepEqual(selectBrandIdentities([identity]), [identity])
     assert.deepEqual(selectBrandIdentities([identity, { ...identity, provider: "api-football", status: "BLOCKED" }]), [])
+  })
+  if (source === ALEAGUE_SOURCE) test("A-League reviewed encoding: exact pin, original Registry and publication gates", async () => {
+    const current = readFileSync("tests/fixtures/brand-assets/aleague-reviewed-20261005.png")
+    assert.equal(current.length, source.bytes)
+    assert.equal(createHash("sha256").update(current).digest("hex"), ALEAGUE_REVIEWED_ENCODING_HASH)
+    assert.deepEqual(await fetchOfficialLeagueBytes(source, async () => new Response(current, {
+      headers: { "Content-Type": mime, "Content-Length": String(current.length) },
+    })), current)
+    const read = async () => reference()
+    const admit = () => () => {}
+    const delivered = await serve(request, read, async () => new Response(current, { headers: { "Content-Type": mime } }), admit, true)
+    assert.equal(delivered.status, 200)
+    assert.deepEqual(Buffer.from(await delivered.arrayBuffer()), current)
+    assert.equal(matchesOfficialLeagueSource({ ...reference(), ...reference().identity }), true)
+    assert.equal(matchesOfficialLeagueSource({ ...reference(), ...reference().identity, contentHash: ALEAGUE_REVIEWED_ENCODING_HASH }), false)
+    for (const invalid of [Buffer.alloc(current.length), Buffer.from(current)]) {
+      invalid[100] ^= 1
+      await assert.rejects(fetchOfficialLeagueBytes(source, async () => new Response(invalid, { headers: { "Content-Type": mime } })), /BRACK_BYTES_REJECTED/)
+    }
+    await assert.rejects(fetchOfficialLeagueBytes(source, async () => new Response(current, { headers: { "Content-Type": "image/webp" } })), /BRACK_DELIVERY_REJECTED/)
+    await assert.rejects(fetchOfficialLeagueBytes(source, async () => new Response(null, { status: 302, headers: { Location: source.sourceUrl } })), /BRACK_DELIVERY_REJECTED/)
+    const wrongUrl = new Response(current, { headers: { "Content-Type": mime } })
+    Object.defineProperty(wrongUrl, "url", { value: "https://other.invalid/logo.png" })
+    await assert.rejects(fetchOfficialLeagueBytes(source, async () => wrongUrl), /BRACK_DELIVERY_REJECTED/)
+    assert.equal((await serve(request, async () => ({ ...reference(), rightsStatus: "BLOCKED" }), async () => response(), admit, true)).status, 404)
+    assert.equal((await serve(request, read, async () => new Response(Buffer.alloc(42598), {
+      headers: { "Content-Type": mime, "Content-Length": "42598" },
+    }), admit, true)).status, 502)
   })
 }
 

@@ -42,6 +42,9 @@ export const ALEAGUE_SOURCE = Object.freeze({
   evidenceUrl: "https://aleagues.com.au/more/about-the-a-leagues/", season: "current-2026/27",
   deliveryPath: "/api/brand-assets/aleague", bytes: 15388, width: 2693, height: 301,
 })
+// Same decoded RGBA pixels (including alpha) as the registered original, reviewed
+// from two identical official responses on 2026-10-05. Registry identity stays pinned.
+export const ALEAGUE_REVIEWED_ENCODING_HASH = "030e4c258f6dcd9383cdcf5b3430685cf1d42911ef797b13ed01311d42c3eafe"
 export const CYPRUS_SOURCE = Object.freeze({
   entityId: "cmt9gj2es04801sucqqr7lpq7", provider: "official-cfa",
   providerEntityId: "images/SponsorPics/1765366878.jpg",

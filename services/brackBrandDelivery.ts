@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { BRACK_SOURCE, ISL_SOURCE, ROSHN_SOURCE, ALEAGUE_SOURCE, CYPRUS_SOURCE, OFFICIAL_LEAGUE_SOURCES } from "../lib/brackBrandSource"
+import { BRACK_SOURCE, ISL_SOURCE, ROSHN_SOURCE, ALEAGUE_SOURCE, ALEAGUE_REVIEWED_ENCODING_HASH, CYPRUS_SOURCE, OFFICIAL_LEAGUE_SOURCES } from "../lib/brackBrandSource"
 import { jpegDimensions } from "../lib/reviewedJpeg"
 import { resolveAssetSource, type AssetReference } from "../lib/assetPipeline"
 import { isReviewedIslSvg } from "../lib/islSvgPolicy"
@@ -107,7 +107,9 @@ export async function fetchOfficialLeagueBytes(source: OfficialSource, fetcher: 
     await reader.cancel()
   }
   observe?.({ phase: "validate", receivedBytes: length })
-  if (length !== source.bytes || createHash("sha256").update(bytes).digest("hex") !== source.contentHash) {
+  const contentHash = createHash("sha256").update(bytes).digest("hex")
+  const reviewedEncoding = source === ALEAGUE_SOURCE && contentHash === ALEAGUE_REVIEWED_ENCODING_HASH
+  if (length !== source.bytes || (contentHash !== source.contentHash && !reviewedEncoding)) {
     throw new Error("BRACK_BYTES_REJECTED")
   }
   const jpeg = source === CYPRUS_SOURCE ? jpegDimensions(bytes) : null
