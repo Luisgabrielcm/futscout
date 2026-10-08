@@ -62,6 +62,10 @@ export type DatabasePlayer = {
     typeof import("../lib/futscoutPotential/read").futscoutPotentialReadSelect
   > | null
 
+  economicCurrents?: import("../app/generated/prisma/client").Prisma.PlayerEconomicCurrentGetPayload<
+    typeof import("../lib/economicData/read").economicMarketValueReadSelect
+  >[]
+
   marketValue:
     | bigint
     | null

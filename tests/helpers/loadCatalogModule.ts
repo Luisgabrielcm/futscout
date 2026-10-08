@@ -31,6 +31,8 @@ import * as punjabSource from "../../lib/punjabBrandSource"
 import * as countryFlags from "../../lib/countryFlags"
 import * as React from "react"
 import * as potentialRead from "../../lib/futscoutPotential/read"
+import * as economicRead from "../../lib/economicData/read"
+import * as economicCatalog from "../../lib/economicData/catalog"
 import * as potentialCatalog from "../../lib/futscoutPotential/catalog"
 import { createElement, type ReactNode } from "react"
 
@@ -78,6 +80,8 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/punjabBrandSource": punjabSource,
       "lib/countryFlags": countryFlags,
       "lib/futscoutPotential/read": potentialRead,
+      "lib/economicData/read": economicRead,
+      "lib/economicData/catalog": economicCatalog,
       "lib/futscoutPotential/catalog": potentialCatalog,
     }
     const pureName = name.replace(/^(?:\.\.\/)+/, "")

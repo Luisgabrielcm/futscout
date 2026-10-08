@@ -97,6 +97,8 @@ export const pt = {
   "OVR mínimo": "OVR mínimo",
   "Potencial mínimo": "Potencial mínimo",
   "Valor máximo (€)": "Valor máximo (€)",
+  "Valor mínimo (€)": "Valor mínimo (€)",
+  "Valor ≥ €": "Valor ≥ €",
   "Ex: 23": "Ex: 23",
   "Ex: 80": "Ex: 80",
   "Ex: 85": "Ex: 85",

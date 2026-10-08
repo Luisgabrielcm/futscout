@@ -19,6 +19,7 @@ export const NUMERIC_FILTER_LIMITS = {
   minOverall: [0, 99],
   minPotential: [0, 99],
   maxPotential: [0, 99],
+  minValue: [0, Number.MAX_SAFE_INTEGER],
   maxValue: [0, Number.MAX_SAFE_INTEGER],
   minPace: [0, 99],
   minShooting: [0, 99],

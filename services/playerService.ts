@@ -22,6 +22,8 @@ import type {
 import { getBrandAssetsForEntities } from "./brandAssetReadService"
 import { futscoutPotentialReadSelect, readFutscoutPotential } from "../lib/futscoutPotential/read"
 import { potentialWhere, potentialPageSql } from "../lib/futscoutPotential/catalog"
+import { economicMarketValueReadSelect, readEconomicMarketValue } from "../lib/economicData/read"
+import { marketValueWhere, economicBargainsSql } from "../lib/economicData/catalog"
 
 async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapDatabasePlayer>[0][]): Promise<Player[]> {
   const assets = await getBrandAssetsForEntities({
@@ -29,7 +31,7 @@ async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapD
     leagueIds: databasePlayers.flatMap(player => player.club?.league.id ? [player.club.league.id] : []),
   })
   return databasePlayers.map(databasePlayer => {
-    const player = { ...mapDatabasePlayer(databasePlayer), ...readFutscoutPotential(databasePlayer) }
+    const player = { ...mapDatabasePlayer(databasePlayer), ...readFutscoutPotential(databasePlayer), ...readEconomicMarketValue(databasePlayer) }
     if (player.club && databasePlayer.club?.id) player.club.asset = assets.clubs.get(databasePlayer.club.id) ?? null
     if (databasePlayer.club?.league.id) player.leagueAsset = assets.leagues.get(databasePlayer.club.league.id) ?? null
     return player
@@ -42,6 +44,7 @@ async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapD
 ======================================== */
 
 const playerInclude = {
+  economicCurrents: economicMarketValueReadSelect,
   currentFutscoutPotential: futscoutPotentialReadSelect,
   club: {
     include: {
@@ -240,14 +243,9 @@ export async function getPlayers(
   ======================================== */
 
   if (
-    params.maxValue !== undefined
+    params.minValue !== undefined || params.maxValue !== undefined
   ) {
-    where.marketValue = {
-      lte:
-        BigInt(
-          params.maxValue
-        ),
-    }
+    Object.assign(where, marketValueWhere(params.minValue, params.maxValue))
   }
 
   /* ========================================
@@ -341,7 +339,7 @@ export async function getPlayers(
         where,
       }),
 
-      params.sort.startsWith("potential-") ? (async () => {
+      params.sort.startsWith("potential-") || params.sort.startsWith("value-") ? (async () => {
         const ids = await prisma.$queryRaw<{ id: string }[]>(potentialPageSql(params, scope,
           params.maxAge !== undefined ? getBirthDateForMaxAge(params.maxAge) : undefined))
         const rows = await prisma.player.findMany({ where: { id: { in: ids.map(row => row.id) } }, include: playerInclude })
@@ -526,44 +524,10 @@ export async function getFeaturedPlayers(): Promise<
       take: 4,
     })
 
-  const bargains =
-    await prisma.player.findMany({
-      where: {
-        officialOverall: {
-          gte: 80,
-        },
-
-        marketValue: {
-          not: null,
-
-          lte:
-            BigInt(
-              50000000
-            ),
-        },
-
-        attributes: {
-          isNot: null,
-        },
-      },
-
-      include:
-        playerInclude,
-
-      orderBy: [
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          marketValue:
-            "asc",
-        },
-      ],
-
-      take: 4,
-    })
+  const bargainIds = await prisma.$queryRaw<{ id: string }[]>(economicBargainsSql)
+  const bargainRows = await prisma.player.findMany({ where: { id: { in: bargainIds.map(row => row.id) } }, include: playerInclude })
+  const bargainMap = new Map(bargainRows.map(row => [row.id, row]))
+  const bargains = bargainIds.map(row => bargainMap.get(row.id)!).filter(Boolean)
 
   const prospectIds = await prisma.$queryRaw<{ id: string }[]>(potentialPageSql({ minPotential: 87, sort: "potential-desc", pageSize: 4 }))
   const prospectRows = await prisma.player.findMany({ where: { id: { in: prospectIds.map(row => row.id) } }, include: playerInclude })

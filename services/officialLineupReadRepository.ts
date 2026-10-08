@@ -3,6 +3,7 @@ import { decodeLineupSnapshot, toSourcePayload } from "../lib/officialLineupSnap
 import { LINEUP_WINDOW_DAYS } from "../lib/officialLineup"
 import type { LineupReadStore } from "./officialLineupService"
 import { futscoutPotentialReadSelect, readFutscoutPotential } from "../lib/futscoutPotential/read"
+import { economicMarketValueReadSelect, readEconomicMarketValue } from "../lib/economicData/read"
 
 type ReadDatabase = Pick<PrismaClient, "club" | "player" | "clubOfficialLineupSnapshot">
 export function createOfficialLineupReadStore(db: ReadDatabase, now: Date): LineupReadStore {
@@ -28,13 +29,15 @@ export function createOfficialLineupReadStore(db: ReadDatabase, now: Date): Line
     async readPlayersByApiIds(ids) {
       const players = await db.player.findMany({ where: { apiFootballId: { in: [...new Set(ids)] } }, select: {
         id: true, apiFootballId: true, slug: true, name: true, imageUrl: true, position: true,
-        secondaryPosition: true, secondaryPositions: true, officialOverall: true, potential: true, marketValue: true,
+        secondaryPosition: true, secondaryPositions: true, officialOverall: true, potential: true,
+        economicCurrents: economicMarketValueReadSelect,
         currentFutscoutPotential: futscoutPotentialReadSelect,
       } })
       return players.map(player => {
-        const { currentFutscoutPotential: _current, ...fields } = player
+        const { currentFutscoutPotential: _current, economicCurrents: _economic, ...fields } = player
         void _current
-        return { ...fields, ...readFutscoutPotential(player) }
+        void _economic
+        return { ...fields, ...readFutscoutPotential(player), ...readEconomicMarketValue(player) }
       })
     },
   }

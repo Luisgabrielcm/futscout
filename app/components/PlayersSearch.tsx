@@ -51,6 +51,7 @@ type PlayersSearchProps = {
   initialMinOverall?: string
   initialMinPotential?: string
   initialMaxValue?: string
+  initialMinValue?: string
 
   initialMinPace?: string
   initialMinShooting?: string
@@ -73,6 +74,7 @@ type FilterOverrides = {
   minOverall?: string
   minPotential?: string
   maxValue?: string
+  minValue?: string
 
   minPace?: string
   minShooting?: string
@@ -102,6 +104,7 @@ export default function PlayersSearch({ locale = "pt",
   initialMinOverall = "",
   initialMinPotential = "",
   initialMaxValue = "",
+  initialMinValue = "",
 
   initialMinPace = "",
   initialMinShooting = "",
@@ -179,6 +182,7 @@ export default function PlayersSearch({ locale = "pt",
     useState(
       initialMaxValue
     )
+  const [minValue, setMinValue] = useState(initialMinValue)
 
   const [
     minPace,
@@ -288,6 +292,7 @@ export default function PlayersSearch({ locale = "pt",
       maxValue:
         overrides.maxValue ??
         maxValue,
+      minValue: overrides.minValue ?? minValue,
 
       minPace:
         overrides.minPace ??
@@ -327,6 +332,7 @@ export default function PlayersSearch({ locale = "pt",
     setMinOverall(String(applied.minOverall ?? ""))
     setMinPotential(String(applied.minPotential ?? ""))
     setMaxValue(String(applied.maxValue ?? ""))
+    setMinValue(String(applied.minValue ?? ""))
     setMinPace(String(applied.minPace ?? ""))
     setMinShooting(String(applied.minShooting ?? ""))
     setMinPassing(String(applied.minPassing ?? ""))
@@ -376,6 +382,7 @@ export default function PlayersSearch({ locale = "pt",
     setMinOverall("")
     setMinPotential("")
     setMaxValue("")
+    setMinValue("")
 
     setMinPace("")
     setMinShooting("")
@@ -417,6 +424,7 @@ export default function PlayersSearch({ locale = "pt",
       minOverall: initialMinOverall,
       minPotential: initialMinPotential,
       maxValue: initialMaxValue,
+      minValue: initialMinValue,
       minPace: initialMinPace,
       minShooting: initialMinShooting,
       minPassing: initialMinPassing,
@@ -793,6 +801,12 @@ export default function PlayersSearch({ locale = "pt",
 
           {/* VALOR */}
 
+          <div className="filterField">
+            <label htmlFor="minValue">{t(locale, "Valor mínimo (€)")}</label>
+            <input id="minValue" type="number" min="0" value={minValue}
+              onChange={event => setMinValue(event.target.value)} />
+          </div>
+
           <div
             className="filterField"
           >
@@ -913,6 +927,12 @@ export default function PlayersSearch({ locale = "pt",
           >
             {t(locale, "Potencial ≥")}{" "}
             {initialMinPotential} ×
+          </button>
+        )}
+
+        {initialMinValue && (
+          <button type="button" onClick={() => removeFilter("minValue")}>
+            {t(locale, "Valor ≥ €")} {Number(initialMinValue).toLocaleString(localeTags[locale])} ×
           </button>
         )}
 

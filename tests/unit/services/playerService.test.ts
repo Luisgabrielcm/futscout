@@ -40,13 +40,14 @@ test("service independently rejects invalid numbers before constructing Prisma f
   assert.equal(reads[0].where?.officialOverall, undefined)
 })
 
-test("valid service filters preserve BigInt, pagination and deterministic sort", async () => {
+test("value filters use economic current, preserving pagination and unrelated sort", async () => {
   const { service, reads } = serviceFixture()
   await service.getPlayers({ maxValue: 20_000_000, page: 3, pageSize: 24, sort: "pace-desc" })
-  const valueFilter = reads[0].where?.marketValue
-  if (!valueFilter || typeof valueFilter !== "object") assert.fail("expected value filter")
-  assert.deepEqual(Object.keys(valueFilter), ["lte"])
-  assert.equal(valueFilter.lte, BigInt(20_000_000))
+  const serialized = JSON.stringify(reads[0].where)
+  assert.match(serialized, /economicCurrents/)
+  assert.match(serialized, /"lte":20000000/)
+  assert.match(serialized, /"currency":"EUR"/)
+  assert.equal(reads[0].where?.marketValue, undefined)
   assert.equal(reads[0].skip, 48)
   assert.equal(reads[0].take, 24)
   assert.deepEqual(reads[0].orderBy, order.getPlayerOrderBy("pace-desc"))

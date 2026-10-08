@@ -3,7 +3,7 @@ import { test } from "node:test"
 import * as React from "react"
 import { createElement, type ReactNode } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
-import type { Prisma } from "../../../app/generated/prisma/client"
+import { Prisma } from "../../../app/generated/prisma/client"
 import * as mapper from "../../../mappers/mapDatabasePlayer"
 import * as params from "../../../lib/playerCatalogParams"
 import * as order from "../../../lib/playerCatalogOrder"
@@ -76,7 +76,14 @@ for (const scenario of [
 ]) {
   test(`catalog query → mapper → callers → PlayerCard preserves ${scenario.name}`, async () => {
     const { service, Search, Home } = contractFixture(catalogPlayer({
-      potential: scenario.potential, form: scenario.form, marketValue: scenario.marketValue,
+      potential: scenario.potential, form: scenario.form, marketValue: BigInt(999),
+      economicCurrents: scenario.marketValue === null ? [] : [{ observation: {
+        observedAt: new Date("2026-10-06T17:07:25Z"), state: {
+          provider: "LIVE_FOOTBALL", field: "MARKET_VALUE", context: "REAL_WORLD", presence: "VALUE",
+          amount: new Prisma.Decimal(scenario.marketValue.toString()), currency: "EUR",
+          confidence: "HIGH", matchState: "MATCHED", status: "VALID",
+        },
+      } }],
       currentFutscoutPotential: scenario.potential && scenario.potential > 0 ? { estimate: {
         modelVersion: "potential-model-e-v1", status: "EXPERIMENTAL", inputOverall: 80, potentialRaw: scenario.potential,
       } } : null,

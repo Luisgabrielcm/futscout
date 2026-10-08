@@ -269,6 +269,9 @@ export type Player = {
   ====================================== */
 
   marketValue: number | null
+  marketCurrency?: string | null
+  economicMarketValue?: ReturnType<typeof import("../lib/economicData/read").readEconomicMarketValue>["economicMarketValue"]
+  marketValueReadState?: ReturnType<typeof import("../lib/economicData/read").readEconomicMarketValue>["marketValueReadState"]
 
   valueTrend:
     | "up"

@@ -7,6 +7,61 @@ datasource db {
   provider = "postgresql"
 }
 
+model PlayerEconomicState {
+  id String @id @default(cuid())
+  playerId String
+  field String
+  provider String
+  providerPlayerId String
+  context String
+  snapshotVersion String
+  presence String
+  amount Decimal? @db.Decimal(20, 2)
+  currency String?
+  period String?
+  contractUntil DateTime? @db.Date
+  datePrecision String?
+  providerEffectiveAt DateTime? @db.Timestamptz(3)
+  confidence String
+  matchState String
+  status String
+  metadata Json
+  contentHash String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "economic_state_player_fk")
+  observations PlayerEconomicObservation[]
+  @@unique([playerId, provider, providerPlayerId, context, field, snapshotVersion, contentHash], name: "economicStateKey", map: "economic_state_dedup")
+  @@unique([id, playerId, field], map: "economic_state_identity")
+  @@index([playerId, field, createdAt])
+}
+
+model PlayerEconomicObservation {
+  id String @id @default(cuid())
+  stateId String
+  playerId String
+  field String
+  observedAt DateTime @db.Timestamptz(3)
+  requestId String @unique
+  player Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "economic_observation_player_fk")
+  state PlayerEconomicState @relation(fields: [stateId, playerId, field], references: [id, playerId, field], onDelete: Restrict, onUpdate: Restrict, map: "economic_observation_state_fk")
+  currents PlayerEconomicCurrent[]
+  @@unique([id, playerId, field], map: "economic_observation_identity")
+  @@index([playerId, field, observedAt])
+}
+
+model PlayerEconomicCurrent {
+  playerId String
+  field String
+  observationId String
+  revision Int
+  selectedAt DateTime @db.Timestamptz(3)
+  selectionReason String
+  policyVersion String
+  player Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "economic_current_player_fk")
+  observation PlayerEconomicObservation @relation(fields: [observationId, playerId, field], references: [id, playerId, field], onDelete: Restrict, onUpdate: Restrict, map: "economic_current_observation_fk")
+  @@id([playerId, field])
+}
+
 enum BrandAssetEntityType {
   CLUB
   LEAGUE
@@ -391,6 +446,9 @@ model Player {
   currentClubProposals PlayerCurrentClubProposal[]
   eaCatalogObservations EaPlayerCatalogObservation[]
   eaRatingSnapshots EaPlayerRatingSnapshot[]
+  economicStates PlayerEconomicState[]
+  economicObservations PlayerEconomicObservation[]
+  economicCurrents PlayerEconomicCurrent[]
 
   // Separate estimated FutScout domain; legacy potential scalar stays untouched.
   futscoutPotentialEstimates PlayerFutscoutPotentialEstimate[]

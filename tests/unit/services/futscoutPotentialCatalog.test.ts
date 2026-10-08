@@ -35,7 +35,7 @@ test("ranking composes all other catalog filters safely", () => {
   const q = potentialPageSql({ search: "a%'", position: "MC", league: "test", minOverall: 80, maxValue: 1000,
     minPace: 70, playStyle: "rapid", playStyleLevel: "plus" }, { clubId: "club", nationalities: ["Spain"] }, new Date("2000-01-01"))
   assert.doesNotMatch(q.sql, /a%'|Spain|rapid/)
-  for (const field of ["clubId", "nationality", "secondaryPositions", "dateOfBirth", "marketValue", "PlayerPlayStyle"]) assert.ok(q.sql.includes(field))
+  for (const field of ["clubId", "nationality", "secondaryPositions", "dateOfBirth", "PlayerEconomicCurrent", "PlayerPlayStyle"]) assert.ok(q.sql.includes(field))
   assert.ok(q.values.includes("%a%'%"))
 })
 test("service reorders only the bounded page, one batch lookup, no N+1", async () => {

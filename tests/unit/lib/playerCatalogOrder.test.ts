@@ -12,8 +12,8 @@ const expectedPrimary = {
   "pace-desc": { attributes: { pace: "desc" } },
   "passing-desc": { attributes: { passing: "desc" } },
   "dribbling-desc": { attributes: { dribbling: "desc" } },
-  "value-asc": { marketValue: { sort: "asc", nulls: "last" } },
-  "value-desc": { marketValue: { sort: "desc", nulls: "last" } },
+  "value-asc": {},
+  "value-desc": {},
   "position-asc": { position: "asc" },
   "name-asc": { name: "asc" },
   "name-desc": { name: "desc" },
@@ -23,6 +23,10 @@ for (const sort of PLAYER_SORTS) {
   test(sort + " preserves existing ordering and ends with unique ID", () => {
     if (sort.startsWith("potential-")) {
       assert.throws(() => getPlayerOrderBy(sort), /REQUIRES_DERIVED_SQL_ORDER/)
+      return
+    }
+    if (sort.startsWith("value-")) {
+      assert.throws(() => getPlayerOrderBy(sort), /REQUIRES_CURRENT_SQL_ORDER/)
       return
     }
     const order = getPlayerOrderBy(sort)

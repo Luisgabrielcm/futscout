@@ -65,6 +65,7 @@ async function PlayersResults({ searchParams, locale = "pt" }: PlayersPageProps 
         initialMinOverall={String(params.minOverall ?? "")}
         initialMinPotential={String(params.minPotential ?? "")}
         initialMaxValue={String(params.maxValue ?? "")}
+        initialMinValue={String(params.minValue ?? "")}
         initialMinPace={String(params.minPace ?? "")}
         initialMinShooting={String(params.minShooting ?? "")}
         initialMinPassing={String(params.minPassing ?? "")}

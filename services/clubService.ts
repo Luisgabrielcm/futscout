@@ -8,6 +8,7 @@ import { calculateClubRating, compareRatedClubs } from "../lib/clubRating"
 import { getBrandAssetsForEntities } from "./brandAssetReadService"
 import { BAYER_LEVERKUSEN_LEGACY_ALIAS, isVerifiedLegacyClubAlias } from "./clubIdentityAliases"
 import { futscoutPotentialReadSelect, readFutscoutPotential } from "../lib/futscoutPotential/read"
+import { economicMarketValueReadSelect, readEconomicMarketValue } from "../lib/economicData/read"
 
 const clubSelect = {
   id: true, name: true, slug: true, imageUrl: true,
@@ -67,13 +68,15 @@ export async function getClubRatings(clubs: { id: string; total: number }[]) {
 export async function getClubRoster(clubId: string) {
   const rows = await prisma.player.findMany({ where: { clubId }, select: {
     id: true, slug: true, name: true, imageUrl: true, position: true, officialOverall: true,
-    secondaryPosition: true, secondaryPositions: true, potential: true, marketValue: true,
+    secondaryPosition: true, secondaryPositions: true, potential: true,
+    economicCurrents: economicMarketValueReadSelect,
     currentFutscoutPotential: futscoutPotentialReadSelect,
   }, orderBy: [{ officialOverall: "desc" }, { name: "asc" }, { id: "asc" }] })
   return rows.map(row => {
-    const { currentFutscoutPotential: _current, ...fields } = row
+    const { currentFutscoutPotential: _current, economicCurrents: _economic, ...fields } = row
     void _current
-    return { ...fields, ...readFutscoutPotential(row) }
+    void _economic
+    return { ...fields, ...readFutscoutPotential(row), ...readEconomicMarketValue(row) }
   })
 }
 

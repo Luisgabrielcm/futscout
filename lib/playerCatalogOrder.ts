@@ -62,44 +62,13 @@ function getOrderBy(
     ====================================== */
 
     case "value-asc":
-      return [
-        {
-          marketValue:
-            { sort: "asc", nulls: "last" },
-        },
-
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ]
 
     /* ======================================
        MAIS CARO
     ====================================== */
 
     case "value-desc":
-      return [
-        {
-          marketValue:
-            { sort: "desc", nulls: "last" },
-        },
-
-        {
-          officialOverall:
-            "desc",
-        },
-
-        {
-          name:
-            "asc",
-        },
-      ]
+      throw new Error("ECONOMIC_MARKET_VALUE_REQUIRES_CURRENT_SQL_ORDER")
 
     /* ======================================
        MAIOR RITMO

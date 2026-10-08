@@ -14,5 +14,8 @@ export type SelectedPlayer = {
   futscoutPotential?: import("../lib/futscoutPotential/read").FutscoutPotentialRead["futscoutPotential"]
   potentialReadState?: import("../lib/futscoutPotential/read").FutscoutPotentialRead["potentialReadState"]
   marketValue: number | null; form: string | null; valueTrend: null
+  marketCurrency?: string | null
+  economicMarketValue?: ReturnType<typeof import("../lib/economicData/read").readEconomicMarketValue>["economicMarketValue"]
+  marketValueReadState?: ReturnType<typeof import("../lib/economicData/read").readEconomicMarketValue>["marketValueReadState"]
   attributes: Record<ComparisonAttribute, number | null> | null
 }

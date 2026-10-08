@@ -34,10 +34,6 @@ export default async function PlayerRealLifePage({ params }: RealLifePageProps) 
     <PlayerRealLifeHeader locale={locale} player={player} />
     <PlayerExperienceNav locale={locale} slug={slug} active="real" />
     <PlayerCareer locale={locale} catalogClub={player.eaCatalogClub?.name ?? null} data={career} />
-    <section className="profileSection realMarketValue" aria-labelledby="real-market-title">
-      <h2 id="real-market-title">{playerExperienceText(locale, "marketValue")}</h2>
-      <p className="careerEmpty">{playerExperienceText(locale, "marketValueMissing")}</p>
-    </section>
     <PlayerSeasonStatistics locale={locale} rows={player.statistics ?? []} />
     {/* A public transfer projection stays empty until revision resolution is safe. */}
     <PlayerHistory locale={locale} />

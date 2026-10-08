@@ -5,6 +5,7 @@ import { FAVORITES_LIMIT, normalizePlayerSlugs } from "../lib/playerSelections"
 import type { SelectedPlayer } from "../types/playerSelection"
 import { getBrandAssetsForEntities } from "./brandAssetReadService"
 import { futscoutPotentialReadSelect, readFutscoutPotential } from "../lib/futscoutPotential/read"
+import { economicMarketValueReadSelect, readEconomicMarketValue } from "../lib/economicData/read"
 
 export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVORITES_LIMIT = FAVORITES_LIMIT): Promise<SelectedPlayer[]> {
   const slugs = normalizePlayerSlugs(input, limit)
@@ -16,7 +17,7 @@ export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVOR
       nationality: true, secondaryPosition: true, secondaryPositions: true,
       imageUrl: true, officialOverall: true, dynamicOverall: true, potential: true,
       currentFutscoutPotential: futscoutPotentialReadSelect,
-      marketValue: true, form: true, club: { select: { id: true, name: true } },
+      economicCurrents: economicMarketValueReadSelect, form: true, club: { select: { id: true, name: true } },
       attributes: { select: { pace: true, shooting: true, passing: true, dribbling: true, defending: true, physical: true } },
     },
   })
@@ -33,7 +34,7 @@ export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVOR
       secondaryPosition: row.secondaryPosition, secondaryPositions: row.secondaryPositions,
       image: row.imageUrl ?? undefined, baseOverall: row.officialOverall,
       dynamicOverall: row.dynamicOverall, ...readFutscoutPotential(row),
-      marketValue: row.marketValue === null ? null : Number(row.marketValue),
+      ...readEconomicMarketValue(row),
       form: row.form, valueTrend: null, attributes: row.attributes,
     }]
   })
