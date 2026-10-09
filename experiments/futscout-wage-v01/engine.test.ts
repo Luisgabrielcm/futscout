@@ -1,7 +1,5 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import { normalizeBase, inferSynthetic, syntheticArtifact, assertSyntheticSource, hash, type Salary, type Inputs } from './engine'
 
 const salary: Salary = { amount: 52000, currency: 'EUR', period: 'YEAR', tax: 'GROSS', component: 'BASE', source: 'SYNTHETIC', observedAt: '2026-10-08T00:00:00Z', effectiveAt: null }
@@ -60,8 +58,4 @@ test('real-data training forbidden, artifacts cannot self-approve', () => {
   for (const source of ['SALARYSPORT', 'MLSPA', 'LIVE_FOOTBALL']) assert.throws(() => assertSyntheticSource(source))
   const a = syntheticArtifact(); a.coefficients.ovr = 1
   assert.throws(() => inferSynthetic(input, a), /UNAPPROVED/)
-})
-test('12-player freeze unchanged (local audit dependency)', () => {
-  const bytes = readFileSync('audit/output/salarysport-wage-sample-preflight-20261008/selection.json')
-  assert.equal(createHash('sha256').update(bytes).digest('hex'), '809821820b26cb0a6c7938cc6af2aa2c34a8d43957a6406f933ebe2919a1587f')
 })

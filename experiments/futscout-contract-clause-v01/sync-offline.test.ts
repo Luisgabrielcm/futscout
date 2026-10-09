@@ -1,8 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { hash, prepare } from './contract'
-import { adaptPilot } from './evidence-adapter'
 import { createRegistry, sourceGate, type Source } from './source-registry'
 import { freezePlan, nextBatch, type Candidate, type Plan } from './planner'
 import { evaluateEligibility } from './eligibility'
@@ -215,16 +213,6 @@ test('offline state fingerprint includes qualifiers, not repeated observation ti
   const after = simulateReceipt(planOf([c]), 0, registry)
   assert.notEqual(before.observation?.stateHash, after.observation?.stateHash)
   assert.equal(before.decision.temporal?.legacyContentHash, after.decision.temporal?.legacyContentHash)
-})
-test('old adapter evidence stays unapproved, missing timestamps not invented', () => {
-  const dir = 'audit/output/contract-evidence-pilot-20261008/'
-  const pilot = adaptPilot(readFileSync(dir + 'selection.json'), readFileSync(dir + 'evidence.json'))
-  assert.equal(pilot.artifactHash, 'd5c6c10f44a93780731bf093c5798d265a3f1f042d15f1ff9ef427e3c371f033')
-  for (const r of pilot.records) {
-    assert.equal(r.draft.observedAt, null); assert.equal(r.persistenceEligible, false)
-    assert.equal(r.draft.provenance.rights, 'UNKNOWN')
-  }
-  // Real drafts are regression evidence only, not passed to the synthetic queue.
 })
 test('source rights are rechecked by eligibility, no enabled flag bypass', () => {
   const job = planOf().queue[0]

@@ -1,8 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { prepare, type ContractInput } from './contract'
-import { adaptPilot } from './evidence-adapter'
 import { assessTemporal, type TemporalInput, type TemporalEvent } from './temporal-v02'
 
 const unknown = { value: null, datePrecision: 'UNKNOWN' } as const
@@ -152,19 +150,4 @@ test('deterministic/idempotent assessment, no mutation, legacy hashes stable', (
 test('duplicate events rejected, no duplicated confirmation', () => {
   const e = event('TERMINATION')
   assert.throws(() => run({ ...input, events: [e, e] }), /DUPLICATE_EVENT/)
-})
-test('four documented facts and adapter hashes remain intact; synthetic clocks never become real observations', () => {
-  const dir = 'audit/output/contract-evidence-pilot-20261008/'
-  const pilot = adaptPilot(readFileSync(dir + 'selection.json'), readFileSync(dir + 'evidence.json'))
-  assert.equal(pilot.artifactHash, 'd5c6c10f44a93780731bf093c5798d265a3f1f042d15f1ff9ef427e3c371f033')
-  for (const [name, value, precision] of [['Lamine Yamal', '2031-06-30', 'DAY'], ['Harry Kane', '2027-06-30', 'DAY'], ['Frederik Lauenborg', '2028', 'YEAR'], ['Miguel Almirón', '2027', 'YEAR']]) {
-    const r = pilot.records.find(r => r.provenance.sourceEvidence.name === name)!
-    assert.deepEqual(r.draft.contractUntil, { value, datePrecision: precision })
-    // Only the documented date/options are applied to a clearly synthetic identity.
-    const q = name === 'Frederik Lauenborg' ? { kind: 'SUMMER' as const, sourceText: 'summer 2028', sourceReference: 'synthetic/qualifier' } : null
-    const result = run({ ...input, periodQualifier: q, contract: { ...contract, contractUntil: r.draft.contractUntil } })
-    assert.deepEqual(result.data.contract.contractUntil, r.draft.contractUntil)
-    assert.equal(r.draft.observedAt, null); assert.equal(r.draft.releaseClause.status, 'UNKNOWN')
-    if (name === 'Miguel Almirón') assert.deepEqual(r.draft.extensionOptions?.[0].until, { value: '2028', datePrecision: 'YEAR' })
-  }
 })

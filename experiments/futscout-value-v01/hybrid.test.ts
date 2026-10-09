@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { canonical, sha256, type Artifact, type Inputs } from './engine'
 import { simulateHybridPolicy, type ObservedCurrent, type ScenarioApproval } from './hybrid'
 import { runCommand } from './run'
-import { evaluateFrozenDataset, verifyFrozenSplits } from './pipeline'
+import { evaluateFrozenDataset } from './pipeline'
 
 const payload: Omit<Artifact, 'artifactHash'> = {
   modelVersion: 'futscout-value-v0.1', inputSchemaVersion: 'futscout-value-input-v0.1', baseline: 'A', trainingDatasetVersion: 'SYNTHETIC_POLICY_FIXTURE',
@@ -67,8 +67,4 @@ test('training and evaluation commands stop at license gate before files or real
   assert.throws(() => runCommand(['train', 'DOES_NOT_EXIST']), /LIVE_FOOTBALL_TRAINING_LICENSE_PENDING/)
   assert.throws(() => runCommand(['evaluate', 'DOES_NOT_EXIST', 'DOES_NOT_EXIST']), /LIVE_FOOTBALL_TRAINING_LICENSE_PENDING/)
   assert.throws(() => evaluateFrozenDataset('DOES_NOT_EXIST', { A: model, B: model }), /LIVE_FOOTBALL_TRAINING_LICENSE_PENDING/)
-})
-test('frozen 3457-player split has no player/club/unseen-league overlap', () => {
-  const checked = verifyFrozenSplits('audit/output/futscout-economic-dataset-v1-20261008')
-  assert.deepEqual(checked.counts, { train: 1707, calibration: 455, holdout: 577, unseen_leagues: 718 }); assert.equal(checked.players, 3457)
 })

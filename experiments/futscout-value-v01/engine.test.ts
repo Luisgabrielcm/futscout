@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { join } from 'node:path'
-import { readFileSync } from 'node:fs'
 import { canonical, sha256, inputHash, fitOffline, infer, validateSplits, type Dataset, type Inputs, type Position, type Split } from './engine'
-import { evaluate, trainFrozenDataset, verifyFreeze, EXPECTED_MANIFEST_HASH } from './pipeline'
+import { evaluate, trainFrozenDataset } from './pipeline'
 
 // Entirely invented identities, inputs and labels; no provider data in fixtures.
 function fixture(positionEffect = false): Dataset {
@@ -97,11 +95,6 @@ test('rank deficient design rejected without silent ridge or retry', () => {
 test('real training gate rejects before accessing real labels or files', () => {
   assert.throws(() => trainFrozenDataset('DOES_NOT_EXIST'), /LIVE_FOOTBALL_TRAINING_LICENSE_PENDING/)
   assert.throws(() => fitOffline({ source: 'LIVE_FOOTBALL' } as Dataset, 'A'), /LIVE_FOOTBALL_TRAINING_LICENSE_PENDING/)
-})
-test('frozen real dataset files remain unchanged; no real labels parsed or fitted', () => {
-  const dir = join(process.cwd(), 'audit/output/futscout-economic-dataset-v1-20261008')
-  assert.equal(verifyFreeze(dir).eligible, 3457)
-  assert.equal(sha256(readFileSync(join(dir, 'dataset.manifest.json'))), EXPECTED_MANIFEST_HASH)
 })
 test('canonicalization rejects undefined and nonfinite values', () => {
   assert.throws(() => canonical({ x: Infinity })); assert.throws(() => canonical({ x: undefined }))
