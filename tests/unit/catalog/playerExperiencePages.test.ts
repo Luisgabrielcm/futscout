@@ -28,7 +28,10 @@ for (const locale of ["pt", "en"] as const) {
     const page = loadCatalogModule<typeof import("../../../app/[locale]/jogadores/[slug]/page")>("app/[locale]/jogadores/[slug]/page.tsx", {
       "next/navigation": { notFound: () => { throw new Error("NOT_FOUND") } },
       "../../../../services/playerService": { getPlayerBySlug: async () => complete },
-      "../../../components/PlayerHeader": marker("EA_HEADER"), "../../../components/PlayerActions": marker("ACTIONS"),
+      "../../../components/PlayerHeader": loadCatalogModule<typeof import("../../../app/components/PlayerHeader")>("app/components/PlayerHeader.tsx", {
+        "../../utils/formatCurrency": { formatCurrency: (value: number) => String(value) },
+        "../../utils/getOverallDifference": { getOverallDifference: (a: number, b: number) => b - a },
+      }).default, "../../../components/PlayerActions": marker("ACTIONS"),
       "../../../components/PlayerQuickProfile": marker("QUICK"), "../../../components/PlayerPositions": marker("POSITIONS"),
       "../../../components/PlayerAttributes": marker("ATTRIBUTES"), "../../../components/PlayerGoalkeeperAttributes": marker("GK_ATTRIBUTES"), "../../../components/PlayerPlayStyles": marker("PLAYSTYLES"),
       "../../../components/ScoutAnalysis": marker("ANALYSIS"), "../../../components/GoalkeeperScoutAnalysis": marker("GK_ANALYSIS"),
@@ -38,7 +41,9 @@ for (const locale of ["pt", "en"] as const) {
     assert.equal((nav.match(/<a /g) ?? []).length, 2)
     assert.ok(nav.includes(`href="/${locale}/jogadores/rodri"`))
     assert.ok(nav.includes(`href="/${locale}/jogadores/rodri/vida-real"`))
-    for (const label of ["EA_HEADER", "ATTRIBUTES", "PLAYSTYLES", "ANALYSIS"]) assert.ok(html.includes(label))
+    for (const label of ["Rodri", "ATTRIBUTES", "PLAYSTYLES", "ANALYSIS"]) assert.ok(html.includes(label))
+    assert.equal((html.match(/aria-label="(?:Dados econômicos|Economic data)"/g) ?? []).length, 1)
+    assert.equal((html.match(/<dt>(?:Salário semanal|Weekly wage)<\/dt>/g) ?? []).length, 1)
     assert.doesNotMatch(html, /data-domain="real"|id="statistics"|id="history"/)
     assert.match(html, /Manchester City/)
   })
@@ -60,6 +65,7 @@ for (const locale of ["pt", "en"] as const) {
     assert.doesNotMatch(html, /real-market-title|realMarketValue|Fonte de valor real ainda não conectada|Real-world value source is not connected yet/)
     assert.match(html, locale === "pt" ? /Estatísticas indisponíveis/ : /Statistics unavailable/)
     assert.doesNotMatch(html, /contentHash|evidenceHash|providerPlayerId/)
+    assert.doesNotMatch(html, /aria-label="(?:Dados econômicos|Economic data)"|<dt>(?:Salário semanal|Weekly wage)<\/dt>/)
   })
 }
 

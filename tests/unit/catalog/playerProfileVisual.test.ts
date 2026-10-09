@@ -22,6 +22,30 @@ const { default: QuickProfile } = loadCatalogModule<typeof import("../../../app/
   "app/components/PlayerQuickProfile.tsx", {},
 )
 
+for (const locale of ["pt", "en"] as const) {
+  test(`${locale}: economic definition list preserves values, zero and missing without source labels`, () => {
+    const labels = locale === "pt"
+      ? ["Valor de mercado", "Salário semanal", "Contrato até", "Cláusula de rescisão"]
+      : ["Market value", "Weekly wage", "Contract until", "Release clause"]
+    for (const value of [220000000, 130000000, 200000000, 150000000, 0, null]) {
+      const player = { ...mapDatabasePlayer(catalogPlayer()), marketValue: value,
+        marketCurrency: "EUR", economicMarketValue: { provider: "LIVE_FOOTBALL", observedAt: "2026-10-08T00:00:00Z" } }
+      const before = JSON.stringify(player)
+      const html = renderToStaticMarkup(createElement(Header, { locale, player, valueContext: "career-mode" }))
+      const lists = html.match(/<dl class="careerFields"[\s\S]*?<\/dl>/g) ?? []
+      assert.equal(lists.length, 1)
+      const list = lists[0]
+      assert.match(list, /aria-label="(Dados econômicos|Economic data)"/)
+      assert.deepEqual([...list.matchAll(/<dt>(.*?)<\/dt>/g)].map(m => m[1]), labels)
+      const values = [...list.matchAll(/<dd[^>]*>(.*?)<\/dd>/g)].map(m => m[1])
+      const expected = renderToStaticMarkup(createElement("span", null, value === null ? "—" : formatCurrency(value, locale))).replace(/^<span>|<\/span>$/g, "")
+      assert.deepEqual(values, [expected, "—", "—", "—"])
+      assert.doesNotMatch(list, /LIVE_FOOTBALL|FutScout|estimated|estimad|observedAt|2026-10-08/i)
+      assert.equal(JSON.stringify(player), before)
+    }
+  })
+}
+
 test("positions keep primary first and stable unique secondary/legacy values without mutating input", () => {
   const player = mapDatabasePlayer(catalogPlayer())
   player.position = "ATA"

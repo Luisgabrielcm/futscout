@@ -31,7 +31,6 @@ type PlayerHeaderProps = {
 
 export default function PlayerHeader({ locale = "pt",
   player,
-  valueContext = "market",
 }: PlayerHeaderProps) {
   const positions = getPlayerProfilePositions(player)
   const clubHref = entityHref(locale, "clubes", player.club?.slug)
@@ -241,38 +240,17 @@ export default function PlayerHeader({ locale = "pt",
             MERCADO
         ================================== */}
 
-        <div
-          className="playerHeaderStat"
-        >
-          <span>
-            {t(locale, "VALOR DE MERCADO")}</span>
-
-          <strong
-            className="playerHeaderMarketValue"
-          >
-            {player.marketValue !== null
+        <dl className="careerFields" aria-label={visualText(locale, "economicData")} style={{ gridColumn: "1 / -1" }}>
+          <div>
+            <dt>{visualText(locale, "marketValue")}</dt>
+            <dd className="playerHeaderMarketValue">{player.marketValue !== null
               ? formatCurrency(player.marketValue, locale)
-              : "—"}
-          </strong>
-
-          {valueContext === "market" && player.marketValue !== null && player.valueTrend !== null ? (
-            <small
-              className={`headerMarketTrend ${player.valueTrend}`}
-            >
-              {player.valueTrend ===
-              "up"
-                ? t(locale, "↑ Valorizando")
-                : player.valueTrend ===
-                    "down"
-                  ? t(locale, "↓ Desvalorizando")
-                  : t(locale, "→ Estável")}
-            </small>
-          ) : (
-            <small>
-              {player.marketValue === null ? t(locale, "Não informado") : t(locale, "Tendência não disponível")}
-            </small>
-          )}
-        </div>
+              : "—"}</dd>
+          </div>
+          <div><dt>{visualText(locale, "weeklySalary")}</dt><dd>—</dd></div>
+          <div><dt>{visualText(locale, "contractUntil")}</dt><dd>—</dd></div>
+          <div><dt>{visualText(locale, "releaseClause")}</dt><dd>—</dd></div>
+        </dl>
       </div>
     </section>
   )
