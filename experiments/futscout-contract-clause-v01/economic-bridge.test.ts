@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { ImmutableEvidenceCatalog, type EvidenceInput } from './evidence-catalog'
-import { createRegistry, type Source } from './source-registry'
+import { createRegistry, operationGate, sourceGate, syncVersion, type Source } from './source-registry'
 import { hash } from './contract'
 import { proposeContractWrite, reconcileContractWrite, runContractProposal, type ReadBack, type BridgeReview } from './economic-bridge'
 
@@ -49,10 +49,34 @@ test('identity, club, temporal link and original observation proof required', ()
 })
 test('rights UNKNOWN/RESTRICTED blocked without upgrading catalog permissions', () => {
   for (const status of ['UNKNOWN','RESTRICTED'] as const) {
-    for (const field of ['access','storage','history','publication','commercialUse'] as const) {
+    for (const field of ['access','storage','history'] as const) {
       assert.throws(() => proposeContractWrite(fixture(undefined, { ...source, permissions: { ...source.permissions, [field]: status } }).args))
     }
   }
+})
+
+test('internal storage accepts restricted publication without permitting publication or current', () => {
+  for (const status of ['UNKNOWN', 'RESTRICTED', 'CONFIRMED'] as const) {
+    const s = { ...source, permissions: { ...source.permissions, publication: status, commercialUse: status } }
+    const { args, catalog, evidence } = fixture(undefined, s)
+    const proposal = proposeContractWrite(args)
+    assert.equal(proposal.command.selectCurrent, false)
+    assert.equal(operationGate(s, 'PUBLISH').enabled, status === 'CONFIRMED')
+    assert.deepEqual(catalog.append(evidence), catalog.get(evidence.evidenceId))
+    assert.deepEqual(proposeContractWrite(args), proposal)
+    assert.equal(catalog.evidenceRef(evidence.evidenceId).publicationAllowed, false)
+  }
+})
+
+test('legacy registry hashes and catalog round trips remain unchanged', () => {
+  const s = { ...source, permissions: { ...source.permissions, publication: 'RESTRICTED' as const } }
+  const registry = createRegistry([s])
+  const entries = [{ source: structuredClone(s), ...sourceGate(s) }]
+  assert.equal(registry.registryHash, hash({ syncVersion, entries }))
+  assert.equal(registry.entries[0].enabled, false)
+  assert.equal(operationGate(s, 'INTERNAL').enabled, true)
+  const { args } = fixture(undefined, s)
+  assert.equal(ImmutableEvidenceCatalog.restore(args.catalogJson, registry, args.catalogHash).exportJson(), args.catalogJson)
 })
 test('invalid evidence reference or artifact rejected', () => {
   const { args } = fixture(); args.evidenceRef = 'catalog/wrong'

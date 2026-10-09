@@ -1,6 +1,6 @@
 import { hash, validateDate, type Context, type PartialDate } from './contract'
 import type { TemporalInput } from './temporal-v02'
-import { assertRegistry, ensure, identifier, syncVersion, type Registry } from './source-registry'
+import { assertRegistry, ensure, identifier, operationGate, syncVersion, type Registry } from './source-registry'
 
 export type Candidate = {
   requestId: string; eventId: string; sourceId: string; sourceVersion: string
@@ -45,7 +45,8 @@ export function freezePlan(candidates: Candidate[], registry: Registry, evaluati
   const queue: Job[] = [], blocked: { requestId: string; sourceId: string; playerId: string; payloadHash: string; reasons: string[] }[] = []
   for (const job of [...unique.values()].sort(compare)) {
     const entry = sourceIndex.get(job.sourceId)
-    const reasons = !entry ? ['SOURCE_UNKNOWN'] : !entry.enabled ? entry.reasons :
+    const gate = entry ? operationGate(entry.source, 'INTERNAL') : null
+    const reasons = !entry ? ['SOURCE_UNKNOWN'] : gate && !gate.enabled ? gate.reasons :
       entry.source.sourceVersion !== job.sourceVersion ? ['SOURCE_VERSION_MISMATCH'] : []
     if (reasons.length) blocked.push({ requestId: job.requestId, sourceId: job.sourceId,
       playerId: job.expected.playerId, payloadHash: job.payloadHash, reasons: [...reasons] })

@@ -1,6 +1,6 @@
 import { hash, prepare, type Context, type ContractInput, type PartialDate } from './contract'
 import { assessTemporal, type TemporalInput } from './temporal-v02'
-import { assertRegistry, ensure, identifier, type Registry } from './source-registry'
+import { assertRegistry, ensure, identifier, operationGate, type Registry } from './source-registry'
 
 export const catalogVersion = 'contract-evidence-catalog-v0.1'
 type Facts = Pick<ContractInput, 'signedAt' | 'contractUntil' | 'contractStatus' | 'extensionOptions' | 'releaseClause'>
@@ -65,6 +65,7 @@ function normalize(input: EvidenceInput, registry: Registry): EvidenceRecord {
   for (const permission of ['access','storage','history'] as const)
     ensure(source.permissions[permission] === 'CONFIRMED', `PERMISSION_${permission}`)
   ensure(source.permissionReference !== null, 'PERMISSION_EVIDENCE_REQUIRED')
+  ensure(operationGate(source, 'INTERNAL').enabled, 'SOURCE_NOT_AUTHORIZED')
   ensure(['CLUB','LEAGUE','FEDERATION','LICENSED_PROVIDER','SYNTHETIC'].includes(input.sourceType), 'INVALID_SOURCE_TYPE')
   ensure(['CONTRACT','RENEWAL','TRANSFER','TERMINATION','OPTION','CLAUSE'].includes(input.eventType), 'INVALID_EVENT_TYPE')
   ensure((input.sourceType === 'SYNTHETIC') === (input.evidenceQuality === 'SYNTHETIC'), 'SYNTHETIC_MISMATCH')

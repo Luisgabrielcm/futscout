@@ -2,7 +2,7 @@ import type { EconomicWrite } from '../../services/playerEconomicPersistence'
 import { economicFingerprint } from '../../lib/economicData/value'
 import { hash, validateDate, type Context } from './contract'
 import { ImmutableEvidenceCatalog } from './evidence-catalog'
-import { assertRegistry, ensure, identifier, sourceGate, type Registry } from './source-registry'
+import { assertRegistry, ensure, identifier, operationGate, type Registry } from './source-registry'
 
 export const bridgeVersion = 'contract-economic-bridge-v0.1'
 export type BridgeReview = Context & {
@@ -27,7 +27,7 @@ export function proposeContractWrite(input: {
   ensure(e, 'EVIDENCE_MISSING')
   ensure(input.evidenceRef === catalog.evidenceRef(e.evidenceId).evidenceRef && r.evidenceRecordHash === e.recordHash, 'EVIDENCE_REF_MISMATCH')
   const source = input.registry.entries.find(s => s.source.id === e.sourceId)?.source
-  ensure(source && sourceGate(source).enabled, 'SOURCE_NOT_AUTHORIZED')
+  ensure(source && operationGate(source, 'INTERNAL').enabled, 'SOURCE_NOT_AUTHORIZED')
   ensure(source.policyVersion === e.sourcePolicyVersion && source.sourceVersion === e.sourceVersion, 'SOURCE_VERSION_MISMATCH')
   ensure(e.identityConfidence === 'HIGH' && r.identityConfidence === 'HIGH', 'IDENTITY_NOT_HIGH')
   for (const key of ['playerId','clubId','context','season'] as const) ensure(e[key] === r[key], 'IDENTITY_CONTEXT_MISMATCH')

@@ -46,7 +46,15 @@ for (const field of ['access', 'storage', 'history', 'publication', 'commercialU
     for (const permission of ['UNKNOWN', 'RESTRICTED'] as const) {
       const denied = { ...source, permissions: { ...source.permissions, [field]: permission } }
       const p = freezePlan([candidate()], createRegistry([denied]), asOf)
-      assert.equal(p.queue.length, 0); assert.equal(p.blocked.length, 1)
+      const internal = field === 'publication' || field === 'commercialUse'
+      assert.equal(p.queue.length, internal ? 1 : 0); assert.equal(p.blocked.length, internal ? 0 : 1)
+      assert.equal(sourceGate(denied).enabled, false)
+      if (internal) {
+        const decision = evaluateEligibility(p.queue[0], denied, asOf)
+        assert.equal(decision.reviewEligible, true)
+        assert.equal(decision.publicationAllowed, false)
+        assert.equal(decision.currentEligible, false)
+      }
     }
   })
 }
@@ -216,6 +224,6 @@ test('offline state fingerprint includes qualifiers, not repeated observation ti
 })
 test('source rights are rechecked by eligibility, no enabled flag bypass', () => {
   const job = planOf().queue[0]
-  const denied = { ...source, permissions: { ...source.permissions, publication: 'UNKNOWN' as const } }
+  const denied = { ...source, permissions: { ...source.permissions, storage: 'UNKNOWN' as const } }
   assert.equal(evaluateEligibility(job, denied, asOf).reviewEligible, false)
 })

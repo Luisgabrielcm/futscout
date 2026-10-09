@@ -1,9 +1,9 @@
 import { assessTemporal } from './temporal-v02'
 import type { Job } from './planner'
-import { sourceGate, type Source } from './source-registry'
+import { operationGate, type Source } from './source-registry'
 
 export function evaluateEligibility(job: Job, source: Source, evaluationAt: string) {
-  const reasons = [...sourceGate(source).reasons]
+  const reasons = [...operationGate(source, 'INTERNAL').reasons]
   if (source.id !== job.sourceId || source.sourceVersion !== job.sourceVersion || source.provider !== job.input.contract.provider)
     reasons.push('SOURCE_CONTEXT_MISMATCH')
   if (job.input.contract.provenance.rights !== 'AUTHORIZED') reasons.push('EVIDENCE_RIGHTS_UNRESOLVED')

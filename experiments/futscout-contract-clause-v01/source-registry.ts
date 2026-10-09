@@ -28,6 +28,18 @@ export function createRegistry(sources: Source[]) {
   ensure(new Set(entries.map(e => e.source.id)).size === entries.length, 'DUPLICATE_SOURCE')
   return { entries, registryHash: hash({ syncVersion, entries }) }
 }
+// Keep the legacy registry envelope/hash unchanged; operation policy is evaluated separately.
+export const permissionPolicyVersion = 'contract-permissions-v0.2'
+export function operationGate(source: Source, operation: 'INTERNAL' | 'PUBLISH') {
+  sourceGate(source) // Validate every permission without upgrading or discarding classifications.
+  ensure(operation === 'INTERNAL' || operation === 'PUBLISH', 'INVALID_OPERATION')
+  const fields = operation === 'INTERNAL'
+    ? ['access', 'storage', 'history'] as const
+    : ['access', 'storage', 'history', 'publication', 'commercialUse'] as const
+  const reasons = fields.filter(f => source.permissions[f] !== 'CONFIRMED').map(f => `PERMISSION_${f}`)
+  if (source.permissionReference === null) reasons.push('PERMISSION_EVIDENCE_MISSING')
+  return { enabled: reasons.length === 0, reasons }
+}
 export type Registry = ReturnType<typeof createRegistry>
 export function assertRegistry(registry: Registry) {
   ensure(hash(createRegistry(registry.entries.map(e => e.source))) === hash(registry), 'REGISTRY_CHANGED')
