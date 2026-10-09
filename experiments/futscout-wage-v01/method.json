@@ -1,0 +1,66 @@
+{
+  "methodVersion": "futscout-wage-method-v0.1",
+  "modelVersion": "futscout-wage-v0.1",
+  "target": "EUR/GROSS/BASE/WEEK",
+  "status": "SYNTHETIC_CALCULATION_ONLY_NOT_TRAINED",
+  "publicationAllowed": false,
+  "reference": {
+    "url": "https://salarysport.com/about-us/",
+    "reviewDate": "2026-10-08",
+    "declared": "Basic wages compiled from team/player press releases, major publications, experts/insiders and databases; ongoing review and corrections when better sources appear.",
+    "notEstablished": ["gross versus net", "per-record verification", "separate bonus completeness", "effective dates", "rights to commercial calibration"],
+    "trainingLicense": "UNKNOWN",
+    "individualSalaryCollection": false,
+    "frozenSelectionSha256": "809821820b26cb0a6c7938cc6af2aa2c34a8d43957a6406f933ebe2919a1587f"
+  },
+  "hypotheses": [
+    "A: ln(gross base EUR/week) ~ OVR + continuous age. Simplest baseline, no coefficients fitted here.",
+    "B: add position as a secondary comparison using development only; retain only with defensible out-of-group gain.",
+    "Future: eligible observed market value and documented club economic capacity may explain purchasing power; compare on the same eligible subset without filling missing values. Club/league are initially split/report groups, not arbitrary multipliers. Performance only from verified dated observations."
+  ],
+  "inputInventory": {
+    "availableInLocalSnapshot": ["Player.id", "EA externalId", "OVR", "DOB", "position", "club", "league", "capture timestamp"],
+    "partial": ["eligible observed MARKET_VALUE (effective date often unknown)", "real performance statistics (coverage and time alignment require audit)"],
+    "excludedInitially": ["FutScout Potential: exists independently, no proven robust salary gain", "market value: additional source rights required", "performance: incomplete"],
+    "missing": ["licensed comparable gross-base wage labels", "verified effective-time alignment", "standardized club financial capacity such as dated revenue/payroll", "global low-OVR salary coverage"],
+    "rule": "Never read legacy Player.marketValue; absent feature is not zero. No name coefficients or invented league/club tiers."
+  },
+  "contract": {
+    "inputSchemaVersion": "futscout-wage-input-v0.1",
+    "inputHash": "SHA256 canonical JSON of input schema version and original input values; sorted object keys, ordered arrays, finite numbers only, no ambient clock",
+    "requiredInputs": ["playerId", "ovr", "dateOfBirth", "referenceAt", "position", "clubId", "leagueId"],
+    "age": "(referenceAt-DOB)/(365.2425*86400000); no rounding",
+    "futureInputExtensions": "Versioned observed-value amount/currency/effective date/source/identity and capacity/performance measures; changing feature schema requires new version/hash.",
+    "artifactHash": "SHA256 canonical complete artifact payload excluding artifactHash; includes coefficients, feature order, domain, provenance, version and evaluation state",
+    "provenance": "Preserve source record/season, observation and effective timestamps separately, identity evidence, verified/estimated status, original unit/tax/component and dated FX. Unknowns remain unknown.",
+    "prediction": "exp(linear log output), a log-scale center, not automatically an unbiased mean or confirmed contract",
+    "predictionInterval": null,
+    "applicabilityDomain": "Current numeric ranges are synthetic test guards only; future domain must be derived from development support and externally validated.",
+    "abstentionReason": ["INVALID_OR_MISSING_INPUT", "OUTSIDE_SYNTHETIC_DOMAIN"],
+    "evaluationEvidence": null,
+    "identityConfidence": "Independent of statistical uncertainty; neither HIGH matching nor a finite prediction authorizes publication"
+  },
+  "normalization": {
+    "rule": "Require explicit GROSS and BASE, known currency and WEEK/YEAR. Reject NET/TOTAL/BONUS/UNKNOWN for base labels.",
+    "annualToWeekly": "annualized base /52; documented comparison convention, not payroll calendar or total contract value",
+    "fx": "EUR per original currency unit with source/date; multiply original amount, never infer an FX rate; original observation retained",
+    "missing": "ABSENT, NULL, ZERO distinct; zero preserved but excluded from log-label fitting",
+    "bonus": "Separate record/component, never added to base or inferred by subtracting incomparable totals",
+    "precision": "Offline finite floating point only, no production monetary persistence; future dataset pins exact source decimals and conversion precision"
+  },
+  "validationPlan": {
+    "gate": "No real fit until rights, tax basis, identity and temporal alignment are documented. Current code has no trainer/DB/network/CLI data loader and accepts only its fixed synthetic artifact.",
+    "splits": "Before any fit, freeze seed/algorithm/IDs/hashes. Group by club; assign all observations of a player to one split. Players spanning clubs connect those club groups. Reserve whole leagues; keep connected identities out of other splits.",
+    "fit": "Fit normalization/coefficients on train only; compare A/B inside development grouped folds; calibrate intervals on separate calibration; freeze artifact and rules before holdout and unseen-league evaluation.",
+    "metrics": ["MAE EUR/week", "median absolute percentage error for positive base", "MAE natural log", "signed bias", "50/80/90 interval empirical coverage and width", "abstention counts including denominators"],
+    "groups": ["club", "league", "region with documented mapping", "OVR", "age", "GK/DEF/MID/ATT", "verified versus estimated labels"],
+    "abstention": "Missing/incompatible inputs, unlicensed/unproven labels, sparse development support, unseen unsupported regimes and unusably wide intervals. Product must predeclare acceptable error/width and coverage tradeoffs; no arbitrary pass thresholds or holdout-tuned rules.",
+    "limits": "Selection/provider availability bias must be reported. MLS alone does not validate global wages. Current EA ratings cannot be assumed contemporaneous with historical salary. Real-world estimates for gameplay are not EA Career Mode database salaries."
+  },
+  "commands": {
+    "tests": "npx tsx --test experiments/futscout-wage-v01/engine.test.ts",
+    "typecheck": "npx tsc --noEmit",
+    "lint": "npx eslint experiments/futscout-wage-v01/*.ts"
+  },
+  "nextStep": "Obtain permission and compatible dated labels; authorize an independently frozen dataset and evaluation protocol before implementing or running a real trainer. No Economic State/Observation/Current or runtime integration."
+}
