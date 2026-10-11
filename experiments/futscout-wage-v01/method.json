@@ -57,8 +57,19 @@
     "abstention": "Missing/incompatible inputs, unlicensed/unproven labels, sparse development support, unseen unsupported regimes and unusably wide intervals. Product must predeclare acceptable error/width and coverage tradeoffs; no arbitrary pass thresholds or holdout-tuned rules.",
     "limits": "Selection/provider availability bias must be reported. MLS alone does not validate global wages. Current EA ratings cannot be assumed contemporaneous with historical salary. Real-world estimates for gameplay are not EA Career Mode database salaries."
   },
+  "referenceEligibility": {
+    "version": "futscout-wage-reference-v0.1",
+    "module": "reference-eligibility.ts",
+    "policy": "Require documented CONFIRMED training AND calibration rights, HIGH independently evidenced identity, compatible club/season and explicit effective time. Evidence references require human/legal verification; the gate does not authenticate licenses.",
+    "temporal": "Explicit UTC dates/instants and declared season bounds; effectiveAt <= referenceAt within the same season, observedAt >= effectiveAt. Never substitute observation date for effective date.",
+    "labels": "OBSERVED and PROVIDER_ESTIMATE remain separate. GROSS/BASE only; bonus and total are rejected, never added. Normalize using existing normalizeBase to EUR/WEEK with documented dated FX.",
+    "classification": ["ELIGIBLE", "RIGHTS_UNKNOWN", "IDENTITY_INSUFFICIENT", "TEMPORAL_MISMATCH", "SEMANTICS_INCOMPATIBLE", "INVALID_VALUE"],
+    "precedence": "Rights, identity, temporal, semantics, value; all detected reasons retained. RESTRICTED maps to RIGHTS_UNKNOWN with RIGHTS_RESTRICTED reason, never permission.",
+    "hashes": "New versioned input/result hashes reuse engine.hash; ABSENT/NULL/ZERO are distinct. Unhashable invalid input yields null inputHash and explicit reason. Existing model/selection/artifact hashes unchanged.",
+    "limits": "Zero preserved but ineligible for log fitting. Eligibility does not authorize training execution or publication. No real references loaded, no model fitted. Floating-point experimental normalization is not production monetary persistence."
+  },
   "commands": {
-    "tests": "npx tsx --test experiments/futscout-wage-v01/engine.test.ts",
+    "tests": "npx tsx --test experiments/futscout-wage-v01/engine.test.ts experiments/futscout-wage-v01/reference-eligibility.test.ts",
     "typecheck": "npx tsc --noEmit",
     "lint": "npx eslint experiments/futscout-wage-v01/*.ts"
   },
