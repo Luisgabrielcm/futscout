@@ -1,0 +1,126 @@
+{
+  "methodVersion": "futscout-wage-contextual-v0.2",
+  "status": "SYNTHETIC_CORE_ONLY_NOT_REAL_TRAINED",
+  "implementedCore": {
+    "file": "contextual-engine.ts",
+    "objective": "Squared log EUR weekly residuals plus positive block-specific L2 penalties; unpenalized intercept; league-season and nested club-season deviations; position and training-standardized linear age.",
+    "solver": "Deterministic coordinate descent; training-only scales/support/hash; reject non-convergence; penalties are explicit experimental options, not fitted economic multipliers.",
+    "safety": "SYNTHETIC-only labels in all disjoint player splits; caller remains responsible for truthful provenance. No real-data loader. BASELINE abstains for unseen/sparse clubs; opt-in LEAGUE_FALLBACK_V01 permits synthetic exploration in supported leagues only. Unseen/sparse leagues and unsupported age/position abstain in both policies. No calibrated intervals, production approval or mean-bias correction.",
+    "limitations": "Linear age only; no capacity/experience/performance effects yet; synthetic validation does not establish predictive accuracy or generalization. Future group/temporal evaluation requires eligible references; this core checks player leakage, not historical connected identities.",
+    "normalization": "Reuse normalizeBase with explicit currency/period and dated FX; original labels retained in training hash. contextual-input.ts remains USD/year and is not silently generalized."
+  },
+  "target": "EUR/GROSS/BASE/WEEK",
+  "supersedesForFuturePrimaryModel": "OVR-based A/B methodology only; v0.1 artifacts/code/hashes remain historical and unchanged",
+  "reuse": [
+    "engine.ts#normalizeBase",
+    "engine.ts#hash",
+    "reference-eligibility.ts#assessReference",
+    "season-alignment.ts concepts for league calendars, without requiring OVR"
+  ],
+  "excludedPredictors": [
+    "OVR",
+    "Potential",
+    "player name",
+    "playerId",
+    "EA externalId"
+  ],
+  "identityVsContext": "Player IDs identify/deduplicate/group records only. Club/league IDs join economic context and hierarchical groups; no player-specific memorization.",
+  "proposedModel": {
+    "family": "Regularized hierarchical regression of log positive gross base EUR/week",
+    "fixedEffects": [
+      "documented age at salary reference (candidate spline selected using development folds)",
+      "historical real-world position",
+      "experience before reference (senior minutes/seasons with evidence)",
+      "financial capacity measured before reference"
+    ],
+    "hierarchy": [
+      "league-season effect",
+      "club-season deviation with partial pooling"
+    ],
+    "optionalFeatures": [
+      "recent minutes and starts over a frozen pre-reference window",
+      "position-adjusted performance before salary reference",
+      "documented promotion/relegation or financial restrictions effective at reference"
+    ],
+    "rules": [
+      "No fixed arbitrary club multipliers; learn all effects only from eligible training data.",
+      "Club/league effects are hypotheses, not demonstrated gains.",
+      "Single-league MLS data cannot identify between-league differences or validate unseen leagues.",
+      "Unseen club requires measured capacity and validated pooled fallback; otherwise abstain.",
+      "Do not use contemporaneous team wage total containing target salary as a capacity feature; prior audited revenue/budget preferred.",
+      "Do not use guaranteed compensation as base or derive bonuses from its difference."
+    ]
+  },
+  "temporal": {
+    "require": "player, contractual salary club, playing club, league and salary reference/season evidenced; loans/transfers separate",
+    "ovrAlignmentRequired": false,
+    "age": "derive from verified DOB at salary reference, not at collection",
+    "features": "All financial/experience/performance inputs need effective period, provenance and availability by prediction cutoff; unknown remains null.",
+    "dates": "Collection dates do not establish effective dates."
+  },
+  "dataInventory": {
+    "existing": "MLSPA original annual USD base and separate guaranteed compensation; 93 HIGH identities (80 expansion +13 Atlanta), five expansion clubs plus Atlanta, reference 2026-04-16.",
+    "measurableNow": [
+      "verified DOB-derived age on reference date",
+      "original annual base USD and guaranteed compensation separately",
+      "identity IDs and candidate club/league labels"
+    ],
+    "partial": [
+      "historical club/loan context",
+      "historical real-world position (EA position is not automatically equivalent)",
+      "season membership"
+    ],
+    "missing": [
+      "confirmed training/calibration rights",
+      "confirmed gross-base semantics",
+      "dated FX",
+      "complete historical salary club alignment",
+      "audited club financial capacity",
+      "dated senior experience and performance windows",
+      "eligible multiple-league labels"
+    ],
+    "eligibleForCalibration": 0
+  },
+  "validation": {
+    "splits": "Group by clubs and connected player identities, temporal forward holdout when available, reserve entire leagues; no transfer/player leakage.",
+    "compare": "Contextual age/position baseline versus incremental hierarchy/capacity/experience/performance on identical eligible samples.",
+    "metrics": [
+      "MAE EUR/week",
+      "median absolute percentage error",
+      "MAE log",
+      "signed bias",
+      "50/80/90 interval coverage and width",
+      "abstention and usable coverage by club/league/position/age"
+    ],
+    "acceptance": "Predeclare thresholds and minimum support before holdout; no product approval from synthetic coherence.",
+    "abstain": [
+      "missing essential identity/season/context",
+      "insufficient training support",
+      "unsupported unseen league",
+      "unvalidated fallback",
+      "interval too wide under preapproved policy",
+      "unapproved artifact"
+    ]
+  },
+  "minimalNextImplementation": {
+    "files": [
+      "contextual-input.ts",
+      "contextual-input.test.ts"
+    ],
+    "scope": "Pure offline versioned context builder using existing hash and eligibility; remove OVR requirement, derive age, retain economic feature availability/nulls and evidence periods; no trainer or fabricated coefficients.",
+    "tests": [
+      "OVR/name changes cannot change feature vector",
+      "DOB/reference age",
+      "calendar and season compatibility",
+      "loan vs parent club",
+      "pre-cutoff feature timestamps",
+      "missing capacity/performance",
+      "no target-payroll leakage",
+      "deterministic hashes",
+      "existing eligibility remains blocking"
+    ]
+  },
+  "trainingAllowed": false,
+  "publicationAllowed": false,
+  "ui": "One weekly wage field remains; internal observed/provider-estimated/FutScout-estimated provenance retained. No runtime integration."
+}
