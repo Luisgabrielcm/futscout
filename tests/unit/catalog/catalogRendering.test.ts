@@ -92,7 +92,7 @@ test("card keeps market absences honest and actions outside its main link", () =
   assert.match(html, /Salário<\/span> <strong>—<\/strong>/)
 })
 
-test("header labels the base EA overall and does not invent market stability", () => {
+test("header labels the base EA overall and renders economic fields without inventing market stability", () => {
   type Props = Parameters<typeof import("../../../app/components/PlayerHeader").default>[0]
   const { default: Header } = loadCatalogModule<{ default: ComponentType<Props> }>(
     "app/components/PlayerHeader.tsx", {
@@ -107,7 +107,11 @@ test("header labels the base EA overall and does not invent market stability", (
   if (profile.status !== "ready") assert.fail("expected ready")
   const html = renderToStaticMarkup(createElement(Header, { player: profile.player }))
   assert.match(html, /OVR EA/)
-  assert.match(html, /Tendência não disponível/)
+  assert.match(html, /<dl class="careerFields" aria-label="Dados econômicos"/)
+  assert.match(html, /<dt>Valor de mercado<\/dt><dd class="playerHeaderMarketValue">€50M<\/dd>/)
+  assert.match(html, /<dt>Salário semanal<\/dt><dd>—<\/dd>/)
+  assert.match(html, /<dt>Contrato até<\/dt><dd>—<\/dd>/)
+  assert.match(html, /<dt>Cláusula de rescisão<\/dt><dd>—<\/dd>/)
   assert.doesNotMatch(html, /OVR ATUAL|Estável/)
 })
 
