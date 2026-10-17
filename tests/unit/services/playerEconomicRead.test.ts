@@ -32,6 +32,33 @@ test("absence never falls back to legacy, zero remains a value, invalid currency
   const invalid = current(1); invalid[0].observation.state.currency = "USD"
   assert.equal(readEconomicMarketValue({ economicCurrents: invalid }).marketValue, null)
 })
+test("source-currency scope retains monetary units while catalog remains EUR-only", () => {
+  for (const currency of ["USD", "GBP", "BRL"]) {
+    const row = { economicCurrents: current(1234.56) }
+    row.economicCurrents[0].observation.state.currency = currency
+    assert.equal(readEconomicMarketValue(row).marketValueReadState, "INVALID_CURRENT")
+    const detail = readEconomicMarketValue(row, "SOURCE")
+    assert.equal(detail.marketValueReadState, "READY")
+    assert.equal(detail.marketValue, 1234.56)
+    assert.equal(detail.marketCurrency, currency)
+    assert.equal(detail.economicMarketValue?.observedAt, "2026-10-06T17:07:25.602Z")
+  }
+})
+test("source-currency scope preserves identity, selection, context and amount gates", () => {
+  for (const patch of [{ currency: "ZZZ" }, { currency: "usd" }, { currency: "" },
+    { confidence: "LOW" }, { matchState: "AMBIGUOUS" }, { context: "EA_CAREER" },
+    { presence: "NULL" }, { status: "REJECTED" }, { amount: new Prisma.Decimal(-1) },
+    { amount: new Prisma.Decimal("9007199254740992") }]) {
+    const row = { economicCurrents: current(1234.56) }
+    Object.assign(row.economicCurrents[0].observation.state, patch)
+    assert.equal(readEconomicMarketValue(row, "SOURCE").marketValueReadState, "INVALID_CURRENT")
+  }
+  assert.equal(readEconomicMarketValue({ economicCurrents: [] }, "SOURCE").marketValueReadState, "MISSING_CURRENT")
+  assert.equal(readEconomicMarketValue({ economicCurrents: [...current(1), ...current(2)] }, "SOURCE").marketValueReadState, "INVALID_CURRENT")
+  const zero = { economicCurrents: current(0) }
+  zero.economicCurrents[0].observation.state.currency = "USD"
+  assert.equal(readEconomicMarketValue(zero, "SOURCE").marketValue, 0)
+})
 test("catalog/profile and roster use bounded relation queries without N+1", async () => {
   const rows = [220e6, 130e6, 200e6, 220e6, 150e6, null].map((v, i) => ({ ...catalogPlayer({ id: String(i), marketValue: BigInt(999) }), economicCurrents: v === null ? [] : current(v) }))
   let queries = 0
