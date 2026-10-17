@@ -41,8 +41,10 @@ for (const locale of ["pt", "en"] as const) {
   test(`${locale}: persisted selected value reaches real-life page with public provenance, without economic or EA mixing`, async () => {
     const { section, player } = await rendered(locale, [current()])
     assert.equal(player?.realMarketValue?.marketValue, 2500000)
-    assert.match(section, locale === "pt" ? /Valor de mercado real/ : /Real market value/)
-    assert.match(section, locale === "pt" ? /2\.500\.000,00/ : /€2,500,000\.00/)
+    assert.match(section, locale === "pt" ? /Estimativa de valor de mercado da fonte/ : /Provider market value estimate/)
+    assert.match(section, locale === "pt" ? /2\.500\.000,00/ : /2,500,000\.00/)
+    assert.match(section, /EUR/)
+    assert.match(section, locale === "pt" ? /não uma estimativa FutScout/ : /not a FutScout estimate/)
     assert.doesNotMatch(section, /€3M/)
     assert.match(section, /Live Football/)
     assert.match(section, /<time dateTime="2026-01-02T00:00:00.000Z"/)
@@ -63,7 +65,7 @@ for (const locale of ["pt", "en"] as const) {
 
   test(`${locale}: invalid identity, provenance context, currency and unselected revisions never expose an amount`, async () => {
     for (const patch of [{ confidence: "LOW" }, { matchState: "AMBIGUOUS" }, { status: "REJECTED" },
-      { context: "EA_CAREER" }, { currency: "USD" }, { field: "WAGE_WEEKLY" }]) {
+      { context: "EA_CAREER" }, { currency: "ZZZ" }, { field: "WAGE_WEEKLY" }]) {
       const invalid = current()
       Object.assign(invalid.observation.state, patch)
       const { section } = await rendered(locale, [invalid])
@@ -72,12 +74,36 @@ for (const locale of ["pt", "en"] as const) {
     const { section } = await rendered(locale, [current(), current()])
     assert.doesNotMatch(section, /€|Live Football|<time/)
   })
+
+  test(`${locale}: selected source currencies reach the profile without conversion or euro relabeling`, async () => {
+    for (const currency of ["USD", "GBP", "BRL"]) {
+      const selected = current()
+      selected.observation.state.currency = currency
+      selected.observation.state.amount = new Prisma.Decimal("1234.56")
+      const { section, player } = await rendered(locale, [selected])
+      assert.equal(player?.realMarketValue?.marketValue, 1234.56)
+      assert.equal(player?.realMarketValue?.marketCurrency, currency)
+      assert.match(section, new RegExp(currency))
+      assert.match(section, locale === "pt" ? /1\.234,56/ : /1,234\.56/)
+      assert.doesNotMatch(section, /EUR|€/)
+      assert.match(section, /Live Football/)
+      assert.match(section, /2026-01-02T00:00:00.000Z/)
+    }
+  })
+
+  test(`${locale}: unknown provider nature is never asserted as observed or FutScout-estimated`, async () => {
+    const selected = current()
+    selected.observation.state.provider = "SYNTHETIC_PROVIDER"
+    const { section } = await rendered(locale, [selected])
+    assert.match(section, locale === "pt" ? /Natureza da avaliação não informada/ : /Valuation nature not specified/)
+    assert.doesNotMatch(section, /Provider market value estimate|Estimativa de valor de mercado da fonte|FutScout/)
+  })
 }
 
 test("an explicitly selected zero retains the existing reader semantics", async () => {
   const zero = current()
   zero.observation.state.amount = new Prisma.Decimal(0)
   const { section } = await rendered("en", [zero])
-  assert.match(section, /€0\.00/)
+  assert.match(section, /EUR[^\d]*0\.00/)
   assert.match(section, /Live Football/)
 })

@@ -65,7 +65,7 @@ export async function getPlayerRealLifeBySlug(slug: string): Promise<PlayerRealL
     name: player.name,
     imageUrl: player.imageUrl,
     nationality: player.nationality,
-    realMarketValue: readEconomicMarketValue(player),
+    realMarketValue: readEconomicMarketValue(player, "SOURCE"),
     statistics: projectRealStatistics(player.realLifeStats ?? []),
     eaCatalogClub: player.club ? { ...player.club, asset: assets.clubs.get(player.club.id) ?? null,
       league: player.club.league ? { ...player.club.league, asset: assets.leagues.get(player.club.league.id) ?? null } : null } : null,
