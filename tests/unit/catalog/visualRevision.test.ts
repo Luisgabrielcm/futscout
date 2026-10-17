@@ -159,7 +159,7 @@ test("card consumes supplied Manchester City badge and preserves missing optiona
 })
 test("salary is independent, sourced, finite and explicitly weekly or annual; missing is not estimated", () => {
   assert.equal(displaySalary(null, "pt"), null)
-  const salary = { amount: 1000, currency: "EUR", period: "week" as const, source: "synthetic verified fixture" }
+  const salary = { amount: 1000, currency: "EUR", period: "week" as const, source: "synthetic verified fixture", nature: "OBSERVED" as const, publicationAllowed: true }
   assert.match(displaySalary(salary, "pt")!, /semana$/)
   assert.match(displaySalary({ ...salary, period: "year" }, "en")!, /year$/)
   assert.equal(displaySalary({ ...salary, source: "" }, "en"), null)

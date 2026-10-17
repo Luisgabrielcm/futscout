@@ -8,11 +8,12 @@ export default function PlayerCareer({ locale, catalogClub, data }: {
   locale: Locale; catalogClub: string | null; data?: PlayerCareerData | null
 }) {
   const verified = data?.source.trim() ? data : null
+  const salaryLabel = displaySalary(verified?.salary, locale)
   const fields = [
     [visualText(locale, "catalogClub"), catalogClub ?? "—"],
     [visualText(locale, "currentClub"), verified?.currentClub ?? "—"],
     [visualText(locale, "realLeague"), verified?.realLeague ?? "—"],
-    [visualText(locale, "salary"), displaySalary(verified?.salary, locale) ?? "—"],
+    [visualText(locale, "salary"), salaryLabel ?? "—"],
     [visualText(locale, "contractUntil"), displayCareerDate(verified?.contractUntil, locale)],
     [visualText(locale, "shirt"), verified?.shirtNumber ?? "—"],
     [visualText(locale, "nationalTeam"), verified?.nationalTeam?.name ?? "—"],
@@ -23,5 +24,9 @@ export default function PlayerCareer({ locale, catalogClub, data }: {
     <h3>{historyText(locale, "realSummary")}</h3>
     <p className="mutedText">{visualText(locale, "catalogNote")}</p>
     <dl className="careerFields">{fields.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+    <p className="mutedText">{salaryLabel
+      ? <>{visualText(locale, "observedSalary")} · {visualText(locale, "salarySource")}: {verified?.salary?.source}</>
+      : visualText(locale, "salaryUnavailable")}</p>
+    <p className="mutedText">{visualText(locale, "wageEstimateUnavailable")}</p>
   </section>
 }

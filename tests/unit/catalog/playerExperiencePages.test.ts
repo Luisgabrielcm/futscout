@@ -64,6 +64,8 @@ for (const locale of ["pt", "en"] as const) {
     assert.match(html, /id="history"/)
     assert.match(html, /id="real-market-title"/)
     assert.match(html, locale === "pt" ? /Valor de mercado verificado indisponível/ : /Verified market value unavailable/)
+    assert.match(html, locale === "pt" ? /Salário observado verificado indisponível/ : /Verified observed salary unavailable/)
+    assert.match(html, locale === "pt" ? /Estimativa FutScout indisponível/ : /FutScout estimate unavailable/)
     assert.doesNotMatch(html, /Fonte de valor real ainda não conectada|Real-world value source is not connected yet/)
     assert.match(html, locale === "pt" ? /Estatísticas indisponíveis/ : /Statistics unavailable/)
     assert.doesNotMatch(html, /contentHash|evidenceHash|providerPlayerId/)

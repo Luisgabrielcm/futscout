@@ -228,6 +228,7 @@ export default function PlayerCard({ locale = "pt",
 
         </div>
         <p className="cardSalary"><span>{visualText(locale, "salary")}</span> <strong>{salaryLabel ?? "—"}</strong></p>
+        {salaryLabel && <small className="mutedText">{visualText(locale, "observedSalary")} · {visualText(locale, "salarySource")}: {salary?.source}</small>}
       </Link>
     </article>
   )

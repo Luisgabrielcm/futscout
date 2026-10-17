@@ -1,6 +1,10 @@
-// Public presentation contract only. A future read adapter must supply verified
-// provenance; observations/proposals must never be treated as approved facts.
+// Public presentation contract only. A future read adapter must verify identity,
+// provenance and publication rights before asserting publicationAllowed.
+// A nonempty source alone never authorizes publication. No estimate is currently
+// publishable: Wage v0.2 has no real calibration or approved artifact.
 export type VerifiedSalary = {
+  nature: "OBSERVED" | "PROVIDER_ESTIMATE" | "FUTSCOUT_ESTIMATE"
+  publicationAllowed: boolean
   amount: number
   currency: string
   period: "week" | "year"
