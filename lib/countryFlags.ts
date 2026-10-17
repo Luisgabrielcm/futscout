@@ -173,3 +173,10 @@ for (const { code, names } of countries) {
 export function getCountryFlag(country: string | null | undefined): CountryFlag | null {
   return country ? flags.get(normalizeCountry(country)) ?? null : null
 }
+
+// Explicit registry aliases only; callers cannot mutate the registry.
+export function getCountryAliases(country: string): string[] {
+  const code = getCountryFlag(country)?.code
+  const entry = countries.find(country => country.code === code)
+  return entry ? [entry.code, ...entry.names] : []
+}

@@ -23,6 +23,7 @@ import * as playerHistory from "../../lib/i18n/playerHistory"
 import * as playerExperience from "../../lib/i18n/playerExperience"
 import * as realStatistics from "../../lib/realStatistics"
 import * as nationalityDirectory from "../../lib/nationalityDirectory"
+import * as nationalitySearch from "../../lib/nationalitySearch"
 import * as careerPresentation from "../../lib/playerCareerPresentation"
 import * as visualAssets from "../../lib/visualAssets"
 import * as assetPipeline from "../../lib/assetPipeline"
@@ -73,6 +74,7 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/i18n/playerExperience": playerExperience,
       "lib/realStatistics": realStatistics,
       "lib/nationalityDirectory": nationalityDirectory,
+      "lib/nationalitySearch": nationalitySearch,
       "lib/playerCareerPresentation": careerPresentation,
       "lib/visualAssets": visualAssets,
       "lib/assetPipeline": assetPipeline,
