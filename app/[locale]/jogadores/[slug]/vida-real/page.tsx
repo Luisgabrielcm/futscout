@@ -10,6 +10,7 @@ import PlayerSeasonStatistics from "../../../../components/PlayerSeasonStatistic
 import PlayerExperienceNav from "../../../../components/PlayerExperienceNav"
 import PlayerHistory from "../../../../components/PlayerHistory"
 import PlayerRealLifeHeader from "../../../../components/PlayerRealLifeHeader"
+import PlayerRealMarketValue from "../../../../components/PlayerRealMarketValue"
 
 type RealLifePageProps = { params: Promise<{ slug: string; locale?: string }> }
 
@@ -33,6 +34,7 @@ export default async function PlayerRealLifePage({ params }: RealLifePageProps) 
     </nav>
     <PlayerRealLifeHeader locale={locale} player={player} />
     <PlayerExperienceNav locale={locale} slug={slug} active="real" />
+    <PlayerRealMarketValue locale={locale} value={player.realMarketValue} />
     <PlayerCareer locale={locale} catalogClub={player.eaCatalogClub?.name ?? null} data={career} />
     <PlayerSeasonStatistics locale={locale} rows={player.statistics ?? []} />
     {/* A public transfer projection stays empty until revision resolution is safe. */}

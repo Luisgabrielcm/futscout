@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma"
 import type { PlayerRealLifeProfile } from "../types/playerRealLife"
 import { getBrandAssetsForEntities } from "./brandAssetReadService"
 import { projectRealStatistics } from "../lib/realStatistics"
+import { economicMarketValueReadSelect, readEconomicMarketValue } from "../lib/economicData/read"
 
 export async function getPlayerRealLifeBySlug(slug: string): Promise<PlayerRealLifeProfile | null> {
   const player = await prisma.player.findUnique({
@@ -14,6 +15,7 @@ export async function getPlayerRealLifeBySlug(slug: string): Promise<PlayerRealL
       name: true,
       imageUrl: true,
       nationality: true,
+      economicCurrents: economicMarketValueReadSelect,
       realLifeStats: {
         select: { id: true, season: true, apiTeamId: true, apiLeagueId: true,
           teamName: true, competitionName: true, position: true,
@@ -63,6 +65,7 @@ export async function getPlayerRealLifeBySlug(slug: string): Promise<PlayerRealL
     name: player.name,
     imageUrl: player.imageUrl,
     nationality: player.nationality,
+    realMarketValue: readEconomicMarketValue(player),
     statistics: projectRealStatistics(player.realLifeStats ?? []),
     eaCatalogClub: player.club ? { ...player.club, asset: assets.clubs.get(player.club.id) ?? null,
       league: player.club.league ? { ...player.club.league, asset: assets.leagues.get(player.club.league.id) ?? null } : null } : null,
