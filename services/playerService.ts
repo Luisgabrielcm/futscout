@@ -3,6 +3,7 @@ import "server-only"
 import { prisma } from "../lib/prisma"
 import { parsePlayerCatalogParams } from "../lib/playerCatalogParams"
 import { getPlayerOrderBy } from "../lib/playerCatalogOrder"
+import { nationalitySearchAliases } from "../lib/nationalitySearch"
 import type { GetPlayersParams } from "../lib/playerCatalogParams"
 export type { GetPlayersParams, PlayerSort } from "../lib/playerCatalogParams"
 
@@ -169,6 +170,8 @@ export async function getPlayers(
         },
       },
     ]
+    const aliases = nationalitySearchAliases(search)
+    if (aliases.length) where.OR.push({ nationality: { in: aliases, mode: "insensitive" } })
   }
 
   /* ========================================
