@@ -9,7 +9,7 @@
     "lint": "eslint",
     "validate": "npm run validate:cloud",
     "validate:cloud": "node scripts/validateCloud.mjs",
-    "test:value": "node --import tsx --test --test-reporter=./scripts/requireExecutedTests.mjs experiments/futscout-value-v01/engine.test.ts experiments/futscout-value-v01/hybrid.test.ts experiments/futscout-value-v01/coherence.test.ts experiments/futscout-value-global-v01/runtime-role-diagnostic.test.ts experiments/futscout-value-global-v01/staging-import.test.ts",
+    "test:value": "node --import tsx --test --test-reporter=./scripts/requireExecutedTests.mjs experiments/futscout-value-v01/engine.test.ts experiments/futscout-value-v01/hybrid.test.ts experiments/futscout-value-v01/coherence.test.ts experiments/futscout-value-global-v01/runtime-role-diagnostic.test.ts experiments/futscout-value-global-v01/staging-import.test.ts experiments/futscout-value-global-v01/positive-import.test.ts",
     "test": "tsx --test --test-reporter=./scripts/requireExecutedTests.mjs \"tests/**/*.test.ts\"",
     "test:watch": "tsx --test --watch --test-reporter=./scripts/requireExecutedTests.mjs \"tests/**/*.test.ts\"",
     "test:matcher": "tsx --test tests/unit/services/apiFootballPlayerMatcher.test.ts",
