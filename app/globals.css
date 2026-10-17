@@ -308,7 +308,12 @@ code, pre, kbd, samp { font-family: var(--font-mono); }
   font-size: 12px;
 }
 
-.examples button {
+.examples a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   padding: 7px 12px;
 
   border: 1px solid rgba(214, 181, 109, 0.35);
