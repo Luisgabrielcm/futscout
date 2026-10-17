@@ -1,5 +1,9 @@
 # Experimental CONTRACT_UNTIL bridge
 
+Optional precision-aware entry point (MONTH/YEAR, existing DAY namespace and
+durable coordinator retained): see [Contract coverage 01](../../docs/contract-coverage-01.md).
+The original entry point documented below remains DAY-only.
+
 Pure adapter plus dependency-injected mock execution. No runtime client, credentials, network or
 database connection. No productive module changes. Only DAY contract/renewal evidence can produce
 an EconomicWrite; MONTH/YEAR, clause events, transfer, termination and option events abstain by error.
@@ -12,8 +16,9 @@ references, original observedAt/proof and review timestamp. These assertions are
 inputs, not proof inferred by software or automatic name matching. The actual review must establish
 the provider ID mapping and temporal club link. No ID is derived from Player.id or player name.
 
-All registry permissions must be CONFIRMED in this conservative first bridge (including commercial
-use/publication); that does not itself authorize publication. Catalog conflicts, provisional terms,
+The current INTERNAL registry gate requires confirmed access/storage/history;
+publication/commercial permissions remain separately classified and gated.
+Neither internal preparation nor this bridge authorizes publication. Catalog conflicts, provisional terms,
 inactive source status and future effective terms block the proposal. Unknown effective time stays
 null. A documented contract does not prove it remains current or exclude negotiations.
 

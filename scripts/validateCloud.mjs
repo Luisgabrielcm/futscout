@@ -27,6 +27,7 @@ export function validateCloud(inherited = process.env, run = spawnSync) {
     ["next/dist/bin/next", "typegen"],
     ["npm/bin/npm-cli.js", "test"],
     ["npm/bin/npm-cli.js", "run", "test:value"],
+    ["npm/bin/npm-cli.js", "run", "test:contract"],
     ["typescript/bin/tsc", "--noEmit"],
     ["npm/bin/npm-cli.js", "run", "lint"],
     ["npm/bin/npm-cli.js", "run", "build"],

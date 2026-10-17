@@ -3,7 +3,7 @@ import { JsonReceiptCheckpointStore } from './durable-store'
 import { simulateReceipt } from './replay'
 import { assertPlan, type Plan } from './planner'
 import { assertRegistry, ensure, identifier, type Registry } from './source-registry'
-import { reconcileContractWrite, type Proposal, type BridgePorts } from './economic-bridge'
+import { contractStorageDate, reconcileContractWrite, type Proposal, type BridgePorts } from './economic-bridge'
 
 export type DurableResult = { status: 'NOT_STARTED' | 'CONFIRMED' | 'UNKNOWN' | 'CONFLICT'; stateId?: string; observationId?: string }
 export type SettlementProof = { requestId: string; reference: string; outcome: 'ROLLED_BACK_OR_NOT_DISPATCHED' }
@@ -25,7 +25,7 @@ export class DurableContractAttempt {
       c.provider === s.provider && job.sourceId === s.metadata.source && job.sourceVersion === s.metadata.sourceVersion &&
       c.sourceReference === s.metadata.evidenceRef && c.provenance.evidenceReference === s.metadata.evidenceRef &&
       c.observedAt === p.command.observedAt && c.providerEffectiveAt === s.providerEffectiveAt &&
-      c.contractUntil.value === s.contractUntil && c.contractUntil.datePrecision === 'DAY' && c.identityConfidence === 'HIGH' &&
+      contractStorageDate(c.contractUntil) === s.contractUntil && c.contractUntil.datePrecision === s.datePrecision && c.identityConfidence === 'HIGH' &&
       job.temporalLink === 'CONSISTENT' && !job.signals.conflict &&
       ['playerId','clubId','context','season'].every(k => c[k as keyof typeof c] === job.expected[k as keyof typeof job.expected]), 'PROPOSAL_PLAN_MISMATCH')
     const store = await JsonReceiptCheckpointStore.create(root, this.runId(p), plan, registry)
