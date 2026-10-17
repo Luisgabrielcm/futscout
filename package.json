@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "validate:cloud": "node scripts/validateCloud.mjs",
     "test": "tsx --test --test-reporter=./scripts/requireExecutedTests.mjs \"tests/**/*.test.ts\"",
     "test:watch": "tsx --test --watch --test-reporter=./scripts/requireExecutedTests.mjs \"tests/**/*.test.ts\"",
     "test:matcher": "tsx --test tests/unit/services/apiFootballPlayerMatcher.test.ts",

@@ -26,6 +26,12 @@ Datas são metas, não autorização automática. Se uma dependência externa fa
 
 ## Configuração cloud mínima
 
+Após `npm ci`, executar `npm run validate:cloud` para os mesmos gates do CI:
+typegen → testes offline → TypeScript → lint → build. O comando fixa URLs
+PostgreSQL fictícias em `127.0.0.1:1/build` e `SITE_URL=https://example.invalid`
+somente nos subprocessos, desativa o gate HTTP opt-in e interrompe na primeira
+falha. Não provisiona banco, executa migrations ou inicia sincronizações.
+
 Criar ambiente privado Codex Cloud para o repositório, selecionar `beta-next`, Node 24, `npm ci`, `npx next typegen`, `npm test`, `npx tsc --noEmit`, `npm run lint` e `npm run build`. Usar apenas acesso de rede a gerenciadores de pacotes. Para build, usar os placeholders não secretos do CI (`DATABASE_URL` e `DIRECT_URL` em `127.0.0.1:1/build`, `SITE_URL=https://example.invalid`); não adicionar credenciais reais de banco, Live Football, Vercel ou Prisma Production. O CI não executa migrations. Tarefas cloud devem receber apenas escopo de branch de trabalho, testes e PR; sem push direto em `beta-next`.
 
 Antes de ativar, proteger `beta-next`: exigir PR, `Quality gates` e ao menos uma aprovação humana; desabilitar auto-merge/bypass. Confirmar que a integração Vercel não usa credenciais de Production em previews de branches de trabalho. Confirmar configurações de billing e limite de gastos. GitHub Actions faz validação, não desenvolvimento autônomo. O Codex Cloud executa tarefas isoladas e pode ser retomado; não há garantia de concluir o backlog sozinho ou no prazo sem novas tarefas/revisões.
