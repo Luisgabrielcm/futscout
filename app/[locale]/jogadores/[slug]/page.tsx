@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { localizedHref, t } from "../../../../lib/i18n"
+import { t } from "../../../../lib/i18n"
+import { playerCatalogContext, playerCatalogReturnHref } from "../../../../lib/connectedNavigation"
+import type { CatalogSearchParams } from "../../../../lib/playerCatalogParams"
 import { localizedMetadata } from "../../../../lib/i18n/metadata"
 import { playerExperienceText } from "../../../../lib/i18n/playerExperience"
 import { requireLocale } from "../../../../lib/i18n/server"
@@ -17,24 +19,27 @@ import PlayerQuickProfile from "../../../components/PlayerQuickProfile"
 import ScoutAnalysis from "../../../components/ScoutAnalysis"
 import GoalkeeperScoutAnalysis from "../../../components/GoalkeeperScoutAnalysis"
 
-type PlayerPageProps = { params: Promise<{ slug: string; locale?: string }> }
+type PlayerPageProps = { params: Promise<{ slug: string; locale?: string }>; searchParams?: Promise<CatalogSearchParams> }
 
-export default async function PlayerPage({ params }: PlayerPageProps) {
+export default async function PlayerPage({ params, searchParams }: PlayerPageProps) {
   const { slug, locale: routeLocale } = await params
   const locale = requireLocale(routeLocale ?? "pt")
   const profile = await getPlayerBySlug(slug)
   if (!profile) notFound()
+  const catalogContext = playerCatalogContext((await searchParams)?.catalog)
+  const returnHref = playerCatalogReturnHref(locale, catalogContext)
+  const returnLabel = t(locale, catalogContext ? "Voltar aos resultados" : "Jogadores")
 
   if (profile.status === "incomplete") {
     return <main className="playerPage">
       <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}>
-        <Link href={localizedHref(locale, "/jogadores")} className="backButton">{t(locale, "Jogadores")}</Link>
+        <Link href={returnHref} className="backButton">{returnLabel}</Link>
         <span aria-hidden="true">›</span><span aria-current="page">{profile.name}</span>
       </nav>
       <div className="playersEmpty">
         <h1>{profile.name}</h1>
         <PlayerActions locale={locale} slug={slug} name={profile.name} />
-        <PlayerExperienceNav locale={locale} slug={slug} active="ea" />
+        <PlayerExperienceNav locale={locale} slug={slug} active="ea" catalogContext={catalogContext} />
         <p>{t(locale, "Perfil incompleto: os atributos deste jogador ainda não estão disponíveis. Nenhuma estatística foi estimada para preencher esses dados.")}</p>
       </div>
     </main>
@@ -44,12 +49,12 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
   const isGoalkeeper = player.position === "GOL"
   return <main className="playerPage">
     <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}>
-      <Link href={localizedHref(locale, "/jogadores")} className="backButton">{t(locale, "Jogadores")}</Link>
+      <Link href={returnHref} className="backButton">{returnLabel}</Link>
       <span aria-hidden="true">›</span><span aria-current="page">{player.name}</span>
     </nav>
     <PlayerHeader locale={locale} player={player} valueContext="career-mode" />
     <PlayerActions locale={locale} slug={player.slug} name={player.name} />
-    <PlayerExperienceNav locale={locale} slug={slug} active="ea" />
+    <PlayerExperienceNav locale={locale} slug={slug} active="ea" catalogContext={catalogContext} />
 
     <section id="ea-sports-fc" className="profileSection" data-domain="ea" aria-labelledby="ea-title">
       <span className="sectionEyebrow">{playerExperienceText(locale, "eaContext")}</span>

@@ -36,6 +36,7 @@ type LeagueOption = {
 ======================================== */
 
 type PlayersSearchProps = {
+  catalogContext?: string
   locale?: Locale
   players: Player[]
 
@@ -91,6 +92,7 @@ type FilterOverrides = {
 ======================================== */
 
 export default function PlayersSearch({ locale = "pt",
+  catalogContext,
   players,
   leagues,
 
@@ -1287,6 +1289,7 @@ export default function PlayersSearch({ locale = "pt",
                 slug={
                   player.slug
                 }
+                catalogContext={catalogContext}
                 name={
                   player.name
                 }

@@ -49,6 +49,7 @@ export const en = {
   "Carregando jogadores…": "Loading players…",
   "Preparando o catálogo FutScout.": "Preparing the FutScout catalog.",
   "← Voltar": "← Back",
+  "Voltar aos resultados": "Back to results",
   "Explore os jogadores disponíveis no FutScout e encontre a melhor opção para seu elenco.": "Explore the players available on FutScout and find the right fit for your squad.",
   "jogador encontrado": "player found",
   "jogadores encontrados": "players found",

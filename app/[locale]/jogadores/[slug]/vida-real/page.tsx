@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { localizedHref, t } from "../../../../../lib/i18n"
+import { t } from "../../../../../lib/i18n"
+import { playerCatalogContext, playerCatalogReturnHref, playerProfileHref } from "../../../../../lib/connectedNavigation"
+import type { CatalogSearchParams } from "../../../../../lib/playerCatalogParams"
 import { localizedMetadata } from "../../../../../lib/i18n/metadata"
 import { playerExperienceText } from "../../../../../lib/i18n/playerExperience"
 import { requireLocale } from "../../../../../lib/i18n/server"
@@ -12,13 +14,14 @@ import PlayerHistory from "../../../../components/PlayerHistory"
 import PlayerRealLifeHeader from "../../../../components/PlayerRealLifeHeader"
 import PlayerRealMarketValue from "../../../../components/PlayerRealMarketValue"
 
-type RealLifePageProps = { params: Promise<{ slug: string; locale?: string }> }
+type RealLifePageProps = { params: Promise<{ slug: string; locale?: string }>; searchParams?: Promise<CatalogSearchParams> }
 
-export default async function PlayerRealLifePage({ params }: RealLifePageProps) {
+export default async function PlayerRealLifePage({ params, searchParams }: RealLifePageProps) {
   const { slug, locale: routeLocale } = await params
   const locale = requireLocale(routeLocale ?? "pt")
   const player = await getPlayerRealLifeBySlug(slug)
   if (!player) notFound()
+  const catalogContext = playerCatalogContext((await searchParams)?.catalog)
   const approvedClub = player.approvedCurrentClub
   const career = approvedClub ? {
     source: "approved-current-club-v2",
@@ -28,12 +31,12 @@ export default async function PlayerRealLifePage({ params }: RealLifePageProps) 
 
   return <main className="playerPage playerRealLifePage">
     <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}>
-      <Link href={localizedHref(locale, "/jogadores")}>{t(locale, "Jogadores")}</Link><span aria-hidden="true">›</span>
-      <Link href={localizedHref(locale, `/jogadores/${encodeURIComponent(slug)}`)}>{player.name}</Link><span aria-hidden="true">›</span>
+      <Link href={playerCatalogReturnHref(locale, catalogContext)}>{t(locale, catalogContext ? "Voltar aos resultados" : "Jogadores")}</Link><span aria-hidden="true">›</span>
+      <Link href={playerProfileHref(locale, slug, catalogContext)}>{player.name}</Link><span aria-hidden="true">›</span>
       <span aria-current="page">{playerExperienceText(locale, "realLife")}</span>
     </nav>
     <PlayerRealLifeHeader locale={locale} player={player} />
-    <PlayerExperienceNav locale={locale} slug={slug} active="real" />
+    <PlayerExperienceNav locale={locale} slug={slug} active="real" catalogContext={catalogContext} />
     <PlayerRealMarketValue locale={locale} value={player.realMarketValue} />
     <PlayerCareer locale={locale} catalogClub={player.eaCatalogClub?.name ?? null} data={career} />
     <PlayerSeasonStatistics locale={locale} rows={player.statistics ?? []} />

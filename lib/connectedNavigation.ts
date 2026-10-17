@@ -12,6 +12,26 @@ export function relatedPlayersHref(locale: Locale, filters: GetPlayersParams) {
   return localizedHref(locale, `/jogadores${query ? `?${query}` : ""}`)
 }
 
+// Carry only canonical public catalog parameters, never a return URL or origin.
+export function playerCatalogContext(value: unknown): string {
+  const first = Array.isArray(value) ? value[0] : value
+  if (typeof first !== "string" || first.length > 4000) return ""
+  const query = new URLSearchParams(first)
+  const filters = Object.fromEntries([...query.keys()].map(key => [key, query.getAll(key)]))
+  return playerCatalogQuery(filters)
+}
+
+export function playerCatalogReturnHref(locale: Locale, context?: unknown) {
+  const query = playerCatalogContext(context)
+  return localizedHref(locale, `/jogadores${query ? `?${query}` : ""}`)
+}
+
+export function playerProfileHref(locale: Locale, slug: string, context?: unknown, view: "ea" | "real" = "ea") {
+  const query = playerCatalogContext(context)
+  const suffix = query ? `?${new URLSearchParams({ catalog: query })}` : ""
+  return localizedHref(locale, `/jogadores/${encodeURIComponent(slug)}${view === "real" ? "/vida-real" : ""}${suffix}`)
+}
+
 // Identity for a derived directory, NOT an official national-team ID.
 // Known country aliases share the existing flag registry; unknown names stay distinct.
 export function nationalityKey(name: string | null) {
