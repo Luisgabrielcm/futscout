@@ -1,5 +1,11 @@
 # Value: preparação de um lote staging
 
+Preparação positiva prioritária, sem coleta ou escrita: ver
+[`docs/value-coverage-01.md`](../../docs/value-coverage-01.md).
+`preparePositiveOfflineImport` valida primeiro todos os recibos/journal pelo
+preparador original e entrega apenas lotes VALUE ao mesmo executor. Nulls são
+preservados e adiados, sem alegação de ganho público.
+
 PR #3 integrado em beta-next (`31f9f73`). O menor elo ausente era passar um lote
 offline já preparado ao executor existente sem refazer search/profile.
 `runPreparedStagingBatch` faz essa composição; não substitui o executor, writer,

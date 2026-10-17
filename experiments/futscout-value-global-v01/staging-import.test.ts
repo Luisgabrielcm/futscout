@@ -10,6 +10,7 @@ import { buildImportBatches, type ImportItem } from './offline-import-prep'
 import { validateValueBindings } from './local-bindings'
 import { sha } from './runner'
 import { runPreparedStagingBatch, type StagingImportOptions } from './staging-import'
+import { buildPositiveImportPlan } from './positive-import'
 
 async function fixture(run: (f: ReturnType<typeof setup>) => Promise<void>) {
   const root = await mkdtemp(join(tmpdir(), 'value-staging-import-'))
@@ -55,6 +56,24 @@ test('one synthetic VALUE/NULL batch uses the existing journal, never collects, 
   assert.deepEqual(await runPreparedStagingBatch(f.options), result)
   assert.equal(f.written.length, 2)
   assert.equal(f.counts().checkpoints, 1)
+}))
+
+test('positive-only preparation feeds the existing executor and leaves null receipts unmodified and unwritten', () => fixture(async f => {
+  const source = f.options.source
+  const original = structuredClone(f.options.batch)
+  const prepared = buildPositiveImportPlan({ selectionHash: source.selectionHash, parentSelectionHash: source.parentSelectionHash,
+    journalHash: source.journalHash, eventCount: 1, receipts: 2, positive: 1, nulls: 1, excluded: 0,
+    batches: [f.options.batch] })
+  const selectedIds = new Set(prepared.batches[0].items.map(item => item.playerId))
+  const options = { ...f.options, source: prepared.source, batch: prepared.batches[0],
+    players: f.options.players.filter(player => selectedIds.has(player.playerId)) }
+  assert.deepEqual(await runPreparedStagingBatch(options), { processed: 1, requests: 0, retries: 0 })
+  assert.equal(f.written.length, 1)
+  assert.equal(f.written[0].state.amount, '100.00')
+  assert.equal(f.written[0].selectCurrent, false)
+  assert.deepEqual(f.options.batch, original)
+  assert.deepEqual(await runPreparedStagingBatch(options), { processed: 1, requests: 0, retries: 0 })
+  assert.equal(f.written.length, 1)
 }))
 
 test('lost write acknowledgement reconciles by existing read-back without replaying the committed item', () => fixture(async f => {
