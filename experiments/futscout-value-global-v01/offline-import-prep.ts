@@ -16,6 +16,33 @@ type Envelope = { record: { version: number; selectionHash: string; previous: st
 export type ImportItem = Readonly<{ position: number; requestId: string; playerId: string;
   receiptHash: string; contentHash: string; inputHash: string; plan: EconomicWrite }>
 
+/** The same receipt/plan contract is checked again immediately before staging. */
+export function validateImportItem(item: ImportItem, parentSelectionHash: string) {
+  assert(Number.isSafeInteger(item.position) && item.position > 0, 'IMPORT_POSITION')
+  assert([item.receiptHash, item.inputHash, item.contentHash, parentSelectionHash].every(hash => /^[a-f0-9]{64}$/.test(hash)), 'IMPORT_HASH_SHAPE')
+  assert.equal(item.requestId, item.plan.requestId, 'IMPORT_PLAN_REQUEST')
+  assert.equal(item.requestId, `lfglobal-${parentSelectionHash.slice(0, 16)}-${item.playerId}`, 'IMPORT_RECEIPT_ID')
+  assert.equal(item.playerId, item.plan.state.playerId, 'IMPORT_PLAN_PLAYER')
+  assert.equal(item.inputHash, sha(JSON.stringify(item.plan)), 'IMPORT_INPUT_HASH')
+  assert.equal(item.contentHash, economicFingerprint(item.plan.state), 'IMPORT_CONTENT_HASH')
+  assert.equal(item.plan.selectCurrent, false, 'IMPORT_PLAN_CURRENT')
+  assert.equal(item.plan.state.provider, 'LIVE_FOOTBALL', 'IMPORT_PROVIDER')
+  assert(typeof item.plan.state.providerPlayerId === 'string' && item.plan.state.providerPlayerId.length > 0, 'IMPORT_PROVIDER_PLAYER')
+  assert.equal(item.plan.state.field, 'MARKET_VALUE', 'IMPORT_FIELD')
+  assert.equal(item.plan.state.context, 'REAL_WORLD', 'IMPORT_CONTEXT')
+  assert.equal(item.plan.state.confidence, 'HIGH', 'IMPORT_CONFIDENCE')
+  assert.equal(item.plan.state.matchState, 'MATCHED', 'IMPORT_MATCH_STATE')
+  assert(['VALUE', 'NULL'].includes(item.plan.state.presence), 'IMPORT_PRESENCE')
+  if (item.plan.state.presence === 'VALUE') {
+    assert.equal(item.plan.state.currency, 'EUR', 'IMPORT_CURRENCY')
+    assert(Number(item.plan.state.amount) > 0, 'IMPORT_POSITIVE_VALUE')
+  } else assert.equal(item.plan.state.amount, null, 'IMPORT_NULL_AMOUNT')
+  assert.equal(item.plan.state.metadata.evidenceRef, 'value-global-v1', 'IMPORT_PROVENANCE')
+  assert.equal(item.plan.state.metadata.source, 'LIVE_FOOTBALL/player', 'IMPORT_SOURCE')
+  assert.equal(item.plan.state.metadata.sourceVersion, 'adapter-v1', 'IMPORT_SOURCE_VERSION')
+  assert(Number.isFinite(Date.parse(item.plan.observedAt)), 'IMPORT_OBSERVED_INSTANT')
+}
+
 export function buildImportBatches(items: readonly ImportItem[], batchSize = 100) {
   assert(Number.isSafeInteger(batchSize) && batchSize > 0 && batchSize <= 100, 'IMPORT_BATCH_SIZE')
   assert.equal(new Set(items.map(item => item.playerId)).size, items.length, 'IMPORT_DUPLICATE_RECEIPT_PLAYER')
@@ -101,27 +128,11 @@ export async function prepareOfflineImport(selectionFile: string, evidenceRoot: 
     assert.equal(receipt.originalPosition, 1057 + (done.get(receipt.playerId) ?? 0), 'IMPORT_RECEIPT_POSITION')
     assert(done.has(receipt.playerId) && !excluded.has(receipt.playerId), 'IMPORT_RECEIPT_NOT_DONE')
     assert.equal(receipt.requestId, `lfglobal-${parentSelectionHash.slice(0, 16)}-${receipt.playerId}`, 'IMPORT_RECEIPT_ID')
-    assert.equal(receipt.playerId, receipt.plan.state.playerId, 'IMPORT_PLAN_PLAYER')
     assert.equal(receipt.observedAt, receipt.plan.observedAt, 'IMPORT_OBSERVED_AT')
-    assert.equal(receipt.inputHash, sha(JSON.stringify(receipt.plan)), 'IMPORT_INPUT_HASH')
-    assert.equal(receipt.contentHash, economicFingerprint(receipt.plan.state), 'IMPORT_CONTENT_HASH')
     assert.equal(receipt.selectCurrent, false, 'IMPORT_RECEIPT_CURRENT')
-    assert.equal(receipt.plan.selectCurrent, false, 'IMPORT_PLAN_CURRENT')
-    assert.equal(receipt.plan.state.provider, 'LIVE_FOOTBALL', 'IMPORT_PROVIDER')
-    assert(typeof receipt.plan.state.providerPlayerId === 'string' && receipt.plan.state.providerPlayerId.length > 0, 'IMPORT_PROVIDER_PLAYER')
-    assert.equal(receipt.plan.state.field, 'MARKET_VALUE', 'IMPORT_FIELD')
-    assert.equal(receipt.plan.state.context, 'REAL_WORLD', 'IMPORT_CONTEXT')
-    assert.equal(receipt.plan.state.confidence, 'HIGH', 'IMPORT_CONFIDENCE')
-    assert.equal(receipt.plan.state.matchState, 'MATCHED', 'IMPORT_MATCH_STATE')
-    assert(['VALUE', 'NULL'].includes(receipt.plan.state.presence), 'IMPORT_PRESENCE')
-    if (receipt.plan.state.presence === 'VALUE') {
-      assert.equal(receipt.plan.state.currency, 'EUR', 'IMPORT_CURRENCY')
-      assert(Number(receipt.plan.state.amount) > 0, 'IMPORT_POSITIVE_VALUE')
-    } else assert.equal(receipt.plan.state.amount, null, 'IMPORT_NULL_AMOUNT')
-    assert.equal(receipt.plan.state.metadata.evidenceRef, 'value-global-v1', 'IMPORT_PROVENANCE')
-    assert.equal(receipt.plan.state.metadata.source, 'LIVE_FOOTBALL/player', 'IMPORT_SOURCE')
-    assert.equal(receipt.plan.state.metadata.sourceVersion, 'adapter-v1', 'IMPORT_SOURCE_VERSION')
-    assert(Number.isFinite(Date.parse(receipt.observedAt)), 'IMPORT_OBSERVED_INSTANT')
+    validateImportItem({ position: done.get(receipt.playerId)!, requestId: receipt.requestId,
+      playerId: receipt.playerId, receiptHash: hash, inputHash: receipt.inputHash,
+      contentHash: receipt.contentHash, plan: receipt.plan }, parentSelectionHash)
     items.push({ position: done.get(receipt.playerId)!, requestId: receipt.requestId,
       playerId: receipt.playerId, receiptHash: hash, inputHash: receipt.inputHash,
       contentHash: receipt.contentHash, plan: receipt.plan })
