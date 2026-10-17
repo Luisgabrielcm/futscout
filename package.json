@@ -13,6 +13,7 @@
     "test": "tsx --test --test-reporter=./scripts/requireExecutedTests.mjs \"tests/**/*.test.ts\"",
     "test:watch": "tsx --test --watch --test-reporter=./scripts/requireExecutedTests.mjs \"tests/**/*.test.ts\"",
     "test:matcher": "tsx --test tests/unit/services/apiFootballPlayerMatcher.test.ts",
+    "test:contract": "node --import tsx --test --test-reporter=./scripts/requireExecutedTests.mjs experiments/futscout-contract-clause-v01/*.test.ts",
     "ea:sync:auto:dry-run": "tsx sync/runEARatingsAutoSync.ts --dry-run",
     "ea:sync:auto:write": "tsx sync/runEARatingsAutoSync.ts --write",
     "ea:gk:audit": "tsx sync/runEAGoalkeeperAttributesAudit.ts --dry-run",

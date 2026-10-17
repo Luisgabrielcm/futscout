@@ -1,30 +1,49 @@
 import type { EconomicWrite } from '../../services/playerEconomicPersistence'
 import { economicFingerprint } from '../../lib/economicData/value'
-import { hash, validateDate, type Context } from './contract'
+import { hash, validateDate, type Context, type PartialDate } from './contract'
 import { ImmutableEvidenceCatalog } from './evidence-catalog'
 import { assertRegistry, ensure, identifier, operationGate, type Registry } from './source-registry'
 
 export const bridgeVersion = 'contract-economic-bridge-v0.1'
+export const precisionBridgeVersion = 'contract-economic-bridge-v0.2'
+type BridgeVersion = typeof bridgeVersion | typeof precisionBridgeVersion
 export type BridgeReview = Context & {
   evidenceRecordHash: string; providerPlayerId: string; identityConfidence: 'HIGH' | 'MEDIUM' | 'LOW'
   identityProofRef: string; clubProofRef: string; providerIdentityProofRef: string
   observationProofRef: string; observedAt: string
   temporalLink: 'CONSISTENT' | 'UNKNOWN' | 'CONFLICTED'; reviewedAt: string
 }
-export type Proposal = { bridgeVersion: typeof bridgeVersion; command: EconomicWrite; contentHash: string; reviewHash: string; proposalHash: string }
+export type Proposal = { bridgeVersion: BridgeVersion; command: EconomicWrite; contentHash: string; reviewHash: string; proposalHash: string }
+// Storage anchors preserve source precision; they are never factual expiry days.
+export function contractStorageDate(date: PartialDate): string {
+  validateDate(date)
+  ensure(date.value !== null, 'KNOWN_PRECISION_REQUIRED')
+  return date.value + (date.datePrecision === 'YEAR' ? '-01-01' : date.datePrecision === 'MONTH' ? '-01' : '')
+}
 function instant(value: string) {
   ensure(typeof value === 'string' && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(value), 'INVALID_TIMESTAMP')
   validateDate({ value: value.slice(0,10), datePrecision: 'DAY' })
   ensure(Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,19) === value.slice(0,19), 'INVALID_TIMESTAMP')
   return new Date(value).toISOString()
 }
-export function proposeContractWrite(input: {
+type ProposalInput = {
   catalogJson: string; catalogHash: string; registry: Registry; evidenceId: string; evidenceRef: string; review: BridgeReview
-}): Proposal {
+}
+// Legacy DAY-only entry point and its request/content hashes remain unchanged.
+export function proposeContractWrite(input: ProposalInput): Proposal {
+  return propose(input, bridgeVersion)
+}
+export function proposeContractWriteWithPrecision(input: ProposalInput): Proposal {
+  return propose(input, precisionBridgeVersion)
+}
+function propose(input: ProposalInput, requestedVersion: BridgeVersion): Proposal {
   assertRegistry(input.registry)
   const catalog = ImmutableEvidenceCatalog.restore(input.catalogJson, input.registry, input.catalogHash)
   const e = catalog.get(input.evidenceId), r = input.review
   ensure(e, 'EVIDENCE_MISSING')
+  // DAY evidence keeps the original request namespace even via the new API.
+  const version = e.facts.contractUntil.datePrecision === 'DAY' ? bridgeVersion : requestedVersion
+  if (requestedVersion === precisionBridgeVersion) ensure(e.context === 'REAL_WORLD', 'REAL_WORLD_REQUIRED')
   ensure(input.evidenceRef === catalog.evidenceRef(e.evidenceId).evidenceRef && r.evidenceRecordHash === e.recordHash, 'EVIDENCE_REF_MISMATCH')
   const source = input.registry.entries.find(s => s.source.id === e.sourceId)?.source
   ensure(source && operationGate(source, 'INTERNAL').enabled, 'SOURCE_NOT_AUTHORIZED')
@@ -37,27 +56,31 @@ export function proposeContractWrite(input: {
   ensure(instant(r.reviewedAt) >= e.observedAt, 'REVIEW_PRECEDES_OBSERVATION')
   ensure(!catalog.conflicts().some(c => c.evidenceIds.includes(e.evidenceId)), 'EVIDENCE_CONFLICT')
   ensure(['CONTRACT','RENEWAL'].includes(e.eventType), 'UNSUPPORTED_EVENT')
-  ensure(e.facts.contractUntil.datePrecision === 'DAY', 'DAY_PRECISION_REQUIRED')
+  if (version === bridgeVersion) ensure(e.facts.contractUntil.datePrecision === 'DAY', 'DAY_PRECISION_REQUIRED')
+  const until = contractStorageDate(e.facts.contractUntil)
   ensure(e.evidenceStatus === 'OFFICIAL_EXPLICIT' && e.facts.contractStatus !== 'INACTIVE', 'INSUFFICIENT_TERMS')
   ensure(e.providerEffectiveAt === null || e.providerEffectiveAt <= instant(r.reviewedAt), 'FUTURE_EFFECTIVE_TERMS')
   const command: EconomicWrite = {
     state: { playerId: e.playerId, field: 'CONTRACT_UNTIL', provider: source.provider, providerPlayerId: r.providerPlayerId,
-      context: e.context, snapshotVersion: bridgeVersion, presence: 'VALUE', amount: null, currency: null, period: null,
-      contractUntil: e.facts.contractUntil.value, datePrecision: 'DAY', providerEffectiveAt: e.providerEffectiveAt,
+      context: e.context, snapshotVersion: version, presence: 'VALUE', amount: null, currency: null, period: null,
+      contractUntil: until, datePrecision: e.facts.contractUntil.datePrecision as 'DAY' | 'MONTH' | 'YEAR', providerEffectiveAt: e.providerEffectiveAt,
       confidence: 'HIGH', matchState: 'MATCHED', status: 'VALID',
       metadata: { source: e.sourceId, sourceVersion: e.sourceVersion, evidenceRef: input.evidenceRef } },
     observedAt: e.observedAt,
-    requestId: `contract_${hash({ bridgeVersion, recordHash: e.recordHash, providerPlayerId: r.providerPlayerId })}`,
-    selectCurrent: false, expectedRevision: null, selectionReason: 'EXPERIMENTAL_HISTORY_ONLY', policyVersion: bridgeVersion,
+    requestId: `contract_${hash({ bridgeVersion: version, recordHash: e.recordHash, providerPlayerId: r.providerPlayerId })}`,
+    selectCurrent: false, expectedRevision: null, selectionReason: 'EXPERIMENTAL_HISTORY_ONLY', policyVersion: version,
   }
-  const body: Omit<Proposal, 'proposalHash'> = { bridgeVersion, command, contentHash: economicFingerprint(command.state), reviewHash: hash(r) }
+  const body: Omit<Proposal, 'proposalHash'> = { bridgeVersion: version, command, contentHash: economicFingerprint(command.state), reviewHash: hash(r) }
   return { ...body, proposalHash: hash(body) }
 }
 function validateProposal(p: Proposal) {
   const { proposalHash, ...body } = p
-  ensure(proposalHash === hash(body) && p.bridgeVersion === bridgeVersion, 'PROPOSAL_CHANGED')
+  ensure(proposalHash === hash(body) && [bridgeVersion, precisionBridgeVersion].includes(p.bridgeVersion), 'PROPOSAL_CHANGED')
   ensure(p.command.selectCurrent === false && p.command.expectedRevision === null && p.command.state.field === 'CONTRACT_UNTIL' &&
-    p.command.state.datePrecision === 'DAY' && p.command.state.presence === 'VALUE' && p.command.state.confidence === 'HIGH' &&
+    (p.bridgeVersion === bridgeVersion ? p.command.state.datePrecision === 'DAY' :
+      p.command.state.context === 'REAL_WORLD' && ['MONTH', 'YEAR'].includes(p.command.state.datePrecision ?? '')) &&
+    p.command.state.snapshotVersion === p.bridgeVersion && p.command.policyVersion === p.bridgeVersion &&
+    p.command.state.presence === 'VALUE' && p.command.state.confidence === 'HIGH' &&
     p.command.state.matchState === 'MATCHED', 'UNSAFE_WRITE')
   ensure(economicFingerprint(p.command.state) === p.contentHash, 'CONTENT_HASH_MISMATCH')
 }

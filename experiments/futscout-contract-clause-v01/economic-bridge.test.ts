@@ -3,7 +3,13 @@ import assert from 'node:assert/strict'
 import { ImmutableEvidenceCatalog, type EvidenceInput } from './evidence-catalog'
 import { createRegistry, operationGate, sourceGate, syncVersion, type Source } from './source-registry'
 import { hash } from './contract'
-import { proposeContractWrite, reconcileContractWrite, runContractProposal, type ReadBack, type BridgeReview } from './economic-bridge'
+import { proposeContractWrite, proposeContractWriteWithPrecision, precisionBridgeVersion, reconcileContractWrite, runContractProposal, type ReadBack, type BridgeReview } from './economic-bridge'
+import { economicFingerprint } from '../../lib/economicData/value'
+import { DurableContractAttempt } from './durable-reconciliation'
+import { freezePlan } from './planner'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const source: Source = { id: 'synthetic', provider: 'SYNTHETIC', sourceVersion: 'v1', policyVersion: 'policy1', permissionReference: 'synthetic/license',
   permissions: { access: 'CONFIRMED', storage: 'CONFIRMED', history: 'CONFIRMED', publication: 'CONFIRMED', commercialUse: 'CONFIRMED' } }
@@ -152,5 +158,88 @@ test('acknowledged write with absent or different IDs is conflict', async () => 
     let reads = 0
     assert.equal((await runContractProposal(p, { writer: async () => ({ stateId: 'other', observationId: 'other' }),
       readBack: async () => ++reads === 1 || absent ? { kind: 'ABSENT', transactionsSettled: true } : found(p) })).status, 'CONFLICT')
+  }
+})
+
+test('precision-aware DAY entry point preserves the exact v0.1 proposal and request hashes', () => {
+  const { args } = fixture()
+  assert.deepEqual(proposeContractWriteWithPrecision(args), proposeContractWrite(args))
+})
+
+for (const date of [{ value: '2027-06', datePrecision: 'MONTH' }, { value: '2027', datePrecision: 'YEAR' }] as const) {
+  test(`${date.datePrecision}: reviewed evidence maps to existing storage with source precision and provenance intact`, () => {
+    const { args, catalog } = fixture(e => { e.facts.contractUntil = date })
+    const before = catalog.exportJson(), p = proposeContractWriteWithPrecision(args), state = p.command.state
+    assert.equal(p.bridgeVersion, precisionBridgeVersion)
+    assert.equal(state.contractUntil, date.datePrecision === 'MONTH' ? '2027-06-01' : '2027-01-01')
+    assert.equal(state.datePrecision, date.datePrecision)
+    assert.equal(state.metadata.evidenceRef, args.evidenceRef)
+    assert.equal(state.providerPlayerId, args.review.providerPlayerId)
+    assert.equal(p.command.observedAt, args.review.observedAt)
+    assert.equal(state.providerEffectiveAt, null)
+    assert.equal(state.amount, null)
+    assert.equal(p.command.selectCurrent, false)
+    assert.equal(p.contentHash, economicFingerprint(state))
+    assert.deepEqual(p, proposeContractWriteWithPrecision(args))
+    assert.equal(catalog.exportJson(), before)
+    assert.equal(reconcileContractWrite(p, found(p)).status, 'CONFIRMED')
+    assert.equal(reconcileContractWrite(p, { ...found(p), state: { ...state, datePrecision: 'DAY' } } as ReadBack).status, 'CONFLICT')
+  })
+
+  test(`${date.datePrecision}: existing durable coordinator dispatches once, preserves partial source date and recovers after restart`, async () => {
+    const { args, evidence } = fixture(e => { e.facts.contractUntil = date })
+    const p = proposeContractWriteWithPrecision(args), s = p.command.state
+    const evaluationAt = new Date(args.review.reviewedAt).toISOString()
+    const expected = { playerId: evidence.playerId, clubId: evidence.clubId, context: evidence.context, season: evidence.season }
+    const plan = freezePlan([{ requestId: p.command.requestId, eventId: evidence.evidenceId, sourceId: evidence.sourceId,
+      sourceVersion: 'v1', expected, temporalLink: 'CONSISTENT', signals: { newChange: true, conflict: false, missingContract: true },
+      input: { contract: { ...expected, ...evidence.facts, provider: s.provider, sourceReference: args.evidenceRef,
+        observedAt: p.command.observedAt, providerEffectiveAt: null, identityConfidence: 'HIGH', evidenceQuality: 'SYNTHETIC',
+        provenance: { evidenceReference: args.evidenceRef, rights: 'AUTHORIZED', synthetic: true } },
+        publishedAt: evidence.publishedAt!, periodQualifier: null, competitionCalendar: null, evidenceStatus: 'OFFICIAL_EXPLICIT',
+        verification: { at: args.review.reviewedAt, sourceReference: 'synthetic/review', scope: 'CONTRACT_TERMS', outcome: 'CORROBORATED' }, events: [] } }],
+    args.registry, evaluationAt)
+    let stored: ReadBack = { kind: 'ABSENT', transactionsSettled: true }, writes = 0
+    const ports = { readBack: async () => stored, writer: async (command: typeof p.command) => {
+      writes++; assert.deepEqual(command, p.command); assert.equal(command.selectCurrent, false)
+      stored = found(p); return { stateId: 'state1', observationId: 'obs1' }
+    } }
+    const root = await mkdtemp(join(tmpdir(), 'futscout-contract-precision-'))
+    try {
+      let attempt = await DurableContractAttempt.open(root, p, plan, args.registry, ports)
+      try { assert.equal((await attempt.execute()).status, 'CONFIRMED') } finally { await attempt.close() }
+      attempt = await DurableContractAttempt.open(root, p, plan, args.registry, ports)
+      try { assert.equal((await attempt.execute()).status, 'CONFIRMED') } finally { await attempt.close() }
+      assert.equal(writes, 1)
+      assert.deepEqual(plan.queue[0].input.contract.contractUntil, date)
+      const forged = structuredClone(plan)
+      forged.queue[0].input.contract.contractUntil = { value: s.contractUntil!, datePrecision: 'DAY' }
+      // Re-freeze legitimately shaped but precision-divergent input; the link still must reject it.
+      const changed = freezePlan(forged.queue, args.registry, evaluationAt)
+      await assert.rejects(DurableContractAttempt.open(root, p, changed, args.registry, ports), /PROPOSAL_PLAN_MISMATCH/)
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+}
+
+test('partial precision does not waive rights, identity, time, real-world context, unknown dates or event restrictions', () => {
+  for (const patch of [{ identityConfidence: 'LOW' }, { clubId: 'other' }, { temporalLink: 'UNKNOWN' },
+    { observationProofRef: 'other' }, { reviewedAt: '2026-10-07T12:00:00Z' }] as const) {
+    const { args } = fixture(e => { e.facts.contractUntil = { value: '2027', datePrecision: 'YEAR' } })
+    Object.assign(args.review, patch)
+    assert.throws(() => proposeContractWriteWithPrecision(args))
+  }
+  for (const change of [
+    (e: EvidenceInput) => { e.facts.contractUntil = { value: null, datePrecision: 'UNKNOWN' } },
+    (e: EvidenceInput) => { e.context = 'EA_CAREER' },
+    (e: EvidenceInput) => { e.eventType = 'OPTION' },
+    (e: EvidenceInput) => { e.eventType = 'CLAUSE' },
+    (e: EvidenceInput) => { e.facts.contractStatus = 'INACTIVE' },
+    (e: EvidenceInput) => { e.evidenceStatus = 'PROVISIONAL' },
+    (e: EvidenceInput) => { e.providerEffectiveAt = '2026-10-10T12:00:00Z' },
+  ]) assert.throws(() => proposeContractWriteWithPrecision(fixture(e => {
+    e.facts.contractUntil = { value: '2027', datePrecision: 'YEAR' }; change(e)
+  }).args))
+  for (const permission of ['access', 'storage', 'history'] as const) {
+    assert.throws(() => fixture(undefined, { ...source, permissions: { ...source.permissions, [permission]: 'UNKNOWN' } }))
   }
 })
