@@ -1,9 +1,10 @@
-import { t, localizedHref, type Locale } from "../../lib/i18n"
+import { t, type Locale } from "../../lib/i18n"
 import { displayPosition } from "../../lib/i18n/presentation"
 import CountryFlag from "./CountryFlag"
 import { displaySalary } from "../../lib/playerCareerPresentation"
 import { visualText } from "../../lib/i18n/visualRevision"
 import type { VerifiedSalary } from "../../types/playerCareer"
+import { playerProfileHref } from "../../lib/connectedNavigation"
 
 import Link from "next/link"
 
@@ -20,6 +21,7 @@ type PlayerCardProps = {
   locale?: Locale
   name: string
   slug: string
+  catalogContext?: string
 
   age: number | null
 
@@ -54,6 +56,7 @@ type PlayerCardProps = {
 export default function PlayerCard({ locale = "pt",
   name,
   slug,
+  catalogContext,
 
   age,
 
@@ -103,7 +106,7 @@ export default function PlayerCard({ locale = "pt",
     <article className="playerCard">
       <PlayerActions locale={locale} slug={slug} name={name} />
       <Link
-      href={localizedHref(locale, `/jogadores/${slug}`)}
+      href={playerProfileHref(locale, slug, catalogContext)}
       className="playerCardLink"
     >
         {/* ==================================

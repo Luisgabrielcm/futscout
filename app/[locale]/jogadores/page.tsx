@@ -53,6 +53,7 @@ async function PlayersResults({ searchParams, locale = "pt" }: PlayersPageProps 
         {result.total === 1 ? t(locale, "jogador encontrado") : t(locale, "jogadores encontrados")}
       </div>
       <PlayersSearch locale={locale}
+        catalogContext={query}
         key={query}
         players={result.players}
         leagues={leagues}
