@@ -27,7 +27,7 @@ Datas são metas, não autorização automática. Se uma dependência externa fa
 ## Configuração cloud mínima
 
 Após `npm ci`, executar `npm run validate:cloud` para os mesmos gates do CI:
-typegen → testes offline → TypeScript → lint → build. O comando fixa URLs
+typegen → testes offline → testes Value sintéticos/mockados → TypeScript → lint → build. O comando fixa URLs
 PostgreSQL fictícias em `127.0.0.1:1/build` e `SITE_URL=https://example.invalid`
 somente nos subprocessos, desativa o gate HTTP opt-in e interrompe na primeira
 falha. Não provisiona banco, executa migrations ou inicia sincronizações.

@@ -23,7 +23,7 @@ test("cloud gates generate types first and execute every gate in order", () => {
     return { status: 0 }
   })
   assert.equal(status, 0)
-  assert.deepEqual(calls.map((args) => args.slice(1)), [["typegen"], ["test"], ["--noEmit"], ["run", "lint"], ["run", "build"]])
+  assert.deepEqual(calls.map((args) => args.slice(1)), [["typegen"], ["test"], ["run", "test:value"], ["--noEmit"], ["run", "lint"], ["run", "build"]])
 })
 
 test("cloud gates stop on failure, signal or startup error without running build", () => {
@@ -35,4 +35,14 @@ test("cloud gates stop on failure, signal or startup error without running build
     }), 0)
     assert.equal(calls, 1)
   }
+})
+
+test("a failing Value suite blocks all later gates", () => {
+  const calls: string[][] = []
+  const status = validateCloud({ npm_execpath: "/npm-cli.js", NODE_ENV: "test" }, (_command, args) => {
+    calls.push(args)
+    return { status: args.includes("test:value") ? 1 : 0 }
+  })
+  assert.equal(status, 1)
+  assert.deepEqual(calls.map((args) => args.slice(1)), [["typegen"], ["test"], ["run", "test:value"]])
 })
