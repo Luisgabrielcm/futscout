@@ -8,6 +8,7 @@ import { capture, captureCleanup, diagnose, type Diagnostic, type Stage } from '
 import { autoBalancePolicyVersion, autoPolicyVersion, failureClass, isBalanceDiagnostic, quarantineLimits,
   type AutoBalanceRecoveryPolicy, type AutoQuarantinePolicy } from './quarantine-policy'
 import { approvedManualAttempt, validateValueBindings, type ValueBindings } from './local-bindings'
+import { buildImportBatches, validateImportItem, type ImportItem } from './offline-import-prep'
 import { validateRejected, type RejectedResponse } from './response-v02'
 
 export const sha = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex')
@@ -41,7 +42,14 @@ export type BalanceRecoveryIntent = {
   diagnostic: Diagnostic; requiredCredits: number
 }
 
+export type PreparedStagingImport = {
+  sourceSelectionHash: string; parentSelectionHash: string; journalHash: string; batchHash: string
+  items: readonly ImportItem[]
+}
+
 export interface Dependencies {
+  /** One previously prepared offline batch, never a new provider consultation. */
+  preparedImport?: PreparedStagingImport
   /** Explicit private bindings, absent unless supplied by the operational caller. */
   valueBindings?: ValueBindings
   /** New generation only: write an Observation without selecting public Current. */
@@ -78,6 +86,7 @@ export interface Dependencies {
 /** Immutable hash-chained journal; a stale exclusive lock requires operator review. */
 export async function runGlobal(bytes: Buffer, expectedHash: string, root: string, deps: Dependencies, limit = 17408,
   approval?: QuarantineApproval, autoPolicy?: AutoQuarantinePolicy, balancePolicy?: AutoBalanceRecoveryPolicy) {
+  const preparedImport = deps.preparedImport && structuredClone(deps.preparedImport)
   const valueBindings = deps.valueBindings && validateValueBindings(deps.valueBindings)
   if (approval) assert(valueBindings, 'VALUE_BINDINGS_REQUIRED')
   assert(!autoPolicy || autoPolicy.enabled === true && autoPolicy.version === autoPolicyVersion, 'AUTO_POLICY')
@@ -87,9 +96,9 @@ export async function runGlobal(bytes: Buffer, expectedHash: string, root: strin
   assert(!deps.offline || !deps.stagingGeneration, 'OFFLINE_STAGING_COLLISION')
   assert.equal(sha(bytes), expectedHash, 'SELECTION_HASH')
   assert(Number.isSafeInteger(limit) && limit >= 0 && limit <= 17408, 'BUDGET')
-  const selection = JSON.parse(bytes.toString()) as { players?: Player[]; excludedIds: string[]; playerIds?: string[]; parentSelectionHash?: string }
+  const selection = JSON.parse(bytes.toString()) as { players?: Player[]; excludedIds: string[]; playerIds?: string[]; parentSelectionHash?: string; importBinding?: unknown }
   const players = deps.offline?.players ?? selection.players
-  const requestHash = deps.offline?.parentHash ?? expectedHash
+  const requestHash = preparedImport?.parentSelectionHash ?? deps.offline?.parentHash ?? expectedHash
   assert(Array.isArray(players) && Array.isArray(selection.excludedIds), 'SELECTION')
   if (deps.offline) {
     assert.equal(selection.parentSelectionHash, requestHash, 'OFFLINE_PARENT_HASH')
@@ -103,6 +112,23 @@ export async function runGlobal(bytes: Buffer, expectedHash: string, root: strin
     assert(!selection.excludedIds.includes(p.playerId), 'ALREADY_CONSULTED')
     if (i) assert(key(players[i - 1]) < key(p), 'ORDER')
   })
+  if (preparedImport) {
+    assert(valueBindings && deps.stagingGeneration && !deps.offline && !approval && !autoPolicy && !balancePolicy &&
+      !deps.continuous && !deps.writeIsolation && limit === 0, 'IMPORT_STAGING_ONLY')
+    const { items, ...binding } = preparedImport
+    assert(binding.sourceSelectionHash === valueBindings.offlineSelectionHash &&
+      binding.parentSelectionHash === valueBindings.parentSelectionHash && /^[a-f0-9]{64}$/.test(binding.journalHash), 'IMPORT_SOURCE_BINDING')
+    assert.deepEqual(selection.importBinding, { ...binding, generation: deps.stagingGeneration }, 'IMPORT_SELECTION_BINDING')
+    assert(items.length > 0 && items.length <= 100, 'IMPORT_SINGLE_BATCH_ONLY')
+    const batches = buildImportBatches(items)
+    assert(batches.length === 1 && batches[0].hash === binding.batchHash, 'IMPORT_BATCH_HASH')
+    assert.deepEqual(items.map(item => item.playerId), players.map(player => player.playerId), 'IMPORT_PLAYER_ORDER')
+    assert.deepEqual(items.map(item => item.position), batches[0].items.map(item => item.position), 'IMPORT_POSITION_ORDER')
+    for (const item of items) {
+      validateImportItem(item, requestHash)
+      Object.freeze(item.plan.state.metadata); Object.freeze(item.plan.state); Object.freeze(item.plan); Object.freeze(item)
+    }
+  }
   await mkdir(root, { recursive: true })
   const lock = await open(join(root, 'execution.lock'), 'wx', 0o600)
   const events: Event[] = []
@@ -136,6 +162,19 @@ export async function runGlobal(bytes: Buffer, expectedHash: string, root: strin
       events.push(event); hashes.push(hash); previous = hash
     }
     const find = (kind: string, id: string) => events.find(e => e.kind === kind && e.id === id)
+    if (preparedImport) {
+      for (const event of events) {
+        assert(['WRITE', 'DONE', 'CHECKPOINT'].includes(event.kind), 'IMPORT_JOURNAL_MODE')
+        if (event.kind === 'WRITE') {
+          const item = preparedImport.items.find(item => item.requestId === event.id)
+          assert(item && sha(JSON.stringify(event.payload)) === item.inputHash, 'IMPORT_JOURNAL_PLAN_CHANGED')
+        }
+        if (event.kind === 'DONE') {
+          const item = preparedImport.items.find(item => item.requestId === event.id)
+          assert(item && find('WRITE', event.id), 'IMPORT_JOURNAL_DONE_WITHOUT_WRITE')
+        }
+      }
+    }
     const pendingQueue = () => events.flatMap((e, i) => {
       if (!['IDENTITY_PENDING', 'QUARANTINED', 'REJECTED_RESPONSE', 'WRITE_ISOLATED'].includes(e.kind)) return []
       const position = players.findIndex(p => {
@@ -340,6 +379,7 @@ export async function runGlobal(bytes: Buffer, expectedHash: string, root: strin
     let lastCall = 0
     const quarantineSignal = new Error('AUTO_QUARANTINED_NO_RETRY')
     const request = async (id: string, call: () => Promise<Response>) => {
+      assert(!preparedImport, 'IMPORT_COLLECTION_FORBIDDEN')
       const saved = find('RESPONSE', id)
       if (saved) return saved.payload as Response
       assert(!find('REQUEST', id), 'UNKNOWN_REQUEST_REQUIRES_RECONCILIATION')
@@ -418,6 +458,15 @@ export async function runGlobal(bytes: Buffer, expectedHash: string, root: strin
       outcomeIndeterminate = false
       return response
     }
+    const persistPlan = async (plan: EconomicWrite) => {
+      requestId = plan.requestId; stage = 'JOURNAL'
+      await append({ kind: 'WRITE', id: plan.requestId, payload: plan })
+      stage = 'WRITE_PLAYER'; outcomeIndeterminate = true
+      await deps.write(plan)
+      stage = 'READ_BACK'
+      assert.equal(await deps.readBack(plan), 'CONFIRMED', 'READ_BACK_DIVERGENGENCE')
+      outcomeIndeterminate = false
+    }
     for (const [index, player] of players.entries()) {
       const id = `lfglobal-${requestHash.slice(0, 16)}-${player.playerId}`
       try {
@@ -434,41 +483,39 @@ export async function runGlobal(bytes: Buffer, expectedHash: string, root: strin
         } else {
           requestId = id; stage = 'EXISTING'; outcomeIndeterminate = false
           assert(!await deps.existing(player), 'EXISTING_VALUE_OR_CONSULTATION')
-          deps.validateSearch?.(player)
-          const search = await request(`${id}-search`, () => deps.search(player))
-          stage = 'MATCHING'
-          const providerId = deps.choose(player, search.data)
-          let insufficient = providerId === null
-          if (providerId !== null) {
-            const response = await request(`${id}-profile`, () => deps.profile(providerId))
+          if (preparedImport) {
+            await persistPlan(preparedImport.items[index].plan)
+          } else {
+            deps.validateSearch?.(player)
+            const search = await request(`${id}-search`, () => deps.search(player))
             stage = 'MATCHING'
-            const state = deps.adapt(player, providerId, response)
-            insufficient = state === null || state.presence === 'ABSENT'
-            if (state !== null && state.presence !== 'ABSENT') {
-              assert.equal(state.playerId, player.playerId)
-              assert.equal(state.providerPlayerId, providerId)
-              assert.equal(state.provider, 'LIVE_FOOTBALL'); assert.equal(state.field, 'MARKET_VALUE')
-              assert.equal(state.context, 'REAL_WORLD'); assert.equal(state.confidence, 'HIGH')
-              assert.equal(state.matchState, 'MATCHED')
-              economicFingerprint(state)
-              if (state.presence === 'VALUE') assert.equal(state.currency, 'EUR')
-              const plan: EconomicWrite = { state, observedAt: response.observedAt, requestId: id,
-                selectCurrent: !deps.stagingGeneration && !deps.offline, expectedRevision: null, selectionReason: 'AUTHORIZED_GLOBAL', policyVersion: 'global-v1' }
-              requestId = id; stage = 'JOURNAL'
-              await append({ kind: 'WRITE', id, payload: plan })
-              stage = 'WRITE_PLAYER'; outcomeIndeterminate = true
-              await deps.write(plan)
-              stage = 'READ_BACK'
-              assert.equal(await deps.readBack(plan), 'CONFIRMED', 'READ_BACK_DIVERGENGENCE')
-              outcomeIndeterminate = false
+            const providerId = deps.choose(player, search.data)
+            let insufficient = providerId === null
+            if (providerId !== null) {
+              const response = await request(`${id}-profile`, () => deps.profile(providerId))
+              stage = 'MATCHING'
+              const state = deps.adapt(player, providerId, response)
+              insufficient = state === null || state.presence === 'ABSENT'
+              if (state !== null && state.presence !== 'ABSENT') {
+                assert.equal(state.playerId, player.playerId)
+                assert.equal(state.providerPlayerId, providerId)
+                assert.equal(state.provider, 'LIVE_FOOTBALL'); assert.equal(state.field, 'MARKET_VALUE')
+                assert.equal(state.context, 'REAL_WORLD'); assert.equal(state.confidence, 'HIGH')
+                assert.equal(state.matchState, 'MATCHED')
+                economicFingerprint(state)
+                if (state.presence === 'VALUE') assert.equal(state.currency, 'EUR')
+                const plan: EconomicWrite = { state, observedAt: response.observedAt, requestId: id,
+                  selectCurrent: !deps.stagingGeneration && !deps.offline, expectedRevision: null, selectionReason: 'AUTHORIZED_GLOBAL', policyVersion: 'global-v1' }
+                await persistPlan(plan)
+              }
             }
-          }
-          if (deps.continuous && insufficient) {
-            const responseIndex = events.findLastIndex(e => e.kind === 'RESPONSE' && (e.id === `${id}-search` || e.id === `${id}-profile`))
-            assert(responseIndex >= 0, 'IDENTITY_PENDING_RESPONSE')
-            stage = 'JOURNAL'
-            await append({ kind: 'IDENTITY_PENDING', id, payload: { playerId: player.playerId, position: index + 1,
-              responseHash: hashes[responseIndex], reason: 'IDENTITY_OR_DATA_INSUFFICIENT' } })
+            if (deps.continuous && insufficient) {
+              const responseIndex = events.findLastIndex(e => e.kind === 'RESPONSE' && (e.id === `${id}-search` || e.id === `${id}-profile`))
+              assert(responseIndex >= 0, 'IDENTITY_PENDING_RESPONSE')
+              stage = 'JOURNAL'
+              await append({ kind: 'IDENTITY_PENDING', id, payload: { playerId: player.playerId, position: index + 1,
+                responseHash: hashes[responseIndex], reason: 'IDENTITY_OR_DATA_INSUFFICIENT' } })
+            }
           }
         }
         stage = 'JOURNAL'
