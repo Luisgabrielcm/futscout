@@ -162,7 +162,7 @@ test("real-life fields remain independent of catalog club and nationality in PT/
 test("verified salary and real club never overwrite the EA context; zero remains a value", () => {
   const html = renderToStaticMarkup(createElement(Career, { locale: "en", catalogClub: "EA fixture", data: {
     source: "test fixture", currentClub: "Real fixture", realLeague: "Real league fixture", shirtNumber: 0,
-    salary: { amount: 1000, currency: "EUR", period: "week", source: "test fixture" },
+    salary: { amount: 1000, currency: "EUR", period: "week", source: "test fixture", nature: "OBSERVED", publicationAllowed: true },
   } }))
   assert.match(html, /EA fixture/)
   assert.match(html, /Confirmed current club<\/dt><dd>Real fixture/)

@@ -3,9 +3,11 @@ import { localeTags, type Locale } from "./i18n"
 import { visualText } from "./i18n/visualRevision"
 
 export function displaySalary(salary: VerifiedSalary | null | undefined, locale: Locale): string | null {
-  if (!salary?.source.trim() || !Number.isFinite(salary.amount) || salary.amount < 0 ||
-      !/^[A-Z]{3}$/.test(salary.currency) || !["week", "year"].includes(salary.period)) return null
-  return `${new Intl.NumberFormat(localeTags[locale], { style: "currency", currency: salary.currency, maximumFractionDigits: 0 }).format(salary.amount)} / ${visualText(locale, salary.period)}`
+  if (salary?.publicationAllowed !== true || salary.nature !== "OBSERVED" ||
+      typeof salary.source !== "string" || !salary.source.trim() ||
+      !Number.isFinite(salary.amount) || salary.amount < 0 || salary.amount > Number.MAX_SAFE_INTEGER ||
+      !Intl.supportedValuesOf("currency").includes(salary.currency) || !["week", "year"].includes(salary.period)) return null
+  return `${new Intl.NumberFormat(localeTags[locale], { style: "currency", currency: salary.currency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(salary.amount)} / ${visualText(locale, salary.period)}`
 }
 
 export function displayCareerDate(value: string | null | undefined, locale: Locale): string {
