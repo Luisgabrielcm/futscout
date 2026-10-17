@@ -1,106 +1,38 @@
-"use client"
-
+import Form from "next/form"
+import Link from "next/link"
 import { t, localizedHref, type LocaleProps } from "../../lib/i18n"
 
-
-import { useRouter } from "next/navigation"
-import { useState } from "react"
+const shortcuts = [
+  ["Volante promissor", "/jogadores?position=VOL&maxAge=23&minPotential=85"],
+  ["Ponta rápido", "/jogadores?position=PE&minPace=90"],
+  ["Zagueiro barato", "/jogadores?position=ZAG&maxValue=20000000"],
+  ["Meia criativo", "/jogadores?position=MEI&minPassing=85&minDribbling=85"],
+] as const
 
 export default function HomeSearch({ locale = "pt" }: LocaleProps = {}) {
-  const [search, setSearch] = useState("")
-  const router = useRouter()
-
-  function handleSearch() {
-    const searchText = search.trim()
-
-    if (!searchText) {
-      router.push(localizedHref(locale, "/jogadores"))
-      return
-    }
-
-    router.push(
-      localizedHref(locale, `/jogadores?search=${encodeURIComponent(searchText)}`)
-    )
-  }
-
-  function handleShortcut(shortcut: string) {
-    if (shortcut === "volante-promissor") {
-      router.push(
-        localizedHref(locale, "/jogadores?position=VOL&maxAge=23&minPotential=85")
-      )
-    }
-
-    if (shortcut === "ponta-rapido") {
-      router.push(
-        localizedHref(locale, "/jogadores?position=PE&minPace=90")
-      )
-    }
-
-    if (shortcut === "zagueiro-barato") {
-      router.push(
-        localizedHref(locale, "/jogadores?position=ZAG&maxValue=20000000")
-      )
-    }
-
-    if (shortcut === "meia-criativo") {
-      router.push(
-        localizedHref(locale, "/jogadores?position=MEI&minPassing=85&minDribbling=85")
-      )
-    }
-  }
-
   return (
     <>
-      <div className="searchBox">
+      <Form action={localizedHref(locale, "/jogadores")} prefetch={false}
+        className="searchBox" role="search" aria-label={t(locale, "Pesquisar jogador, clube ou nacionalidade")}>
         <input
-          type="text"
+          type="search"
+          name="search"
+          maxLength={200}
+          enterKeyHint="search"
           aria-label={t(locale, "Pesquisar jogador, clube ou nacionalidade")}
           placeholder={t(locale, "Pesquise jogador, clube ou nacionalidade...")}
-          value={search}
-          onChange={(event) =>
-            setSearch(event.target.value)
-          }
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              handleSearch()
-            }
-          }}
         />
-
-        <button type="button" className="uiButton uiButtonPrimary" onClick={handleSearch}>
-          {t(locale, "Buscar")}</button>
-      </div>
-
+        <button type="submit" className="uiButton uiButtonPrimary">
+          {t(locale, "Buscar")}
+        </button>
+      </Form>
       <div className="examples">
         <span>{t(locale, "Exemplos:")}</span>
-
-        <button
-          onClick={() =>
-            handleShortcut("volante-promissor")
-          }
-        >
-          {t(locale, "Volante promissor")}</button>
-
-        <button
-          onClick={() =>
-            handleShortcut("ponta-rapido")
-          }
-        >
-          {t(locale, "Ponta rápido")}</button>
-
-        <button
-          onClick={() =>
-            handleShortcut("zagueiro-barato")
-          }
-        >
-          {t(locale, "Zagueiro barato")}</button>
-
-        <button
-          onClick={() =>
-            handleShortcut("meia-criativo")
-          }
-        >
-          {t(locale, "Meia criativo")}</button>
+        {shortcuts.map(([label, path]) => (
+          <Link key={path} href={localizedHref(locale, path)} prefetch={false}>
+            {t(locale, label)}
+          </Link>
+        ))}
       </div>
     </>
   )
