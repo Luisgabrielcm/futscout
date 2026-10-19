@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { canonical, sha256, inputHash, fitOffline, infer, validateSplits, type Dataset, type Inputs, type Position, type Split } from './engine'
-import { evaluate, trainFrozenDataset } from './pipeline'
+import { evaluate, evaluateCoverage, trainFrozenDataset } from './pipeline'
 
 // Entirely invented identities, inputs and labels; no provider data in fixtures.
 function fixture(positionEffect = false): Dataset {
@@ -98,4 +98,44 @@ test('real training gate rejects before accessing real labels or files', () => {
 })
 test('canonicalization rejects undefined and nonfinite values', () => {
   assert.throws(() => canonical({ x: Infinity })); assert.throws(() => canonical({ x: undefined }))
+})
+
+test('coverage diagnostics preserve sparse leagues, low values, young players and goalkeepers without approval', () => {
+  const d = changed(fixture(true), c => { for (const r of c.rows) if (r.playerId.endsWith('-0')) {
+    r.inputs.dateOfBirth = '2008-01-01T00:00:00.000Z'
+    r.inputs.ageYears = (Date.parse(r.inputs.referenceAt) - Date.parse(r.inputs.dateOfBirth)) / (365.2425 * 86400000)
+    r.inputHash = inputHash(r.inputs)
+  } }), model = fitOffline(d, 'B')
+  const report = evaluateCoverage(model, d, 'unseen_leagues')
+  assert.equal(report.overall.selected, 48)
+  assert.equal(report.groups.league['league-unseen'].trainingSupport, 0)
+  for (const dimension of Object.values(report.groups)) {
+    assert.equal(Object.values(dimension).reduce((n, g) => n + g.selected, 0), 48)
+  }
+  assert.equal(report.groups.position.GK.selected, 12)
+  assert(report.groups.age['<20'].selected > 0)
+  assert.equal(report.publicationApproved, false)
+  assert.equal(report.referenceNature, 'SYNTHETIC')
+  assert.equal(report.selectedWinner, null)
+  const low = changed(d, c => { for (const r of c.rows) if (r.playerId.startsWith('holdout-')) r.target.amountEUR = r.playerId === 'holdout-0' ? '1.00' : '100000.00' })
+  const lowReport = evaluateCoverage(model, low, 'holdout')
+  assert.equal(lowReport.groups.valueEUR['<100k'].selected, 1)
+  assert(lowReport.groups.valueEUR['<100k'].medianAPE! > 100)
+})
+test('coverage rejects split/model mismatch, repeated players and invalid targets; real labels stay gated', () => {
+  const d = fixture(), model = fitOffline(d, 'A')
+  assert.throws(() => evaluateCoverage(model, { ...d, manifestHash: sha256('other') }, 'holdout'), /ARTIFACT_DATASET_MISMATCH/)
+  assert.throws(() => evaluateCoverage(model, changed(d, c => { c.rows[48] = c.rows[0] }), 'holdout'), /DUPLICATE/)
+  assert.throws(() => evaluateCoverage(model, changed(d, c => { c.rows[96].target.amountEUR = null as unknown as string }), 'holdout'), /EVALUATION_TARGET_INVALID/)
+  assert.throws(() => evaluateCoverage(model, { ...d, source: 'LIVE_FOOTBALL' }, 'holdout'), /LIVE_FOOTBALL_TRAINING_LICENSE_PENDING/)
+})
+test('coverage includes abstentions in each subgroup denominator', () => {
+  const d = fixture(), model = fitOffline(d, 'A')
+  const out = changed(d, c => { c.rows[96].inputs.ovr = 99; c.rows[96].inputHash = inputHash(c.rows[96].inputs) })
+  const report = evaluateCoverage(model, out, 'holdout')
+  assert.equal(report.overall.selected, 48)
+  assert.equal(report.overall.predicted, 47)
+  assert.equal(report.groups.position.GK.selected, 12)
+  assert.equal(report.groups.position.GK.predicted, 11)
+  assert.equal(report.groups.position.GK.abstentions.OUTSIDE_TRAIN_RANGE, 1)
 })
