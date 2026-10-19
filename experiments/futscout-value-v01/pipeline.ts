@@ -52,6 +52,37 @@ export function evaluate(model: Artifact, rows: Row[], source: Dataset['source']
     intervals: Object.fromEntries(Object.entries(intervals).map(([k, s]) => [k, { n: s.n, coverage: s.n ? s.covered / s.n : null, meanWidthEUR: s.n ? s.widthEUR / s.n : null, meanUpperLowerRatio: s.n ? s.widthRatio / s.n : null }])) }
 }
 
+
+// Diagnostic coverage is not approval: sparse groups and abstentions remain visible.
+// Boundaries are reporting bins, never invented accuracy/publication thresholds.
+export function evaluateCoverage(model: Artifact, dataset: Dataset, split: 'holdout' | 'unseen_leagues') {
+  assertTrainingLicense(dataset.source)
+  validateSplits(dataset)
+  const ids = (s: string) => dataset.assignments.filter(a => a.split === s).map(a => a.playerId).sort()
+  const splitHash = sha256(canonical([...dataset.assignments].sort((a, b) => a.playerId < b.playerId ? -1 : a.playerId > b.playerId ? 1 : 0)))
+  demand(model.trainingSource === dataset.source && model.trainingDatasetVersion === dataset.version &&
+    model.datasetManifestHash === dataset.manifestHash && model.validationManifestHash === splitHash &&
+    canonical(model.trainingIds) === canonical(ids('train')) && canonical(model.calibrationIds) === canonical(ids('calibration')), 'ARTIFACT_DATASET_MISMATCH')
+  const selectedIds = new Set(ids(split)), trainIds = new Set(ids('train'))
+  const selected = dataset.rows.filter(r => selectedIds.has(r.playerId))
+  const train = dataset.rows.filter(r => trainIds.has(r.playerId))
+  const dimensions = {
+    valueEUR: (r: Row) => Number(r.target.amountEUR) < 100000 ? '<100k' : Number(r.target.amountEUR) < 1000000 ? '100k-<1m' : Number(r.target.amountEUR) < 10000000 ? '1m-<10m' : '10m+',
+    age: (r: Row) => r.inputs.ageYears < 20 ? '<20' : r.inputs.ageYears < 23 ? '20-22' : '23+',
+    position: (r: Row) => r.inputs.positionGroup,
+    league: (r: Row) => r.inputs.leagueId,
+  }
+  // Validate all selected labels before constructing bins; null is never zero.
+  const overall = evaluate(model, selected, dataset.source)
+  const groups = Object.fromEntries(Object.entries(dimensions).map(([dimension, key]) => [dimension,
+    Object.fromEntries([...new Set(selected.map(key))].sort().map(group => [group, {
+      trainingSupport: train.filter(r => key(r) === group).length,
+      ...evaluate(model, selected.filter(r => key(r) === group), dataset.source),
+    }]))]))
+  return { split, referenceNature: dataset.source === 'SYNTHETIC' ? 'SYNTHETIC' : 'PROVIDER_ESTIMATE',
+    overall, groups, publicationApproved: false as const, selectedWinner: null }
+}
+
 // No CLI bypass, DB, API, automatic selection, output files or current writes.
 // A future reviewed license change is necessary before this path can read real labels.
 export function trainFrozenDataset(directory: string) {
@@ -91,6 +122,9 @@ export function evaluateFrozenDataset(directory: string, artifacts: { A: Artifac
     demand(model.baseline === key && model.trainingSource === 'LIVE_FOOTBALL' && model.datasetManifestHash === EXPECTED_MANIFEST_HASH && model.trainingDatasetVersion === m.trainingDatasetVersion, 'ARTIFACT_DATASET_MISMATCH')
     demand(canonical(model.trainingIds) === canonical(sortedIds('train')) && canonical(model.calibrationIds) === canonical(sortedIds('calibration')) && model.validationManifestHash === validationHash, 'ARTIFACT_SPLITS_MISMATCH')
     return [key, { artifactHash: model.artifactHash, holdout: report(model, rows.filter(r => assignments.get(r.playerId) === 'holdout')),
-      unseenLeagues: report(model, rows.filter(r => assignments.get(r.playerId) === 'unseen_leagues')), publicationApproved: false, selectedWinner: null }]
+      unseenLeagues: report(model, rows.filter(r => assignments.get(r.playerId) === 'unseen_leagues')),
+      coverage: Object.fromEntries((['holdout', 'unseen_leagues'] as const).map(split => [split, evaluateCoverage(model, {
+        source: 'LIVE_FOOTBALL', version: m.trainingDatasetVersion, manifestHash: EXPECTED_MANIFEST_HASH, rows, assignments: v.assignments,
+      }, split)])), publicationApproved: false, selectedWinner: null }]
   }))
 }
