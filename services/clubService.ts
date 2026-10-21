@@ -67,7 +67,7 @@ export async function getClubRatings(clubs: { id: string; total: number }[]) {
 // Overview loads only one club's compact roster. No stats/PlayStyle/attribute joins.
 export async function getClubRoster(clubId: string) {
   const rows = await prisma.player.findMany({ where: { clubId }, select: {
-    id: true, slug: true, name: true, imageUrl: true, position: true, officialOverall: true,
+    id: true, externalId: true, slug: true, name: true, imageUrl: true, position: true, officialOverall: true,
     secondaryPosition: true, secondaryPositions: true, potential: true,
     economicCurrents: economicMarketValueReadSelect,
     currentFutscoutPotential: futscoutPotentialReadSelect,

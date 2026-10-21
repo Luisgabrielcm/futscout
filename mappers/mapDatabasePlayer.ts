@@ -12,6 +12,7 @@ import type { PlayerGoalkeeperAttributes } from "../types/goalkeeperAttributes"
 
 export type DatabasePlayer = {
   id: string
+  externalId?: string | null
   slug: string
   name: string
 

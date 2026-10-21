@@ -31,7 +31,8 @@ test("comparison resolves two players in one bounded IN query and restores URL o
   assert.equal(f.reads[0].take, 2)
   assert.deepEqual(Array.from(result, (player) => player.slug), ["b", "a"])
   assert.equal(f.reads[0].include, undefined)
-  assert.equal(f.reads[0].select?.externalId, undefined)
+  // The publication policy requires the authoritative EA identity, not a name.
+  assert.equal(f.reads[0].select?.externalId, true)
   assert.equal(f.reads[0].select?.realLifeStats, undefined)
 })
 

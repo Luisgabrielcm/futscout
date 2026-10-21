@@ -16,7 +16,8 @@ model PlayerEconomicState {
   context String
   snapshotVersion String
   presence String
-  amount Decimal? @db.Decimal(20, 2)
+  // Exact frozen estimates: candidate SQL must be approved/applied separately.
+  amount Decimal? @db.Decimal(38, 18)
   currency String?
   period String?
   contractUntil DateTime? @db.Date

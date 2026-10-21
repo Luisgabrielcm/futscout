@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:isolated": "node scripts/buildValueActivationIsolated.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "tsx --test --test-reporter=./scripts/requireExecutedTests.mjs \"tests/**/*.test.ts\"",

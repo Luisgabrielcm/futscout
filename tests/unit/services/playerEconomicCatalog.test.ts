@@ -8,11 +8,17 @@ import * as mapper from "../../../mappers/mapDatabasePlayer"
 import * as order from "../../../lib/playerCatalogOrder"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import { catalogPlayer } from "../../fixtures/catalogPlayer"
+import { marketValueHeldPlayerIds, marketValueHeldEaIds } from '../../../lib/economicData/publicationHolds'
 
-test("inclusive economic EUR min/max, zero and absence have no legacy fallback", () => {
+test("inclusive EUR filters use the positive publication policy without legacy fallback", () => {
   const filter = JSON.stringify(marketValueWhere(0, 220e6))
   for (const marker of ['"gte":0', '"lte":220000000', 'economicCurrents', 'MARKET_VALUE', 'REAL_WORLD', 'EUR', 'HIGH', 'MATCHED', 'VALID']) assert.ok(filter.includes(marker))
   assert.doesNotMatch(filter, /marketValue|legacy/)
+  assert.match(filter, /"gt":0/)
+  assert.match(filter, /"provider":"LIVE_FOOTBALL"/)
+  assert.deepEqual(marketValueWhere().NOT, { OR: [
+    { id: { in: marketValueHeldPlayerIds } }, { externalId: { in: [...marketValueHeldEaIds, ''] } },
+  ] })
   assert.equal(params.parsePlayerCatalogParams({ minValue: "0" }).minValue, 0)
   assert.equal(params.parsePlayerCatalogParams({ minValue: -1 }).minValue, undefined)
   assert.equal(params.parsePlayerCatalogParams({ minValue: 1.5 }).minValue, undefined)
@@ -22,7 +28,9 @@ test("current SQL orders asc/desc, null last, deterministic ties and DB paginati
   for (const sort of ['value-asc', 'value-desc'] as const) {
     const q = potentialPageSql({ sort, minValue: 0, maxValue: 220e6, minPotential: 90, page: 2, pageSize: 2 })
     assert.match(q.sql, /PlayerEconomicCurrent/); assert.match(q.sql, /PlayerEconomicObservation/); assert.match(q.sql, /PlayerEconomicState/)
-    assert.match(q.sql, /s.currency='EUR'/); assert.match(q.sql, /s.amount BETWEEN 0 AND 9007199254740991/)
+    assert.match(q.sql, /s.currency='EUR'/); assert.match(q.sql, /s.amount > 0 AND s.amount <= 9007199254740991/)
+    assert.match(q.sql, /s.provider='LIVE_FOOTBALL'/)
+    for (const id of [...marketValueHeldPlayerIds, ...marketValueHeldEaIds]) assert.ok(q.values.includes(id))
     assert.match(q.sql, new RegExp(`ORDER BY score ${sort==='value-asc'?'ASC':'DESC'} NULLS LAST`))
     assert.match(q.sql, /"officialOverall" DESC,name ASC,id ASC\s+LIMIT \? OFFSET \?/)
     assert.match(q.sql, /"potentialScore">=/)

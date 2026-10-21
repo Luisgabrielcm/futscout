@@ -13,7 +13,7 @@ export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVOR
   const rows = await prisma.player.findMany({
     where: { slug: { in: slugs } }, take: slugs.length,
     select: {
-      id: true, slug: true, name: true, position: true, dateOfBirth: true,
+      id: true, externalId: true, slug: true, name: true, position: true, dateOfBirth: true,
       nationality: true, secondaryPosition: true, secondaryPositions: true,
       imageUrl: true, officialOverall: true, dynamicOverall: true, potential: true,
       currentFutscoutPotential: futscoutPotentialReadSelect,
