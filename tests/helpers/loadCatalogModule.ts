@@ -33,6 +33,7 @@ import * as React from "react"
 import * as potentialRead from "../../lib/futscoutPotential/read"
 import * as economicRead from "../../lib/economicData/read"
 import * as economicCatalog from "../../lib/economicData/catalog"
+import * as estimateNotice from "../../lib/economicData/estimateNotice"
 import * as potentialCatalog from "../../lib/futscoutPotential/catalog"
 import { createElement, type ReactNode } from "react"
 
@@ -82,13 +83,14 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/futscoutPotential/read": potentialRead,
       "lib/economicData/read": economicRead,
       "lib/economicData/catalog": economicCatalog,
+      "lib/economicData/estimateNotice": estimateNotice,
       "lib/futscoutPotential/catalog": potentialCatalog,
     }
     const pureName = name.replace(/^(?:\.\.\/)+/, "")
     if (Object.hasOwn(presentation, pureName)) return presentation[pureName]
     // Shared UI runs for real, with a strict finite list, never services.
     const component = name.split("/").at(-1)
-    if (!Object.hasOwn(allowed, name) && component && ["PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "PlayerCurrentStatistics", "PlayerSeasonStatistics", "PlayerExperienceNav", "LeagueLogo", "ClubLogo", "ClubBadge", "BrandAssetFallback"].includes(component)) {
+    if (!Object.hasOwn(allowed, name) && component && ["EstimatedValueNote", "PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "PlayerCurrentStatistics", "PlayerSeasonStatistics", "PlayerExperienceNav", "LeagueLogo", "ClubLogo", "ClubBadge", "BrandAssetFallback"].includes(component)) {
       return loadCatalogModule(`app/components/${component}.tsx`, { react: React })
     }
     if (name === "next/link" && !Object.hasOwn(allowed, name)) return function TestLink({ children, href, ...props }: { children: ReactNode; href: string; prefetch?: boolean }) {

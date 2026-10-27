@@ -1,4 +1,5 @@
 import Link from "next/link"
+import EstimatedValueNote from './EstimatedValueNote'
 import { t, localeTags, type Locale } from "../../lib/i18n"
 import { clubText, SQUAD_SORTS } from "../../lib/i18n/clubExperience"
 import { displayForm, displayPosition } from "../../lib/i18n/presentation"
@@ -48,7 +49,7 @@ export function SquadPositionPanel({ locale, players, selectedIds, official = fa
         <dl className="squadPanelStats">
           <div><dt>OVR EA</dt><dd>{validPitchOverall(player.officialOverall) ? player.officialOverall : "—"}</dd></div>
           <div><dt>{clubText(locale, "potential")}</dt><dd>{player.potential ?? "—"}</dd></div>
-          <div><dt>{clubText(locale, "value")}</dt><dd>{player.marketValue === null ? "—" : formatCurrency(Number(player.marketValue), locale)}</dd></div>
+          <div><dt>{clubText(locale, "value")}</dt><dd>{player.marketValue === null ? "—" : formatCurrency(Number(player.marketValue), locale)}<EstimatedValueNote provider={player.economicMarketValue?.provider} value={player.marketValue === null ? null : Number(player.marketValue)} locale={locale} /></dd></div>
         </dl>
       </Link>)}
     </section>)}</div>
@@ -115,7 +116,7 @@ export function SquadList({ locale, players }: { locale: Locale; players: Player
         <div><dt>OVR FutScout</dt><dd>{player.dynamicOverall ?? "—"}</dd></div>
         <div><dt>{clubText(locale, "potential")}</dt><dd>{player.potential ?? "—"}</dd></div>
         <div><dt>{clubText(locale, "age")}</dt><dd>{player.age ?? "—"}</dd></div>
-        <div><dt>{clubText(locale, "value")}</dt><dd>{player.marketValue === null ? "—" : formatCurrency(player.marketValue, locale)}</dd></div>
+        <div><dt>{clubText(locale, "value")}</dt><dd>{player.marketValue === null ? "—" : formatCurrency(player.marketValue, locale)}<EstimatedValueNote provider={player.economicMarketValue?.provider} value={player.marketValue} locale={locale} /></dd></div>
         <div><dt>{clubText(locale, "form")}</dt><dd>{displayForm(player.form, locale) ?? "—"}</dd></div>
       </dl>
     </article>

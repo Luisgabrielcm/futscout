@@ -1,4 +1,5 @@
 import { t, type Locale } from "../../lib/i18n"
+import EstimatedValueNote from './EstimatedValueNote'
 import { displayFoot, displayPosition } from "../../lib/i18n/presentation"
 
 import type {
@@ -245,7 +246,7 @@ export default function PlayerHeader({ locale = "pt",
             <dt>{visualText(locale, "marketValue")}</dt>
             <dd className="playerHeaderMarketValue">{player.marketValue !== null
               ? formatCurrency(player.marketValue, locale)
-              : "—"}</dd>
+              : "—"}<EstimatedValueNote provider={player.economicMarketValue?.provider} value={player.marketValue} locale={locale} /></dd>
           </div>
           <div><dt>{visualText(locale, "weeklySalary")}</dt><dd>—</dd></div>
           <div><dt>{visualText(locale, "contractUntil")}</dt><dd>—</dd></div>

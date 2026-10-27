@@ -1313,6 +1313,7 @@ export default function PlayersSearch({ locale = "pt",
                 marketValue={
                   player.marketValue
                 }
+                economicMarketValue={player.economicMarketValue}
               />
             )
           )

@@ -122,6 +122,7 @@ export default async function Home({ params }: { params?: Promise<{ locale: stri
                   marketValue={
                     player.marketValue
                   }
+                  economicMarketValue={player.economicMarketValue}
                 />
               )
             )}

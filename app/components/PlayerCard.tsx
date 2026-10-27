@@ -1,4 +1,5 @@
 import { t, localizedHref, type Locale } from "../../lib/i18n"
+import EstimatedValueNote from './EstimatedValueNote'
 import { displayPosition } from "../../lib/i18n/presentation"
 import CountryFlag from "./CountryFlag"
 import { displaySalary } from "../../lib/playerCareerPresentation"
@@ -44,6 +45,7 @@ type PlayerCardProps = {
   marketValue:
     | number
     | null
+  economicMarketValue?: { provider: string } | null
 
 }
 
@@ -74,6 +76,7 @@ export default function PlayerCard({ locale = "pt",
   potential,
 
   marketValue,
+  economicMarketValue,
 }: PlayerCardProps) {
   const positions = [...new Set([position, ...secondaryPositions, ...(secondaryPosition ? [secondaryPosition] : [])])]
   const salaryLabel = displaySalary(salary, locale)
@@ -214,7 +217,7 @@ export default function PlayerCard({ locale = "pt",
             <span
               className="marketLabel"
             >
-              {t(locale, "VALOR ESTIMADO")}</span>
+              {t(locale, "Valor de mercado")}</span>
 
             <strong
               className="marketValue"
@@ -224,6 +227,7 @@ export default function PlayerCard({ locale = "pt",
                 ? formatCurrency(marketValue, locale)
                 : "—"}
             </strong>
+            <EstimatedValueNote provider={economicMarketValue?.provider} value={marketValue} locale={locale} />
           </div>
 
         </div>
