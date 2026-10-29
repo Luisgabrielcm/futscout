@@ -1,9 +1,32 @@
 {
-  "methodVersion": "futscout-wage-method-v0.1",
+  "methodVersion": "futscout-wage-method-v0.2",
   "modelVersion": "futscout-wage-v0.1",
-  "target": "EUR/GROSS/BASE/WEEK",
+  "target": "EUR/GROSS/TOTAL/YEAR",
   "status": "SYNTHETIC_CALCULATION_ONLY_NOT_TRAINED",
   "publicationAllowed": false,
+  "semanticContract": {
+    "version": "futscout-wage-total-remuneration-v1",
+    "decisionDate": "2026-10-28",
+    "definitionAuthority": "PRODUCT_OWNER_DECLARATION_NOT_PROVIDER_CONFIRMATION",
+    "definition": "Annual gross total remuneration in EUR includes salary, bonuses, benefits and image rights. Do not infer or add missing components.",
+    "supplierDefinition": "PENDING_DOCUMENTARY_CONFIRMATION",
+    "weeklyTarget": "EUR/GROSS/TOTAL/WEEK_EQUIVALENT",
+    "divisor": 52,
+    "conversionModule": "annual-gross-total.ts#convertAnnualGrossTotalEurToWeekly",
+    "presentationConvention": "Annual gross total /52 follows the product's EA Sports FC Career Mode weekly presentation convention; it is not contractual weekly base salary, a payroll schedule or an EA-sourced value.",
+    "sourcePreservation": "Keep original annual amount, raw source record, identity, club/league/season, effective and observation dates, hashes and provenance. Conversion passes provenance through without authenticating it.",
+    "missingAndInvalid": "Undefined remains ABSENT/undefined; null remains NULL/null; explicit zero remains ZERO/0 without becoming an eligible log label. Reject non-numbers, negatives, non-finite values and positive underflow; never coerce strings.",
+    "precision": "Finite IEEE-754 numbers divided by 52 with no monetary rounding. This converter does not promise exact decimal persistence or restore precision already lost by its caller.",
+    "eligibility": "Arithmetic conversion grants no label eligibility or publication permission. FootyStats annual_salary_eur must not be relabelled GROSS/TOTAL without documentary evidence. Existing BASE references remain BASE.",
+    "pending": ["Supplier confirmation of gross/total components and valuation of benefits/image rights", "Salary effective dates and observed-versus-estimated nature", "Versioned total-remuneration eligibility assessment before any real training"]
+  },
+  "legacyCompatibility": {
+    "target": "EUR/GROSS/BASE/WEEK",
+    "scope": "modelVersion, reference, hypotheses, inputInventory, contract, normalization, validationPlan and referenceEligibility below describe the preserved legacy base-wage experiment, not eligibility for the new total-remuneration target.",
+    "implementations": ["engine.ts#target/normalizeBase/syntheticArtifact", "reference-eligibility.ts#assessReference", "contextual-input.ts", "contextual-engine.ts", "method-contextual-v02.json"],
+    "impact": "BASE and TOTAL are different targets and cannot share labels or artifacts implicitly. Legacy runtime behavior, model/input/eligibility versions and artifact hashes remain unchanged. This method document has a new version and must not replace any frozen historical manifest.",
+    "migration": "None. No historical salary record, model coefficient, dataset or gate is modified. Only the new standalone conversion contract is available in this step."
+  },
   "reference": {
     "url": "https://salarysport.com/about-us/",
     "reviewDate": "2026-10-08",
@@ -69,7 +92,7 @@
     "limits": "Zero preserved but ineligible for log fitting. Eligibility does not authorize training execution or publication. No real references loaded, no model fitted. Floating-point experimental normalization is not production monetary persistence."
   },
   "commands": {
-    "tests": "npx tsx --test experiments/futscout-wage-v01/engine.test.ts experiments/futscout-wage-v01/reference-eligibility.test.ts",
+    "tests": "npx tsx --test experiments/futscout-wage-v01/annual-gross-total.test.ts experiments/futscout-wage-v01/engine.test.ts experiments/futscout-wage-v01/reference-eligibility.test.ts",
     "typecheck": "npx tsc --noEmit",
     "lint": "npx eslint experiments/futscout-wage-v01/*.ts"
   },
