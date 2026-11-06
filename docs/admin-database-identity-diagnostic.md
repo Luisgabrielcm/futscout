@@ -6,7 +6,20 @@ Este diagnóstico temporário fica no `instrumentation.ts`, sem rota HTTP. Perma
 
 O runtime abre uma transação `REPEATABLE READ READ ONLY` pela sua `DATABASE_URL` e exporta um snapshot. A transação exportadora permanece aberta enquanto a conexão administrativa, autenticada pelo PostgreSQL, abre outra transação somente leitura e importa o snapshot. O PostgreSQL rejeita a importação se as conexões não chegarem ao mesmo banco da mesma instância. O identificador transitório do snapshot passa diretamente entre as duas conexões no mesmo processo Node.js e permanece somente na memória desse processo. Depois da importação, o diagnóstico confere banco e schema. Ambas as transações terminam com `ROLLBACK`, inclusive se ocorrer erro. O diagnóstico não consulta `_prisma_migrations`.
 
-O log privado contém somente `VERIFIED` ou `INCONCLUSIVE`. Não contém URLs, usuários, senhas, tokens, snapshot, nome do banco, schema nem mensagens brutas do driver. Quando a flag está ativa, mas uma condição de ambiente falha ou o módulo não inicia, também há uma linha `INCONCLUSIVE`; não há saída silenciosa. A importação falha de forma fechada se o pooler não aceitar snapshots exportados. Não há transporte pelo navegador, endpoint ou arquivo persistente.
+O log privado contém apenas `VERIFIED` ou `INCONCLUSIVE` e um código fixo da etapa. Não contém URLs, usuários, senhas, tokens, snapshot, nome do banco, schema nem mensagens brutas do driver. Quando a flag está ativa, mas uma condição de ambiente falha ou o módulo não inicia, também há uma linha `INCONCLUSIVE`; não há saída silenciosa. A importação falha de forma fechada se o pooler não aceitar snapshots exportados. Não há transporte pelo navegador, endpoint ou arquivo persistente.
+
+## Códigos internos de falha
+
+| Código | Interpretação segura |
+| --- | --- |
+| `CONFIG_*`, `CONTEXT_INVALID` | Variável ausente, URL administrativa inválida/não dedicada/sem TLS, ou contexto de execução incompatível. |
+| `CONNECT_*_AUTH`, `CONNECT_*` | Autenticação recusada ou conexão indisponível. O erro e a URL não são registrados. |
+| `TX_*`, `READ_ONLY_*` | Transação ou confirmação de modo somente leitura falhou. |
+| `SNAPSHOT_EXPORT`, `SNAPSHOT_FORMAT`, `SNAPSHOT_IMPORT` | Falha na exportação, formato ou importação. `SNAPSHOT_IMPORT` não distingue sozinho instância diferente de limitação do pooler. |
+| `DATABASE_NAME_MISMATCH`, `SCHEMA_MISMATCH` | Nomes diferentes encontrados por consultas somente leitura. Após importação recusada, o nome do banco é verificado em uma segunda transação READ ONLY. Nomes iguais ainda não provam a mesma instância. |
+| `IDENTITY_QUERY`, `STARTUP` | Falha de consulta ou inicialização não classificada. |
+
+O teste com PostgreSQL descartável comprova `VERIFIED` para duas conexões ao mesmo banco e `DATABASE_NAME_MISMATCH` para bancos distintos. Não simula PgBouncer nem comprova a causa do `INCONCLUSIVE` visto na Vercel. A conexão administrativa criada no Prisma continua ativa no provedor após a remoção do secret Vercel; se não for reservada para a futura ativação do painel, revogar exclusivamente essa conexão no Prisma Console.
 
 ## Observabilidade antes da próxima tentativa
 
