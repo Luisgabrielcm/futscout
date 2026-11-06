@@ -10,11 +10,30 @@ export function shouldRunAdminDatabaseIdentityDiagnostic(env: NodeJS.ProcessEnv 
     Boolean(env.DATABASE_URL) && Boolean(env.FUTSCOUT_ADMIN_DATABASE_URL)
 }
 
-export async function register() {
-  if (shouldRunAdminDatabaseIdentityDiagnostic()) {
-    const { runAdminDatabaseIdentityDiagnostic } = await import('./lib/adminDatabaseIdentityDiagnostic.server')
-    await runAdminDatabaseIdentityDiagnostic()
+type IdentityStatus = 'VERIFIED' | 'INCONCLUSIVE'
+
+export function adminDatabaseIdentityLog(status: IdentityStatus) {
+  return JSON.stringify({ diagnostic: 'FUTSCOUT_ADMIN_DATABASE_IDENTITY', identity: status })
+}
+
+export async function registerAdminDatabaseIdentityDiagnostic(
+  env: NodeJS.ProcessEnv,
+  run: () => Promise<IdentityStatus>,
+  emit: (line: string) => void,
+) {
+  if (env.FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC !== '1' || env.NEXT_RUNTIME === 'edge') return
+  let status: IdentityStatus = 'INCONCLUSIVE'
+  if (shouldRunAdminDatabaseIdentityDiagnostic(env)) {
+    try { status = await run() } catch { /* Never surface connection or import errors. */ }
   }
+  emit(adminDatabaseIdentityLog(status))
+}
+
+export async function register() {
+  await registerAdminDatabaseIdentityDiagnostic(process.env, async () => {
+    const { runAdminDatabaseIdentityDiagnostic } = await import('./lib/adminDatabaseIdentityDiagnostic.server')
+    return runAdminDatabaseIdentityDiagnostic()
+  }, (line) => console.log(line))
   if (!shouldRunValueRuntimeRoleDiagnostic()) return
   const { runValueRuntimeRoleDiagnostic } = await import('./experiments/futscout-value-global-v01/runtime-role-diagnostic')
   await runValueRuntimeRoleDiagnostic()

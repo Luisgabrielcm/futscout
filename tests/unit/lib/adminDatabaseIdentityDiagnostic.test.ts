@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { shouldRunAdminDatabaseIdentityDiagnostic } from '../../../instrumentation'
+import { adminDatabaseIdentityLog, registerAdminDatabaseIdentityDiagnostic, shouldRunAdminDatabaseIdentityDiagnostic } from '../../../instrumentation'
 import { compareDatabaseSessions } from '../../../lib/adminDatabaseIdentityDiagnostic.server'
 
 function pair(options: { importFails?: boolean; runtimeReadOnly?: boolean; differentSchema?: boolean } = {}) {
@@ -28,6 +28,25 @@ test('probe is disabled unless explicitly enabled in Production Node runtime wit
     FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC: '1', DATABASE_URL: 'present', FUTSCOUT_ADMIN_DATABASE_URL: 'present' }
   assert.equal(shouldRunAdminDatabaseIdentityDiagnostic(ready), true)
   for (const key of Object.keys(ready)) assert.equal(shouldRunAdminDatabaseIdentityDiagnostic({ ...ready, [key]: '' }), false)
+})
+
+test('local log capture recovers only VERIFIED or INCONCLUSIVE, including failed guards', async () => {
+  const ready = { NODE_ENV: 'production' as const, NEXT_RUNTIME: 'nodejs', VERCEL_ENV: 'production', VERCEL_REGION: 'gru1',
+    FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC: '1', DATABASE_URL: 'private-runtime-url', FUTSCOUT_ADMIN_DATABASE_URL: 'private-admin-url' }
+  const lines: string[] = []
+  await registerAdminDatabaseIdentityDiagnostic(ready, async () => 'VERIFIED', (line) => lines.push(line))
+  await registerAdminDatabaseIdentityDiagnostic({ ...ready, VERCEL_REGION: '' }, async () => {
+    throw Error('must not run')
+  }, (line) => lines.push(line))
+  await registerAdminDatabaseIdentityDiagnostic(ready, async () => { throw Error('private driver error') },
+    (line) => lines.push(line))
+  await registerAdminDatabaseIdentityDiagnostic({ ...ready, FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC: '' },
+    async () => { throw Error('must not run') }, (line) => lines.push(line))
+  await registerAdminDatabaseIdentityDiagnostic({ ...ready, NEXT_RUNTIME: 'edge' },
+    async () => { throw Error('must not run') }, (line) => lines.push(line))
+  assert.deepEqual(lines.map((line) => JSON.parse(line).identity), ['VERIFIED', 'INCONCLUSIVE', 'INCONCLUSIVE'])
+  assert.ok(lines.every((line) => line === adminDatabaseIdentityLog(JSON.parse(line).identity)))
+  assert.ok(lines.every((line) => !/private-runtime-url|private-admin-url|driver error|snapshot/i.test(line)))
 })
 
 test('snapshot import proves same database and both sessions roll back', async () => {

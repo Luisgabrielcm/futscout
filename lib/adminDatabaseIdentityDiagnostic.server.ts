@@ -45,10 +45,10 @@ export async function compareDatabaseSessions(runtime: QueryClient, admin: Query
   }
 }
 
-/** Opt-in startup probe. Only an identity status reaches private Vercel logs. */
-export async function runAdminDatabaseIdentityDiagnostic() {
+/** Opt-in startup probe. Returns only a status; the caller handles private logging. */
+export async function runAdminDatabaseIdentityDiagnostic(): Promise<'VERIFIED' | 'INCONCLUSIVE'> {
   const connectionString = process.env.DATABASE_URL
-  if (!connectionString) return
+  if (!connectionString) return 'INCONCLUSIVE'
   const runtime = new Client({ connectionString, connectionTimeoutMillis: 5000, query_timeout: 5000,
     statement_timeout: 5000, idle_in_transaction_session_timeout: 5000 })
   let admin: PoolClient | undefined
@@ -57,9 +57,9 @@ export async function runAdminDatabaseIdentityDiagnostic() {
     const { adminPool } = await import('../services/adminAuth.server')
     admin = await adminPool().connect()
     const result = await compareDatabaseSessions(runtime, admin)
-    console.info(JSON.stringify({ diagnostic: 'FUTSCOUT_ADMIN_DATABASE_IDENTITY', ...result }))
+    return result.identity
   } catch {
-    console.error(JSON.stringify({ diagnostic: 'FUTSCOUT_ADMIN_DATABASE_IDENTITY', identity: 'INCONCLUSIVE' }))
+    return 'INCONCLUSIVE'
   } finally {
     admin?.release()
     await runtime.end().catch(() => undefined)
