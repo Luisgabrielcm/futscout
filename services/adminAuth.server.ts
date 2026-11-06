@@ -29,6 +29,7 @@ export function adminPool() {
 }
 
 function credentials() {
+  if (process.env.FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC === '1') throw Error('ADMIN_DISABLED_DURING_IDENTITY_DIAGNOSTIC')
   const owner = process.env.FUTSCOUT_ADMIN_OWNER_LOGIN
   const passwordHash = process.env.FUTSCOUT_ADMIN_PASSWORD_HASH
   const totpSecret = process.env.FUTSCOUT_ADMIN_TOTP_SECRET
@@ -74,6 +75,7 @@ export async function loginOwner(request: Request, input: { owner: string; passw
 }
 
 export async function ownerSession(request: Request, mutation = false) {
+  if (process.env.FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC === '1') return null
   const token = readCookie(request, ADMIN_SESSION_COOKIE)
   if (!token || !/^[A-Za-z0-9_-]{40,60}$/.test(token)) return null
   const result = await adminPool().query<{ ownerId: string; csrfHash: string }>(

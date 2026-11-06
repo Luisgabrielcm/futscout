@@ -11,6 +11,7 @@ import * as crypto from "node:crypto"
 import * as domain from "../../lib/adminEconomic"
 import { wagePresentation } from "../../lib/wagePublication"
 import * as auth from "../../lib/adminAuth"
+import { compareDatabaseSessions } from "../../lib/adminDatabaseIdentityDiagnostic.server"
 import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 import { catalogPlayer } from "../fixtures/catalogPlayer"
@@ -52,6 +53,15 @@ try {
   await owner.query("CREATE ROLE sync_test_login LOGIN; GRANT USAGE ON SCHEMA public TO sync_test_login; GRANT SELECT ON \"Player\" TO sync_test_login")
   db = new Pool({ ...config, user: "admin_test_login", max: 3 })
   publicDb = new Pool({ ...config, user: "public_test_login", max: 3 })
+  const publicProbe = await publicDb.connect(), adminProbe = await db.connect()
+  try {
+    assert.deepEqual(await compareDatabaseSessions(publicProbe, adminProbe), { identity: "VERIFIED" })
+    await owner.query("CREATE DATABASE identity_other")
+    const otherDatabase = new Client({ ...config, database: "identity_other" })
+    await otherDatabase.connect()
+    try { await assert.rejects(compareDatabaseSessions(publicProbe, otherDatabase)) }
+    finally { await otherDatabase.end() }
+  } finally { publicProbe.release(); adminProbe.release() }
   const pool = db
   const readerPool = publicDb
   const salt = "b".repeat(32), password = "disposable owner password"
@@ -66,6 +76,11 @@ try {
     ownerSession: (request: Request, mutation?: boolean) => Promise<{ owner: string; tokenHash: string } | null>
     revokeSession: (tokenHash: string) => Promise<void>
   }>("services/adminAuth.server.ts", { "server-only": {}, pg: { Pool: class { constructor() { return pool } } }, "../lib/adminAuth": auth }, { process, URL })
+  process.env.FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC = "1"
+  await assert.rejects(authService.loginOwner(new Request("https://futscout.test/admin/api/login"),
+    { owner: "owner@test.invalid", password, totp: "000000" }), /ADMIN_DISABLED_DURING_IDENTITY_DIAGNOSTIC/)
+  assert.equal(await authService.ownerSession(new Request("https://futscout.test/admin/api/players")), null)
+  delete process.env.FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC
   process.env.DATABASE_URL = process.env.FUTSCOUT_ADMIN_DATABASE_URL!.replace("127.0.0.1", "localhost")
   assert.throws(() => authService.adminPool(), /ADMIN_CONNECTION_NOT_DEDICATED/)
   delete process.env.DATABASE_URL
