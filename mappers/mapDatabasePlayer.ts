@@ -382,7 +382,7 @@ function mapPlayStyles(
 
 export type PlayerProfile =
   | { status: "ready"; player: Player }
-  | { status: "incomplete"; name: string }
+  | { status: "incomplete"; id: string; name: string }
 
 function mapGoalkeeperAttributes(
   attributes: DatabasePlayer["goalkeeperAttributes"],
@@ -402,7 +402,7 @@ function mapGoalkeeperAttributes(
 // Keep the complete catalog DTO strict; do not invent attributes for a partial row.
 export function mapDatabasePlayerProfile(databasePlayer: DatabasePlayer): PlayerProfile {
   if (!databasePlayer.attributes) {
-    return { status: "incomplete", name: databasePlayer.name }
+    return { status: "incomplete", id: databasePlayer.id, name: databasePlayer.name }
   }
   return { status: "ready", player: mapDatabasePlayer(databasePlayer) }
 }

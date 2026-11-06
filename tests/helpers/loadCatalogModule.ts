@@ -24,6 +24,8 @@ import * as playerExperience from "../../lib/i18n/playerExperience"
 import * as realStatistics from "../../lib/realStatistics"
 import * as nationalityDirectory from "../../lib/nationalityDirectory"
 import * as careerPresentation from "../../lib/playerCareerPresentation"
+import * as wagePublication from "../../lib/wagePublication"
+import * as wageClassification from "../../lib/wageClassification"
 import * as visualAssets from "../../lib/visualAssets"
 import * as assetPipeline from "../../lib/assetPipeline"
 import * as brandSources from "../../lib/brackBrandSource"
@@ -39,7 +41,7 @@ import { createElement, type ReactNode } from "react"
 
 // Compile TSX in memory using React's automatic runtime, without starting Next.
 // Every runtime dependency must be supplied explicitly: no DB/env/network imports.
-export function loadCatalogModule<T>(path: string, dependencies: Record<string, unknown>): T {
+export function loadCatalogModule<T>(path: string, dependencies: Record<string, unknown>, globals: Record<string, unknown> = {}): T {
   const fileName = resolve(path)
   const { outputText } = ts.transpileModule(readFileSync(fileName, "utf8"), {
     fileName,
@@ -75,6 +77,9 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/realStatistics": realStatistics,
       "lib/nationalityDirectory": nationalityDirectory,
       "lib/playerCareerPresentation": careerPresentation,
+      "lib/wagePublication": wagePublication,
+      "lib/wageClassification": wageClassification,
+      "./wageClassification": wageClassification,
       "lib/visualAssets": visualAssets,
       "lib/assetPipeline": assetPipeline,
       "lib/brackBrandSource": brandSources,
@@ -88,6 +93,9 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
     }
     const pureName = name.replace(/^(?:\.\.\/)+/, "")
     if (Object.hasOwn(presentation, pureName)) return presentation[pureName]
+    if (name.endsWith("/adminEconomic.server") && !Object.hasOwn(allowed, name)) return {
+      readManualEconomics: async () => new Map(), manualWage: () => undefined,
+    }
     // Shared UI runs for real, with a strict finite list, never services.
     const component = name.split("/").at(-1)
     if (!Object.hasOwn(allowed, name) && component && ["EstimatedValueNote", "PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "PlayerCurrentStatistics", "PlayerSeasonStatistics", "PlayerExperienceNav", "LeagueLogo", "ClubLogo", "ClubBadge", "BrandAssetFallback"].includes(component)) {
@@ -104,6 +112,7 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
     return allowed[name]
   }
   runInNewContext(outputText, {
+    ...globals,
     module: compiledModule, exports: compiledModule.exports, require: requireFake,
   }, { timeout: 5000 })
   return compiledModule.exports as T

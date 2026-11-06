@@ -1,0 +1,35 @@
+# Painel econômico privado
+
+Implementação local: `/admin`. O login exige a conta do proprietário, senha forte e TOTP; todas as operações consultam a sessão no servidor. A edição exige `FUTSCOUT_ADMIN_DATABASE_URL` separada de `DATABASE_URL` e `DIRECT_URL`; não há fallback. A sessão de banco do painel usa TLS em Production.
+
+## Bloqueador do provedor
+
+O Production atual usa Prisma Postgres. Segundo a [FAQ oficial](https://www.prisma.io/docs/postgres/faq#can-i-create-my-own-database-roles), ele não permite `CREATE ROLE`. A [documentação de conexões](https://www.prisma.io/docs/postgres/database/connecting-to-your-database#access-and-permissions) afirma que todas as credenciais do mesmo banco têm acesso integral; senhas distintas não oferecem privilégios SQL distintos. Portanto, `prisma/admin-economic-role.candidate.sql` é válido apenas no ensaio PostgreSQL descartável ou em outro provedor que suporte roles. **Não executá-lo no Prisma Postgres Production.** Tampouco é possível conceder SELECT somente à view para a credencial pública atual nesse provedor.
+
+O proprietário escolheu manter Prisma Postgres e aceitou o isolamento na aplicação com credencial exclusiva para o painel, ciente de que ela terá acesso integral ao banco. Essa decisão resolve a escolha de arquitetura, mas não comprova a identidade do banco do runtime nem o estado das migrations. Nenhuma credencial foi criada nesta preparação.
+
+## Estado desta preparação
+
+- O checkout de origem `beta-next` contém alterações locais de Value e Wage. Este worktree isolado contém somente o painel, as leituras públicas manuais e os contratos puros de apresentação salarial (`lib/wagePublication.ts` e `lib/wageClassification.ts`); não contém o leitor, a publicação ou as migrations Wage.
+- No checkout de origem, as migrations locais de novembro são `20261102000000_wage_strategy_a_release`, `20261104000000_wage_reference_classification` e `20261106000000_manual_economic_admin`. Este worktree contém apenas a última. O estado aplicado em Production é **desconhecido** até uma consulta READ ONLY a `_prisma_migrations` no database ID comprovadamente usado pelo runtime Production. A URL `DIRECT_URL` local, por si só, não comprova esse vínculo.
+- O SQL da migration do painel depende de `Player`, não das tabelas Wage; tecnicamente pode ser aplicado isoladamente após conferir schema real, checksum e histórico. Não usar `prisma migrate deploy` com as migrations Wage pendentes no diretório, pois ele as aplicará também.
+
+Pacote isolado: `app/admin/`, `lib/adminAuth.ts`, `lib/adminEconomic.ts`, os dois contratos puros de apresentação, `services/adminAuth.server.ts`, `services/adminEconomic.server.ts`, `prisma/migrations/20261106000000_manual_economic_admin/`, a parte correspondente de `prisma/schema.prisma`, as leituras públicas de perfil, cards, busca e seleção e os testes correspondentes. O SQL `prisma/admin-economic-role.candidate.sql` existe apenas para o ensaio descartável; nunca executar em Prisma Postgres Production.
+
+## Instalação futura em Production
+
+Esta etapa não aplica a migration nem publica o código. Para ativar, após autorização específica:
+
+1. Confirmar o ID do recurso Prisma utilizado pelo runtime Production e um backup fresco e restaurável de `Player` e das tabelas econômicas. Registrar contagens antes da instalação. Nenhuma linha de salário existente precisa ser alterada.
+2. Consultar `_prisma_migrations` em transação READ ONLY e comparar nomes, `finished_at`, `rolled_back_at` e checksum com as migrations versionadas. `prisma migrate deploy` aplica **todas** as migrations pendentes no diretório; não executá-lo enquanto houver migrations Wage não aprovadas. Após autorização produtiva, preparar um artefato limpo contendo apenas o histórico aplicado e a migration do painel e validar `npx prisma migrate status` antes de `npx prisma migrate deploy`. É aditiva: cria revisões, heads, view pública e tabelas de autenticação, além de índice de identidade em `Player`. Validar schema, view, triggers e contagens; observar o lock breve necessário ao índice de `Player`.
+3. **Não aplicar** `prisma/admin-economic-role.candidate.sql` no Prisma Postgres. Criar pela Console uma credencial **pooled** exclusiva para o painel, vinculada ao mesmo database ID verificado. Configurar somente em Production `FUTSCOUT_ADMIN_DATABASE_URL`, `FUTSCOUT_ADMIN_OWNER_LOGIN`, `FUTSCOUT_ADMIN_PASSWORD_HASH` (`scrypt`, formato `saltHex:hashHex`) e `FUTSCOUT_ADMIN_TOTP_SECRET` (base32 de 20 bytes). O código rejeita a reutilização da senha das URLs pública e administrativa. Gerar senha e segredo em canal privado e cadastrar o TOTP no autenticador do proprietário; não guardar valores no Git ou em logs. Exigir HTTPS, `sslmode=require` e sessão de 30 minutos.
+5. Revisar o commit isolado do painel, autenticação, leitura pública, schema/migration e testes correspondentes. Não publicar o checkout de origem com outras alterações Value/Wage. Exigir CI e build verdes no commit exato antes do deploy.
+6. Após autorização de deploy, publicar somente o código revisado. Abrir `/admin`, autenticar e ensaiar uma edição autorizada. Confirmar leitura pública de salário, vencimento e cláusula em PT/EN, cards e busca; simular o writer automático e verificar a prioridade manual. Cada edição posterior deve aparecer na próxima leitura pública sem outro deploy.
+
+Cada gravação exige `Player.id` e ID EA, revisão esperada e requestId, usa transação serializável e preserva uma revisão imutável. O painel só retorna sucesso depois do commit, leitura pública da revisão e invalidação de cache. Se a confirmação falhar, consultar a revisão atual antes de repetir a operação. Para desfazer um campo, usar **Restaurar esta revisão** no painel; isso cria uma nova revisão, sem apagar o histórico.
+
+## Rollback operacional
+
+Se a instalação ou o deploy falhar, interromper o acesso ao painel e voltar o deployment anterior; não apagar as novas tabelas nem desabilitar seus guards. Remover as variáveis exclusivas de Production, invalidar sessões `AdminSession` em procedimento autorizado e revogar a credencial dedicada na Console depois de drenar as instâncias. A exclusão da credencial pode não encerrar sessões PostgreSQL já abertas; confirmar drenagem, sem tratá-la como revogação retroativa. O código público anterior continua lendo seus valores existentes. Revisar as revisões do painel e corrigir individualmente após a recuperação. A restauração integral de banco requer procedimento separado e autorização específica.
+
+O painel não publica sozinho uma migration: sem role, variáveis e deploy autorizados ele permanece inativo. A edição manual não reescreve `WagePublicationRelease`; sua precedência ocorre nas leituras públicas pela revisão em `AdminEconomicHead`, preservando os 16.228 salários e a fonte histórica.

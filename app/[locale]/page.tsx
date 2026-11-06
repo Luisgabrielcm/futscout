@@ -100,6 +100,8 @@ export default async function Home({ params }: { params?: Promise<{ locale: stri
             {players.map(
               (player) => (
                 <PlayerCard locale={locale}
+                  id={player.id}
+                  wage={player.wage}
                   key={player.id}
                   slug={player.slug}
                   name={player.name}

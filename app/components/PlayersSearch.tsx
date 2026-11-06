@@ -1281,6 +1281,8 @@ export default function PlayersSearch({ locale = "pt",
           players.map(
             (player) => (
               <PlayerCard locale={locale}
+                id={player.id}
+                wage={player.wage}
                 key={
                   player.id
                 }
