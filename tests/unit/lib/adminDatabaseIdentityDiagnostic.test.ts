@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { adminDatabaseIdentityContextFailure, adminDatabaseIdentityLog, registerAdminDatabaseIdentityDiagnostic, shouldRunAdminDatabaseIdentityDiagnostic } from '../../../instrumentation'
+import { adminDatabaseIdentityContextFailure, adminDatabaseIdentityLog, isNodeJsProcess, registerAdminDatabaseIdentityDiagnostic, shouldRunAdminDatabaseIdentityDiagnostic } from '../../../instrumentation'
 import { compareDatabaseSessions, runAdminDatabaseIdentityDiagnostic } from '../../../lib/adminDatabaseIdentityDiagnostic.server'
 
 function pair(options: { importFails?: boolean; runtimeReadOnly?: boolean; differentSchema?: boolean;
@@ -30,14 +30,19 @@ function pair(options: { importFails?: boolean; runtimeReadOnly?: boolean; diffe
   return { runtime, admin, runtimeSql, adminSql }
 }
 
-test('probe requires flag, Production Node context and both connections, but not region', () => {
+test('probe requires flag and real Node.js Production context, not a NEXT_RUNTIME value or region', () => {
   const ready = { NODE_ENV: 'production' as const, NEXT_RUNTIME: 'nodejs', VERCEL_ENV: 'production',
     FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC: '1', DATABASE_URL: 'present', FUTSCOUT_ADMIN_DATABASE_URL: 'present' }
   assert.equal(shouldRunAdminDatabaseIdentityDiagnostic(ready), true)
+  assert.equal(isNodeJsProcess(), true)
   assert.equal(shouldRunAdminDatabaseIdentityDiagnostic({ ...ready, VERCEL_REGION: '' }), true)
-  for (const key of Object.keys(ready)) assert.equal(shouldRunAdminDatabaseIdentityDiagnostic({ ...ready, [key]: '' }), false)
+  assert.equal(shouldRunAdminDatabaseIdentityDiagnostic({ ...ready, NEXT_RUNTIME: undefined }), true)
+  assert.equal(shouldRunAdminDatabaseIdentityDiagnostic({ ...ready, NEXT_RUNTIME: 'other' }), true)
+  for (const key of Object.keys(ready).filter((key) => key !== 'NEXT_RUNTIME'))
+    assert.equal(shouldRunAdminDatabaseIdentityDiagnostic({ ...ready, [key]: '' }), false)
   assert.equal(adminDatabaseIdentityContextFailure({ ...ready, NODE_ENV: '' as never }), 'CONTEXT_NODE_ENV')
-  assert.equal(adminDatabaseIdentityContextFailure({ ...ready, NEXT_RUNTIME: '' }), 'CONTEXT_NEXT_RUNTIME')
+  assert.equal(adminDatabaseIdentityContextFailure({ ...ready, NEXT_RUNTIME: 'edge' }), 'CONTEXT_EDGE_RUNTIME')
+  assert.equal(adminDatabaseIdentityContextFailure(ready, false), 'CONTEXT_NOT_NODE')
   assert.equal(adminDatabaseIdentityContextFailure({ ...ready, VERCEL_ENV: '' }), 'CONTEXT_VERCEL_ENV')
   assert.equal(adminDatabaseIdentityContextFailure({ ...ready, DATABASE_URL: '' }), 'CONFIG_RUNTIME_MISSING')
   assert.equal(adminDatabaseIdentityContextFailure({ ...ready, FUTSCOUT_ADMIN_DATABASE_URL: '' }), 'CONFIG_ADMIN_MISSING')
@@ -50,18 +55,21 @@ test('local log capture recovers only VERIFIED or INCONCLUSIVE, including failed
   await registerAdminDatabaseIdentityDiagnostic(ready, async () => ({ identity: 'VERIFIED', code: 'VERIFIED' }), (line) => lines.push(line))
   await registerAdminDatabaseIdentityDiagnostic({ ...ready, VERCEL_REGION: '' }, async () => ({ identity: 'VERIFIED', code: 'VERIFIED' }),
     (line) => lines.push(line))
+  await registerAdminDatabaseIdentityDiagnostic({ ...ready, NEXT_RUNTIME: undefined },
+    async () => ({ identity: 'VERIFIED', code: 'VERIFIED' }), (line) => lines.push(line))
   for (const [env, code] of [
     [{ ...ready, NODE_ENV: '' as never }, 'CONTEXT_NODE_ENV'],
-    [{ ...ready, NEXT_RUNTIME: '' }, 'CONTEXT_NEXT_RUNTIME'],
     [{ ...ready, VERCEL_ENV: '' }, 'CONTEXT_VERCEL_ENV'],
     [{ ...ready, DATABASE_URL: '' }, 'CONFIG_RUNTIME_MISSING'],
     [{ ...ready, FUTSCOUT_ADMIN_DATABASE_URL: '' }, 'CONFIG_ADMIN_MISSING'],
   ] as const) {
     await registerAdminDatabaseIdentityDiagnostic(env, async () => {
-    throw Error('must not run')
+      throw Error('must not run')
     }, (line) => lines.push(line))
     assert.equal(JSON.parse(lines.at(-1)!).code, code)
   }
+  await registerAdminDatabaseIdentityDiagnostic(ready, async () => { throw Error('must not run') },
+    (line) => lines.push(line), false)
   await registerAdminDatabaseIdentityDiagnostic(ready, async () => { throw Error('private driver error') },
     (line) => lines.push(line))
   await registerAdminDatabaseIdentityDiagnostic({ ...ready, FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC: '' },
@@ -69,8 +77,8 @@ test('local log capture recovers only VERIFIED or INCONCLUSIVE, including failed
   await registerAdminDatabaseIdentityDiagnostic({ ...ready, NEXT_RUNTIME: 'edge' },
     async () => { throw Error('must not run') }, (line) => lines.push(line))
   assert.deepEqual(lines.map((line) => JSON.parse(line).code),
-    ['VERIFIED', 'VERIFIED', 'CONTEXT_NODE_ENV', 'CONTEXT_NEXT_RUNTIME', 'CONTEXT_VERCEL_ENV',
-      'CONFIG_RUNTIME_MISSING', 'CONFIG_ADMIN_MISSING', 'STARTUP'])
+    ['VERIFIED', 'VERIFIED', 'VERIFIED', 'CONTEXT_NODE_ENV', 'CONTEXT_VERCEL_ENV',
+      'CONFIG_RUNTIME_MISSING', 'CONFIG_ADMIN_MISSING', 'CONTEXT_NOT_NODE', 'STARTUP'])
   assert.ok(lines.every((line) => line === adminDatabaseIdentityLog(JSON.parse(line))))
   assert.ok(lines.every((line) => !/private-runtime-url|private-admin-url|driver error|snapshot/i.test(line)))
 })

@@ -13,7 +13,8 @@ O log privado contém apenas `VERIFIED` ou `INCONCLUSIVE` e um código fixo da e
 | Código | Interpretação segura |
 | --- | --- |
 | `CONFIG_*` | Variável ausente ou URL administrativa inválida/não dedicada/sem TLS. |
-| `CONTEXT_NODE_ENV`, `CONTEXT_NEXT_RUNTIME`, `CONTEXT_VERCEL_ENV` | A condição correspondente não identificou Production no runtime Node.js. Nenhum desses códigos executa SQL. |
+| `CONTEXT_NODE_ENV`, `CONTEXT_VERCEL_ENV` | A condição correspondente não identificou Production. Nenhum desses códigos executa SQL. |
+| `CONTEXT_EDGE_RUNTIME`, `CONTEXT_NOT_NODE` | Edge é rejeitado explicitamente; outro ambiente sem sinais positivos do processo Node.js também é rejeitado. Nenhum deles executa SQL. |
 | `CONNECT_*_AUTH`, `CONNECT_*` | Autenticação recusada ou conexão indisponível. O erro e a URL não são registrados. |
 | `TX_*`, `READ_ONLY_*` | Transação ou confirmação de modo somente leitura falhou. |
 | `SNAPSHOT_EXPORT`, `SNAPSHOT_FORMAT`, `SNAPSHOT_IMPORT` | Falha na exportação, formato ou importação. `SNAPSHOT_IMPORT` não distingue sozinho instância diferente de limitação do pooler. |
@@ -22,7 +23,7 @@ O log privado contém apenas `VERIFIED` ou `INCONCLUSIVE` e um código fixo da e
 
 O teste com PostgreSQL descartável comprova `VERIFIED` para duas conexões ao mesmo banco e `DATABASE_NAME_MISMATCH` para bancos distintos. Não simula PgBouncer nem comprova a causa do `INCONCLUSIVE` visto na Vercel. A conexão administrativa e o Secret de Production são configurações permanentes do painel; não os remover após o diagnóstico, salvo falha de segurança ou revogação expressa.
 
-`VERCEL_REGION` não participa mais do guard deste diagnóstico: região é metadado de localização e sua presença não comprova Production nem autorização. A segurança continua exigindo flag explícita, `NODE_ENV=production`, `NEXT_RUNTIME=nodejs`, `VERCEL_ENV=production` e ambas as conexões. O diagnóstico de role Value possui guard próprio e não foi alterado.
+`VERCEL_REGION` não participa do guard deste diagnóstico: região é metadado de localização e sua presença não comprova Production nem autorização. O resultado `CONTEXT_NEXT_RUNTIME` anterior mostrou que `NEXT_RUNTIME` não era `nodejs` na Function observada, mas não revelou seu valor. O guard agora rejeita `NEXT_RUNTIME=edge` e exige sinais positivos do processo Node.js (`process.release.name` e `process.versions.node`); aceita `NEXT_RUNTIME` ausente ou outro valor somente com esses sinais. Permanecem obrigatórios flag explícita, `NODE_ENV=production`, `VERCEL_ENV=production` e ambas as conexões. O diagnóstico de role Value possui guard próprio e não foi alterado.
 
 ## Observabilidade antes da próxima tentativa
 
