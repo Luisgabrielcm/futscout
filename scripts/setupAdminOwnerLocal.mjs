@@ -3,6 +3,7 @@
 import { randomBytes, scryptSync, createHmac } from "node:crypto"
 import readline from "node:readline"
 import { Writable } from "node:stream"
+import { spawnSync } from "node:child_process"
 
 if (!process.stdin.isTTY || !process.stdout.isTTY) {
   process.stderr.write("Execute em um terminal interativo local.\n")
@@ -48,6 +49,17 @@ function totp(bytes, time = Date.now()) {
   const offset = mac[mac.length - 1] & 15
   return String((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, "0")
 }
+let clipboardUsed = false
+function clipboard(value) {
+  const result = spawnSync("clip.exe", [], { input: value, timeout: 3000,
+    stdio: ["pipe", "ignore", "ignore"], windowsHide: true })
+  if (result.status !== 0) throw Error("Área de transferência indisponível. Nenhuma credencial foi exibida.")
+  clipboardUsed = true
+}
+async function pasteStep(label, value) {
+  clipboard(value)
+  await question(`${label} copiado. Cole no campo Secret da Vercel Production, salve e pressione Enter aqui. `)
+}
 
 try {
   const owner = (await question("Login exclusivo do proprietário (email): ")).trim()
@@ -63,18 +75,27 @@ try {
   const hash = scryptSync(password, salt, 32)
   const secretBytes = randomBytes(20)
   const secret = base32(secretBytes)
-  process.stdout.write("\nConfigure estes valores na Vercel como Secret, somente em Production. Não os envie ao Codex:\n")
-  process.stdout.write(`FUTSCOUT_ADMIN_OWNER_LOGIN=${owner}\n`)
-  process.stdout.write(`FUTSCOUT_ADMIN_PASSWORD_HASH=${salt.toString("hex")}:${hash.toString("hex")}\n`)
-  process.stdout.write(`FUTSCOUT_ADMIN_TOTP_SECRET=${secret}\n`)
-  process.stdout.write("\nCadastre o segredo TOTP no seu aplicativo autenticador (30 segundos, SHA1, 6 dígitos).\n")
+  process.stdout.write("\nOs valores serão copiados um por vez; nenhum será exibido.\n")
+  clipboard(secret)
+  await question("Segredo TOTP copiado. Cole no autenticador (30 segundos, SHA1, 6 dígitos) e pressione Enter aqui. ")
   const code = (await hidden("Digite o código atual do autenticador para validar (entrada oculta): ")).trim()
   const now = Date.now()
   if (![now - 30_000, now, now + 30_000].some(t => totp(secretBytes, t) === code)) throw Error("Código TOTP não conferiu. Não configure as variáveis; execute novamente.")
-  process.stdout.write("MFA validado localmente. Feche este terminal após cadastrar as três variáveis.\n")
+  process.stdout.write("MFA validado. Configure as três variáveis como Secret, somente em Production.\n")
+  await pasteStep("FUTSCOUT_ADMIN_OWNER_LOGIN", owner)
+  await pasteStep("FUTSCOUT_ADMIN_PASSWORD_HASH", `${salt.toString("hex")}:${hash.toString("hex")}`)
+  await pasteStep("FUTSCOUT_ADMIN_TOTP_SECRET", secret)
+  process.stdout.write("Configuração manual concluída. Nenhum deploy foi executado.\n")
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : "Falha local."}\n`)
   process.exitCode = 1
 } finally {
+  if (process.platform === "win32" && clipboardUsed) {
+    try { clipboard(" ") } catch {
+      process.stderr.write("Não foi possível limpar a área de transferência; limpe-a manualmente.\n")
+    }
+  }
   rl.close()
+  process.stdin.pause()
+  process.exit(process.exitCode ?? 0)
 }
