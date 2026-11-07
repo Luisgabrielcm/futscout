@@ -2,23 +2,28 @@
 // Run in the owner's own terminal. This script never writes credentials to disk.
 import { randomBytes, scryptSync, createHmac } from "node:crypto"
 import readline from "node:readline"
+import { Writable } from "node:stream"
 
 if (!process.stdin.isTTY || !process.stdout.isTTY) {
   process.stderr.write("Execute em um terminal interativo local.\n")
   process.exit(1)
 }
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true })
+let muted = false
+const output = new Writable({ write(chunk, _encoding, done) {
+  if (!muted) process.stdout.write(chunk)
+  done()
+} })
+output.columns = process.stdout.columns
+const rl = readline.createInterface({ input: process.stdin, output, terminal: true })
 const question = (prompt) => new Promise(resolve => rl.question(prompt, resolve))
 function hidden(prompt) {
   return new Promise(resolve => {
     process.stdout.write(prompt)
-    const original = rl._writeToOutput
-    rl._writeToOutput = function (value) {
-      if (value === "\r\n" || value === "\n") process.stdout.write(value)
-    }
-    rl.question(prompt, answer => {
-      rl._writeToOutput = original
+    muted = true
+    rl.question("", answer => {
+      muted = false
+      process.stdout.write("\n")
       resolve(answer)
     })
   })
@@ -50,6 +55,10 @@ try {
   const password = await hidden("Senha forte (entrada oculta): ")
   const confirmation = await hidden("Repita a senha (entrada oculta): ")
   if (password !== confirmation || password.length < 16 || password.length > 1024) throw Error("As senhas devem coincidir e ter de 16 a 1024 caracteres.")
+  if (process.argv.includes("--check-input-only")) {
+    process.stdout.write("Captura e confirmação da senha: OK. Nenhuma credencial foi gerada.\n")
+    process.exit(0)
+  }
   const salt = randomBytes(16)
   const hash = scryptSync(password, salt, 32)
   const secretBytes = randomBytes(20)
