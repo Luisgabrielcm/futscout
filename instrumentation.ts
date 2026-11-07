@@ -1,14 +1,21 @@
 // Temporary, opt-in server diagnostic. No HTTP route and no work by default.
-import type { IdentityDiagnosticOutcome } from './lib/adminDatabaseIdentityDiagnostic.server'
+import type { IdentityDiagnosticCode, IdentityDiagnosticOutcome } from './lib/adminDatabaseIdentityDiagnostic.server'
 export function shouldRunValueRuntimeRoleDiagnostic(env: NodeJS.ProcessEnv = process.env) {
   return env.NEXT_RUNTIME === 'nodejs' && env.VERCEL_ENV === 'production' &&
     Boolean(env.VERCEL_REGION) && env.FUTSCOUT_VALUE_ROLE_DIAGNOSTIC === '1'
 }
 
+export function adminDatabaseIdentityContextFailure(env: NodeJS.ProcessEnv): IdentityDiagnosticCode | null {
+  if (env.NODE_ENV !== 'production') return 'CONTEXT_NODE_ENV'
+  if (env.NEXT_RUNTIME !== 'nodejs') return 'CONTEXT_NEXT_RUNTIME'
+  if (env.VERCEL_ENV !== 'production') return 'CONTEXT_VERCEL_ENV'
+  if (!env.DATABASE_URL) return 'CONFIG_RUNTIME_MISSING'
+  if (!env.FUTSCOUT_ADMIN_DATABASE_URL) return 'CONFIG_ADMIN_MISSING'
+  return null
+}
+
 export function shouldRunAdminDatabaseIdentityDiagnostic(env: NodeJS.ProcessEnv = process.env) {
-  return env.NODE_ENV === 'production' && env.NEXT_RUNTIME === 'nodejs' && env.VERCEL_ENV === 'production' &&
-    Boolean(env.VERCEL_REGION) && env.FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC === '1' &&
-    Boolean(env.DATABASE_URL) && Boolean(env.FUTSCOUT_ADMIN_DATABASE_URL)
+  return env.FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC === '1' && adminDatabaseIdentityContextFailure(env) === null
 }
 
 export function adminDatabaseIdentityLog(result: IdentityDiagnosticOutcome) {
@@ -21,10 +28,9 @@ export async function registerAdminDatabaseIdentityDiagnostic(
   emit: (line: string) => void,
 ) {
   if (env.FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC !== '1' || env.NEXT_RUNTIME === 'edge') return
-  let result: IdentityDiagnosticOutcome = { identity: 'INCONCLUSIVE', code: 'CONTEXT_INVALID' }
-  if (!env.DATABASE_URL) result = { identity: 'INCONCLUSIVE', code: 'CONFIG_RUNTIME_MISSING' }
-  else if (!env.FUTSCOUT_ADMIN_DATABASE_URL) result = { identity: 'INCONCLUSIVE', code: 'CONFIG_ADMIN_MISSING' }
-  if (shouldRunAdminDatabaseIdentityDiagnostic(env)) {
+  const contextCode = adminDatabaseIdentityContextFailure(env)
+  let result: IdentityDiagnosticOutcome = { identity: 'INCONCLUSIVE', code: contextCode ?? 'STARTUP' }
+  if (contextCode === null) {
     try { result = await run() }
     catch { result = { identity: 'INCONCLUSIVE', code: 'STARTUP' } }
   }
