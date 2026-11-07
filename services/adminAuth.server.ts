@@ -4,12 +4,15 @@ import { ADMIN_CSRF_COOKIE, ADMIN_SESSION_COOKIE, randomToken, readCookie, sameO
 
 let pool: Pool | undefined
 function credentialIdentity(value: string) {
-  const parsed = new URL(value)
+  let parsed: URL
+  try { parsed = new URL(value) }
+  catch { throw Error("ADMIN_CONNECTION_INVALID") }
   if (!["postgres:", "postgresql:"].includes(parsed.protocol) || !parsed.username ||
       (process.env.NODE_ENV === "production" && !parsed.password)) {
     throw Error("ADMIN_CONNECTION_INVALID")
   }
-  return `${decodeURIComponent(parsed.username)}\0${decodeURIComponent(parsed.password)}`
+  try { return `${decodeURIComponent(parsed.username)}\0${decodeURIComponent(parsed.password)}` }
+  catch { throw Error("ADMIN_CONNECTION_INVALID") }
 }
 
 export function adminPool() {
@@ -23,8 +26,9 @@ export function adminPool() {
       !["require", "verify-ca", "verify-full"].includes(new URL(url).searchParams.get("sslmode") ?? "")) {
     throw Error("ADMIN_CONNECTION_TLS_REQUIRED")
   }
-  if (!pool) pool = new Pool({ connectionString: url, max: 3, connectionTimeoutMillis: 5000, statement_timeout: 10000,
-    idle_in_transaction_session_timeout: 5000 })
+  // Keep the pooled Prisma Postgres startup packet compatible with the public PrismaPg pool.
+  if (!pool) pool = new Pool({ connectionString: url, max: 3, connectionTimeoutMillis: 10000,
+    query_timeout: 10000 })
   return pool
 }
 

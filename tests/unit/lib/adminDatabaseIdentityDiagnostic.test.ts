@@ -141,6 +141,8 @@ test('configuration and connection stages produce only fixed internal codes', as
   assert.equal((await runAdminDatabaseIdentityDiagnostic({ env, createRuntimePool: () => runtimePool() as never,
     connectAdmin: async () => { throw Error('ADMIN_CONNECTION_TLS_REQUIRED') } })).code, 'CONFIG_ADMIN_TLS')
   assert.equal((await runAdminDatabaseIdentityDiagnostic({ env, createRuntimePool: () => runtimePool() as never,
+    connectAdmin: async () => { throw Error('ADMIN_CONNECTION_INVALID') } })).code, 'CONFIG_ADMIN_INVALID')
+  assert.equal((await runAdminDatabaseIdentityDiagnostic({ env, createRuntimePool: () => runtimePool() as never,
     connectAdmin: async () => { throw { code: '28P01', message: 'private password' } } })).code, 'CONNECT_ADMIN_AUTH')
 })
 
@@ -148,9 +150,12 @@ test('connection failures use fixed categories without leaking driver messages',
   const failures = [
     [{ code: 'EAI_AGAIN', message: 'private host' }, 'DNS'],
     [{ code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE', message: 'private certificate' }, 'TLS'],
+    [{ message: 'self-signed certificate in private chain' }, 'TLS'],
     [{ message: 'Connection terminated due to connection timeout' }, 'TIMEOUT'],
     [{ message: 'private pgbouncer failure' }, 'POOLER'],
+    [{ code: '08P01', message: 'unsupported startup parameter: statement_timeout' }, 'POOLER'],
     [{ code: 'ECONNRESET', message: 'private host' }, 'NETWORK'],
+    [{ cause: { code: 'ECONNREFUSED', message: 'private host' } }, 'NETWORK'],
     [{ code: 'ERR_INVALID_URL', message: 'private URL' }, 'CONFIG'],
     [{ message: 'private unclassified error' }, 'UNKNOWN'],
   ] as const

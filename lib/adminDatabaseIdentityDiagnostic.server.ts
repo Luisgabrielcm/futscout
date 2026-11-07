@@ -29,20 +29,24 @@ function codeFrom(error: unknown): IdentityDiagnosticCode {
 }
 
 export function connectionCode(error: unknown, side: ConnectionSide): IdentityDiagnosticCode {
-  const fields = error as { code?: unknown; message?: unknown } | null
-  const code = typeof fields?.code === 'string' ? fields.code.toUpperCase() : ''
+  const fields = error as { code?: unknown; message?: unknown; cause?: unknown } | null
+  const cause = fields?.cause as { code?: unknown; message?: unknown } | null
+  const code = typeof fields?.code === 'string' ? fields.code.toUpperCase() :
+    typeof cause?.code === 'string' ? cause.code.toUpperCase() : ''
   // Only fixed categories leave this function. Driver messages and URLs never reach logs.
-  const message = typeof fields?.message === 'string' ? fields.message : ''
-  if (['28P01', '28000'].includes(code)) return `CONNECT_${side}_AUTH`
+  const message = [fields?.message, cause?.message].filter((value): value is string => typeof value === 'string').join(' ')
+  if (['28P01', '28000'].includes(code) || /password authentication failed|authentication failed|no password supplied/i.test(message))
+    return `CONNECT_${side}_AUTH`
   if (['ENOTFOUND', 'EAI_AGAIN'].includes(code) || /getaddrinfo|name resolution/i.test(message))
     return `CONNECT_${side}_DNS`
   if (['ERR_TLS_CERT_ALTNAME_INVALID', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
     'DEPTH_ZERO_SELF_SIGNED_CERT', 'SELF_SIGNED_CERT_IN_CHAIN', 'CERT_HAS_EXPIRED'].includes(code) ||
-    /(?:SSL|TLS|certificate).*(?:verify|expired|self.signed|invalid)/i.test(message))
+    /self.signed|certificate|unable to verify|SSL|TLS/i.test(message))
     return `CONNECT_${side}_TLS`
   if (['ETIMEDOUT', 'ETIMEOUT'].includes(code) || /connection timeout|timed out/i.test(message))
     return `CONNECT_${side}_TIMEOUT`
-  if (/pooler|pgbouncer|transaction pooling/i.test(message)) return `CONNECT_${side}_POOLER`
+  if (/pooler|pgbouncer|transaction pooling|unsupported startup parameter/i.test(message))
+    return `CONNECT_${side}_POOLER`
   if (['ECONNREFUSED', 'ECONNRESET', 'EPIPE', 'ENETUNREACH', 'EHOSTUNREACH', '08001', '08006'].includes(code))
     return `CONNECT_${side}_NETWORK`
   if (['ERR_INVALID_URL', 'ERR_INVALID_PROTOCOL'].includes(code)) return `CONNECT_${side}_CONFIG`
