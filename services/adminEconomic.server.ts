@@ -76,6 +76,9 @@ export async function saveManualEconomic(input: { playerId: string; eaId: string
   const client = await db.connect()
   try {
     await client.query("BEGIN ISOLATION LEVEL SERIALIZABLE")
+    await client.query("SET LOCAL statement_timeout = '8s'")
+    await client.query("SET LOCAL lock_timeout = '3s'")
+    await client.query("SET LOCAL transaction_timeout = '20s'")
     const player = (await client.query<{ id: string; externalId: string; slug: string }>(
       'SELECT id,"externalId",slug FROM "Player" WHERE id=$1 AND "externalId"=$2', [input.playerId, input.eaId])).rows[0]
     if (!player) throw Error("PLAYER_IDENTITY_MISMATCH")

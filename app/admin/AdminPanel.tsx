@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { ManualSection } from "../../lib/adminEconomic"
 
 type Match = { id: string; externalId: string; name: string; slug: string }
@@ -23,6 +23,7 @@ export default function AdminPanel() {
   const [clause, setClause] = useState(emptyClause)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState("")
+  const pendingSave = useRef<{ key: string; requestId: string } | null>(null)
 
   useEffect(() => { void fetch("/admin/api/players", { cache: "no-store" }).then(r => setAuthorized(r.ok)).catch(() => setAuthorized(false)) }, [])
   async function open(id: string) {
@@ -66,13 +67,17 @@ export default function AdminPanel() {
       : clause.status === "YES" ? { ...clause, amount: clause.amount || null, currency: clause.amount ? clause.currency : null,
           conditions: clause.conditions || null, validUntil: clause.validUntil || null }
       : { status: clause.status, amount: null, currency: null, conditions: null, validUntil: null }
+    const expectedRevision = player.sections[section]?.revision ?? 0
+    const key = JSON.stringify([player.id, player.externalId, section, payload, rollbackTo ?? null, expectedRevision])
+    if (pendingSave.current?.key !== key) pendingSave.current = { key, requestId: crypto.randomUUID() }
     try {
       const response = await fetch(`/admin/api/players/${encodeURIComponent(player.id)}`, { method: "POST",
         headers: { "content-type": "application/json", "x-csrf-token": csrf() },
-        body: JSON.stringify({ eaId: player.externalId, section, payload, rollbackTo, expectedRevision: player.sections[section]?.revision ?? 0,
-          requestId: crypto.randomUUID() }) })
+        body: JSON.stringify({ eaId: player.externalId, section, payload, rollbackTo, expectedRevision,
+          requestId: pendingSave.current.requestId }) })
       if (!response.ok) throw Error(await response.text() || "Salvamento não confirmado.")
       await open(player.id)
+      pendingSave.current = null
       setMessage("Alteração confirmada no banco. A próxima leitura pública usará a nova revisão.")
     } catch (error) { setMessage(error instanceof Error ? error.message : "Salvamento não confirmado.") }
     finally { setBusy(false) }

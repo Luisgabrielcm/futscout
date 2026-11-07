@@ -3,6 +3,7 @@ import { ADMIN_CSRF_COOKIE, ADMIN_SESSION_COOKIE } from "../../../../lib/adminAu
 import { ownerSession, revokeSession } from "../../../../services/adminAuth.server"
 
 export const dynamic = "force-dynamic"
+export const maxDuration = 45
 export async function POST(request: Request) {
   const session = await ownerSession(request, true)
   if (!session) return new Response(null, { status: 403 })

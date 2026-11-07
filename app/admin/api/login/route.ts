@@ -3,6 +3,7 @@ import { ADMIN_CSRF_COOKIE, ADMIN_SESSION_COOKIE, sameOrigin, SESSION_MS } from 
 import { loginOwner } from "../../../../services/adminAuth.server"
 
 export const dynamic = "force-dynamic"
+export const maxDuration = 45
 export async function POST(request: Request) {
   if (!sameOrigin(request) || request.headers.get("content-type")?.split(";")[0] !== "application/json" ||
       Number(request.headers.get("content-length") || 0) > 4096) return new Response(null, { status: 403 })

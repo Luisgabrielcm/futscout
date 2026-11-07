@@ -24,7 +24,7 @@ assert(process.argv.includes("--disposable-authorized"))
 const root = path.resolve("audit/output")
 const cluster = fs.mkdtempSync(path.join(root, "admin-economic-disposable-"))
 assert(cluster.startsWith(root + path.sep))
-const bin = path.resolve("audit/output/postgres17-portable-01/distribution/pgsql/bin")
+const bin = path.resolve(process.env.FUTSCOUT_PG17_BIN || "audit/output/postgres17-portable-01/distribution/pgsql/bin")
 const env: NodeJS.ProcessEnv = { NODE_ENV: "test" }
 for (const key of ["PATH", "Path", "SystemRoot", "WINDIR", "TEMP", "TMP", "USERPROFILE"]) if (process.env[key]) env[key] = process.env[key]
 const command = (name: string, args: string[]) => new Promise<void>((resolve, reject) => {
@@ -55,7 +55,7 @@ try {
   publicDb = new Pool({ ...config, user: "public_test_login", max: 3 })
   const publicProbe = await publicDb.connect(), adminProbe = await db.connect()
   try {
-    assert.deepEqual(await compareDatabaseSessions(publicProbe, adminProbe), { identity: "VERIFIED" })
+    assert.deepEqual(await compareDatabaseSessions(publicProbe, adminProbe), { identity: "VERIFIED", code: "VERIFIED" })
     await owner.query("CREATE DATABASE identity_other")
     const otherDatabase = new Client({ ...config, database: "identity_other" })
     await otherDatabase.connect()

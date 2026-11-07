@@ -4,6 +4,7 @@ import { readAdminPlayer, readManualEconomics, saveManualEconomic } from "../../
 import type { ManualSection } from "../../../../../lib/adminEconomic"
 
 export const dynamic = "force-dynamic"
+export const maxDuration = 45
 type Context = { params: Promise<{ id: string }> }
 export async function GET(request: Request, { params }: Context) {
   try {

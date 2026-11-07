@@ -2,6 +2,7 @@ import { ownerSession } from "../../../../services/adminAuth.server"
 import { searchAdminPlayers } from "../../../../services/adminEconomic.server"
 
 export const dynamic = "force-dynamic"
+export const maxDuration = 45
 export async function GET(request: Request) {
   try {
     if (!await ownerSession(request)) return new Response(null, { status: 401 })

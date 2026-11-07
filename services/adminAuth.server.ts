@@ -68,6 +68,9 @@ export async function loginOwner(request: Request, input: { owner: string; passw
   const client = await db.connect()
   try {
     await client.query("BEGIN")
+    await client.query("SET LOCAL statement_timeout = '8s'")
+    await client.query("SET LOCAL lock_timeout = '3s'")
+    await client.query("SET LOCAL transaction_timeout = '20s'")
     const used = await client.query('INSERT INTO "AdminTotpStep" ("step") VALUES ($1) ON CONFLICT DO NOTHING', [step])
     if (used.rowCount !== 1) { await client.query("ROLLBACK"); return null }
     await client.query('INSERT INTO "AdminSession" ("tokenHash","csrfHash","ownerId","expiresAt") VALUES ($1,$2,$3,$4)',
