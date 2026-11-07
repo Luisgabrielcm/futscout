@@ -1,6 +1,6 @@
 import "server-only"
 import { Pool } from "pg"
-import { ADMIN_CSRF_COOKIE, ADMIN_SESSION_COOKIE, randomToken, readCookie, sameOrigin, SESSION_MS, sha256, verifyPassword, verifyTotp } from "../lib/adminAuth"
+import { ADMIN_CSRF_COOKIE, ADMIN_SESSION_COOKIE, randomToken, readCookie, sameOrigin, SESSION_MS, sha256, verifyPassword } from "../lib/adminAuth"
 
 let pool: Pool | undefined
 function credentialIdentity(value: string) {
@@ -36,14 +36,13 @@ function credentials() {
   if (process.env.FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC === '1') throw Error('ADMIN_DISABLED_DURING_IDENTITY_DIAGNOSTIC')
   const owner = process.env.FUTSCOUT_ADMIN_OWNER_LOGIN
   const passwordHash = process.env.FUTSCOUT_ADMIN_PASSWORD_HASH
-  const totpSecret = process.env.FUTSCOUT_ADMIN_TOTP_SECRET
-  if (!owner || !passwordHash || !totpSecret) throw Error("ADMIN_CREDENTIALS_NOT_CONFIGURED")
-  return { owner, passwordHash, totpSecret }
+  if (!owner || !passwordHash) throw Error("ADMIN_CREDENTIALS_NOT_CONFIGURED")
+  return { owner, passwordHash }
 }
 
 const rateKey = (request: Request) => sha256(request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown")
 
-export async function loginOwner(request: Request, input: { owner: string; password: string; totp: string }) {
+export async function loginOwner(request: Request, input: { owner: string; password: string }) {
   const expected = credentials()
   const db = adminPool()
   const ipKey = rateKey(request)
@@ -52,8 +51,7 @@ export async function loginOwner(request: Request, input: { owner: string; passw
     'SELECT "key" FROM "AdminLoginAttempt" WHERE "key"=ANY($1::text[]) AND "blockedUntil">now()', [[ipKey, globalKey]])
   if (limited.rowCount) return null
   const correct = input.owner === expected.owner && verifyPassword(input.password, expected.passwordHash)
-  const step = correct ? verifyTotp(input.totp, expected.totpSecret) : null
-  if (step === null) {
+  if (!correct) {
     await db.query(`INSERT INTO "AdminLoginAttempt" ("key","failures","blockedUntil","updatedAt")
       SELECT x,1,NULL,now() FROM unnest($1::text[]) x
       ON CONFLICT ("key") DO UPDATE SET
@@ -71,8 +69,6 @@ export async function loginOwner(request: Request, input: { owner: string; passw
     await client.query("SET LOCAL statement_timeout = '8s'")
     await client.query("SET LOCAL lock_timeout = '3s'")
     await client.query("SET LOCAL transaction_timeout = '20s'")
-    const used = await client.query('INSERT INTO "AdminTotpStep" ("step") VALUES ($1) ON CONFLICT DO NOTHING', [step])
-    if (used.rowCount !== 1) { await client.query("ROLLBACK"); return null }
     await client.query('INSERT INTO "AdminSession" ("tokenHash","csrfHash","ownerId","expiresAt") VALUES ($1,$2,$3,$4)',
       [sha256(token), sha256(csrf), expected.owner, new Date(Date.now() + SESSION_MS)])
     await client.query("COMMIT")

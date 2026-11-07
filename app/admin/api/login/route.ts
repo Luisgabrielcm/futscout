@@ -9,8 +9,8 @@ export async function POST(request: Request) {
       Number(request.headers.get("content-length") || 0) > 4096) return new Response(null, { status: 403 })
   try {
     const body = await request.json() as Record<string, unknown>
-    const input = { owner: String(body.owner ?? ""), password: String(body.password ?? ""), totp: String(body.totp ?? "") }
-    if (input.owner.length > 200 || input.password.length > 1024 || input.totp.length > 20) return new Response(null, { status: 400 })
+    const input = { owner: String(body.owner ?? ""), password: String(body.password ?? "") }
+    if (input.owner.length > 200 || input.password.length > 1024) return new Response(null, { status: 400 })
     const result = await loginOwner(request, input)
     if (!result) return new Response("Credenciais inválidas ou acesso temporariamente limitado.", { status: 401 })
     const response = NextResponse.json({ ok: true })

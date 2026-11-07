@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Run in the owner's own terminal. This script never writes credentials to disk.
-import { randomBytes, scryptSync, createHmac } from "node:crypto"
+import { randomBytes, scryptSync } from "node:crypto"
 import readline from "node:readline"
 import { Writable } from "node:stream"
 import { spawnSync } from "node:child_process"
@@ -29,26 +29,6 @@ function hidden(prompt) {
     })
   })
 }
-function base32(bytes) {
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
-  let bits = 0, value = 0, result = ""
-  for (const byte of bytes) {
-    value = (value << 8) | byte
-    bits += 8
-    while (bits >= 5) {
-      result += alphabet[(value >>> (bits -= 5)) & 31]
-    }
-  }
-  if (bits) result += alphabet[(value << (5 - bits)) & 31]
-  return result
-}
-function totp(bytes, time = Date.now()) {
-  const counter = Buffer.alloc(8)
-  counter.writeBigUInt64BE(BigInt(Math.floor(time / 30_000)))
-  const mac = createHmac("sha1", bytes).update(counter).digest()
-  const offset = mac[mac.length - 1] & 15
-  return String((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, "0")
-}
 let clipboardUsed = false
 function clipboard(value) {
   const result = spawnSync("clip.exe", [], { input: value, timeout: 3000,
@@ -73,18 +53,10 @@ try {
   }
   const salt = randomBytes(16)
   const hash = scryptSync(password, salt, 32)
-  const secretBytes = randomBytes(20)
-  const secret = base32(secretBytes)
   process.stdout.write("\nOs valores serão copiados um por vez; nenhum será exibido.\n")
-  clipboard(secret)
-  await question("Segredo TOTP copiado. Cole no autenticador (30 segundos, SHA1, 6 dígitos) e pressione Enter aqui. ")
-  const code = (await hidden("Digite o código atual do autenticador para validar (entrada oculta): ")).trim()
-  const now = Date.now()
-  if (![now - 30_000, now, now + 30_000].some(t => totp(secretBytes, t) === code)) throw Error("Código TOTP não conferiu. Não configure as variáveis; execute novamente.")
-  process.stdout.write("MFA validado. Configure as três variáveis como Secret, somente em Production.\n")
+  process.stdout.write("Configure as duas variáveis como Secret, somente em Production.\n")
   await pasteStep("FUTSCOUT_ADMIN_OWNER_LOGIN", owner)
   await pasteStep("FUTSCOUT_ADMIN_PASSWORD_HASH", `${salt.toString("hex")}:${hash.toString("hex")}`)
-  await pasteStep("FUTSCOUT_ADMIN_TOTP_SECRET", secret)
   process.stdout.write("Configuração manual concluída. Nenhum deploy foi executado.\n")
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : "Falha local."}\n`)

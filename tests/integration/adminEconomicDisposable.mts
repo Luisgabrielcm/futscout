@@ -4,7 +4,7 @@ import fs from "node:fs"
 import path from "node:path"
 import net from "node:net"
 import { spawn } from "node:child_process"
-import { randomUUID, scryptSync, createHmac } from "node:crypto"
+import { randomUUID, scryptSync } from "node:crypto"
 import { Pool, Client } from "pg"
 import { loadCatalogModule } from "../helpers/loadCatalogModule"
 import * as crypto from "node:crypto"
@@ -69,29 +69,29 @@ try {
   process.env.FUTSCOUT_ADMIN_DATABASE_URL = `postgresql://admin_test_login@127.0.0.1:${port}/postgres`
   process.env.FUTSCOUT_ADMIN_OWNER_LOGIN = "owner@test.invalid"
   process.env.FUTSCOUT_ADMIN_PASSWORD_HASH = salt + ":" + scryptSync(password, Buffer.from(salt, "hex"), 32).toString("hex")
-  process.env.FUTSCOUT_ADMIN_TOTP_SECRET = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
   const authService = loadCatalogModule<{
     adminPool: () => Pool
-    loginOwner: (request: Request, input: { owner: string; password: string; totp: string }) => Promise<{ token: string; csrf: string } | null>
+    loginOwner: (request: Request, input: { owner: string; password: string }) => Promise<{ token: string; csrf: string } | null>
     ownerSession: (request: Request, mutation?: boolean) => Promise<{ owner: string; tokenHash: string } | null>
     revokeSession: (tokenHash: string) => Promise<void>
   }>("services/adminAuth.server.ts", { "server-only": {}, pg: { Pool: class { constructor() { return pool } } }, "../lib/adminAuth": auth }, { process, URL })
   process.env.FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC = "1"
   await assert.rejects(authService.loginOwner(new Request("https://futscout.test/admin/api/login"),
-    { owner: "owner@test.invalid", password, totp: "000000" }), /ADMIN_DISABLED_DURING_IDENTITY_DIAGNOSTIC/)
+    { owner: "owner@test.invalid", password }), /ADMIN_DISABLED_DURING_IDENTITY_DIAGNOSTIC/)
   assert.equal(await authService.ownerSession(new Request("https://futscout.test/admin/api/players")), null)
   delete process.env.FUTSCOUT_ADMIN_DB_IDENTITY_DIAGNOSTIC
   process.env.DATABASE_URL = process.env.FUTSCOUT_ADMIN_DATABASE_URL!.replace("127.0.0.1", "localhost")
   assert.throws(() => authService.adminPool(), /ADMIN_CONNECTION_NOT_DEDICATED/)
   delete process.env.DATABASE_URL
-  const step = Math.floor(Date.now() / 30_000), counter = Buffer.alloc(8)
-  counter.writeBigUInt64BE(BigInt(step))
-  const mac = createHmac("sha1", Buffer.from("12345678901234567890")).update(counter).digest()
-  const totp = String((mac.readUInt32BE(mac[19] & 15) & 0x7fffffff) % 1_000_000).padStart(6, "0")
   const request = new Request("https://futscout.test/admin/api/login", { headers: { "x-forwarded-for": "127.0.0.1" } })
-  const logged = await authService.loginOwner(request, { owner: "owner@test.invalid", password, totp })
+  assert.equal(await authService.loginOwner(request, { owner: "other@test.invalid", password }), null)
+  assert.equal(await authService.loginOwner(request, { owner: "owner@test.invalid", password: "incorrect password" }), null)
+  const logged = await authService.loginOwner(request, { owner: "owner@test.invalid", password })
   assert(logged)
-  assert.equal(await authService.loginOwner(request, { owner: "owner@test.invalid", password, totp }), null)
+  const rateRequest = new Request("https://futscout.test/admin/api/login", { headers: { "x-forwarded-for": "127.0.0.2" } })
+  for (let attempt = 0; attempt < 5; attempt++)
+    assert.equal(await authService.loginOwner(rateRequest, { owner: "owner@test.invalid", password: "incorrect password" }), null)
+  assert.equal(await authService.loginOwner(rateRequest, { owner: "owner@test.invalid", password }), null)
   const cookie = `fs_owner_session=${logged.token}; fs_owner_csrf=${logged.csrf}`
   const authorized = await authService.ownerSession(new Request("https://futscout.test/admin/api/players", {
     headers: { cookie, origin: "https://futscout.test", "x-csrf-token": logged.csrf } }), true)

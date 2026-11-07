@@ -14,7 +14,6 @@ export default function AdminPanel() {
   const [authorized, setAuthorized] = useState(false)
   const [owner, setOwner] = useState("")
   const [password, setPassword] = useState("")
-  const [totp, setTotp] = useState("")
   const [query, setQuery] = useState("")
   const [matches, setMatches] = useState<Match[]>([])
   const [player, setPlayer] = useState<Player | null>(null)
@@ -43,8 +42,8 @@ export default function AdminPanel() {
     event.preventDefault(); setBusy(true); setMessage("")
     try {
       const response = await fetch("/admin/api/login", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ owner, password, totp }) })
-      setPassword(""); setTotp("")
+        body: JSON.stringify({ owner, password }) })
+      setPassword("")
       if (!response.ok) throw Error("Credenciais inválidas ou acesso indisponível.")
       setAuthorized(true)
     } catch (error) { setMessage(error instanceof Error ? error.message : "Falha de acesso.") }
@@ -91,8 +90,7 @@ export default function AdminPanel() {
     <h1>Painel privado FutScout</h1>
     {!authorized ? <form onSubmit={login} style={{ display: "grid", gap: 12, maxWidth: 380 }}>
       <label>Conta do proprietário<input required autoComplete="username" value={owner} onChange={e => setOwner(e.target.value)} /></label>
-      <label>Senha<input required type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></label>
-      <label>Código MFA<input required inputMode="numeric" pattern="[0-9]{6}" autoComplete="one-time-code" value={totp} onChange={e => setTotp(e.target.value)} /></label>
+      <label>Senha<input required type="password" minLength={16} autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></label>
       <button disabled={busy}>Entrar</button>
     </form> : <>
       <button type="button" onClick={logout}>Sair</button>
