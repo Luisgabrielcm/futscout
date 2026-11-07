@@ -5,7 +5,7 @@ import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { Client } from 'pg'
+import { Client, Pool } from 'pg'
 import { compareDatabaseSessions, runAdminDatabaseIdentityDiagnostic } from '../../../lib/adminDatabaseIdentityDiagnostic.server'
 
 const binDir = process.env.FUTSCOUT_PG_TEST_BIN
@@ -29,6 +29,7 @@ test('disposable PostgreSQL proves same database and rejects a different databas
   const port = await freePort()
   let started = false
   const clients: Client[] = []
+  const pools: Pool[] = []
   try {
     command('initdb', ['-D', cluster, '-U', 'diagnostic_test', '-A', 'trust', '--no-locale', '-E', 'UTF8'])
     command('pg_ctl', ['-D', cluster, '-l', path.join(root, 'postgres.log'),
@@ -50,16 +51,23 @@ test('disposable PostgreSQL proves same database and rejects a different databas
     await assert.rejects(compareDatabaseSessions(runtime, otherAdmin),
       (error: { code: string }) => error.code === 'DATABASE_NAME_MISMATCH')
 
-    const env = { NODE_ENV: 'production' as const, DATABASE_URL: 'disposable-runtime',
+    const localUrl = `postgresql://diagnostic_test@127.0.0.1:${port}/postgres`
+    const adminPool = new Pool({ connectionString: localUrl, max: 1 })
+    pools.push(adminPool)
+    const env = { NODE_ENV: 'production' as const, DATABASE_URL: localUrl,
       FUTSCOUT_ADMIN_DATABASE_URL: 'disposable-admin' }
+    assert.deepEqual(await runAdminDatabaseIdentityDiagnostic({ env,
+      connectAdmin: () => adminPool.connect() }), { identity: 'VERIFIED', code: 'VERIFIED' })
     const auth = await runAdminDatabaseIdentityDiagnostic({
       env,
-      createRuntime: () => new Client({ host: '127.0.0.1', port, user: 'missing_test_role', database: 'postgres' }),
+      createRuntimePool: () => new Pool({ host: '127.0.0.1', port, user: 'missing_test_role', database: 'postgres',
+        connectionTimeoutMillis: 1000 }),
       connectAdmin: async () => { throw Error('SHOULD_NOT_CONNECT') },
     })
     assert.deepEqual(auth, { identity: 'INCONCLUSIVE', code: 'CONNECT_RUNTIME_AUTH' })
   } finally {
     await Promise.all(clients.map((client) => client.end().catch(() => undefined)))
+    await Promise.all(pools.map((pool) => pool.end().catch(() => undefined)))
     if (started) command('pg_ctl', ['-D', cluster, '-m', 'immediate', '-w', 'stop'])
     const safeRoot = path.resolve(root)
     if (!safeRoot.startsWith(temp + path.sep) || path.basename(safeRoot).startsWith('futscout-admin-identity-') === false)

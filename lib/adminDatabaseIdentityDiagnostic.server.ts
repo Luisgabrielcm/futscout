@@ -1,11 +1,14 @@
-import { Client, type PoolClient } from 'pg'
+import { Pool, type PoolClient } from 'pg'
 
-type QueryClient = Pick<Client, 'query'>
+type QueryClient = Pick<PoolClient, 'query'>
+
+type ConnectionSide = 'RUNTIME' | 'ADMIN'
+type ConnectionReason = 'AUTH' | 'DNS' | 'TLS' | 'TIMEOUT' | 'POOLER' | 'NETWORK' | 'CONFIG' | 'UNKNOWN'
 
 export type IdentityDiagnosticCode =
   | 'VERIFIED' | 'CONFIG_RUNTIME_MISSING' | 'CONFIG_ADMIN_MISSING'
   | 'CONFIG_ADMIN_INVALID' | 'CONFIG_ADMIN_NOT_DEDICATED' | 'CONFIG_ADMIN_TLS'
-  | 'CONNECT_RUNTIME_AUTH' | 'CONNECT_RUNTIME' | 'CONNECT_ADMIN_AUTH' | 'CONNECT_ADMIN'
+  | `CONNECT_${ConnectionSide}_${ConnectionReason}`
   | 'TX_RUNTIME' | 'TX_ADMIN' | 'READ_ONLY_RUNTIME' | 'READ_ONLY_ADMIN'
   | 'SNAPSHOT_EXPORT' | 'SNAPSHOT_FORMAT' | 'SNAPSHOT_IMPORT'
   | 'DATABASE_NAME_MISMATCH' | 'SCHEMA_MISMATCH' | 'IDENTITY_QUERY'
@@ -25,9 +28,25 @@ function codeFrom(error: unknown): IdentityDiagnosticCode {
   return error instanceof IdentityDiagnosticFailure ? error.code : 'STARTUP'
 }
 
-function connectionCode(error: unknown, side: 'RUNTIME' | 'ADMIN'): IdentityDiagnosticCode {
-  const state = (error as { code?: unknown } | null)?.code
-  return state === '28P01' || state === '28000' ? `CONNECT_${side}_AUTH` : `CONNECT_${side}`
+export function connectionCode(error: unknown, side: ConnectionSide): IdentityDiagnosticCode {
+  const fields = error as { code?: unknown; message?: unknown } | null
+  const code = typeof fields?.code === 'string' ? fields.code.toUpperCase() : ''
+  // Only fixed categories leave this function. Driver messages and URLs never reach logs.
+  const message = typeof fields?.message === 'string' ? fields.message : ''
+  if (['28P01', '28000'].includes(code)) return `CONNECT_${side}_AUTH`
+  if (['ENOTFOUND', 'EAI_AGAIN'].includes(code) || /getaddrinfo|name resolution/i.test(message))
+    return `CONNECT_${side}_DNS`
+  if (['ERR_TLS_CERT_ALTNAME_INVALID', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+    'DEPTH_ZERO_SELF_SIGNED_CERT', 'SELF_SIGNED_CERT_IN_CHAIN', 'CERT_HAS_EXPIRED'].includes(code) ||
+    /(?:SSL|TLS|certificate).*(?:verify|expired|self.signed|invalid)/i.test(message))
+    return `CONNECT_${side}_TLS`
+  if (['ETIMEDOUT', 'ETIMEOUT'].includes(code) || /connection timeout|timed out/i.test(message))
+    return `CONNECT_${side}_TIMEOUT`
+  if (/pooler|pgbouncer|transaction pooling/i.test(message)) return `CONNECT_${side}_POOLER`
+  if (['ECONNREFUSED', 'ECONNRESET', 'EPIPE', 'ENETUNREACH', 'EHOSTUNREACH', '08001', '08006'].includes(code))
+    return `CONNECT_${side}_NETWORK`
+  if (['ERR_INVALID_URL', 'ERR_INVALID_PROTOCOL'].includes(code)) return `CONNECT_${side}_CONFIG`
+  return `CONNECT_${side}_UNKNOWN`
 }
 
 async function queryOrFail<T extends Record<string, unknown>>(
@@ -105,15 +124,14 @@ export async function compareDatabaseSessions(runtime: QueryClient, admin: Query
 
 type DiagnosticDependencies = {
   env?: NodeJS.ProcessEnv
-  createRuntime?: (connectionString: string) => Pick<Client, 'connect' | 'end' | 'query'>
+  createRuntimePool?: (connectionString: string) => Pick<Pool, 'connect' | 'end'>
   connectAdmin?: () => Promise<PoolClient>
 }
 
 /** Opt-in startup probe. Only a fixed status and code may reach private logs. */
 export async function runAdminDatabaseIdentityDiagnostic(
-  { env = process.env, createRuntime = (connectionString) => new Client({ connectionString,
-    connectionTimeoutMillis: 5000, query_timeout: 5000, statement_timeout: 5000,
-    idle_in_transaction_session_timeout: 5000 }),
+  { env = process.env, createRuntimePool = (connectionString) => new Pool({ connectionString,
+    max: 1, connectionTimeoutMillis: 10_000, query_timeout: 5000 }),
   connectAdmin = async () => {
     const { adminPool } = await import('../services/adminAuth.server')
     return adminPool().connect()
@@ -121,12 +139,13 @@ export async function runAdminDatabaseIdentityDiagnostic(
 ): Promise<IdentityDiagnosticOutcome> {
   if (!env.DATABASE_URL) return { identity: 'INCONCLUSIVE', code: 'CONFIG_RUNTIME_MISSING' }
   if (!env.FUTSCOUT_ADMIN_DATABASE_URL) return { identity: 'INCONCLUSIVE', code: 'CONFIG_ADMIN_MISSING' }
-  let runtime: ReturnType<NonNullable<DiagnosticDependencies['createRuntime']>> | undefined
+  let runtimePool: ReturnType<NonNullable<DiagnosticDependencies['createRuntimePool']>> | undefined
+  let runtime: PoolClient | undefined
   let admin: PoolClient | undefined
   try {
-    try { runtime = createRuntime(env.DATABASE_URL) }
-    catch { throw new IdentityDiagnosticFailure('CONNECT_RUNTIME') }
-    try { await runtime.connect() }
+    try { runtimePool = createRuntimePool(env.DATABASE_URL) }
+    catch (error) { throw new IdentityDiagnosticFailure(connectionCode(error, 'RUNTIME')) }
+    try { runtime = await runtimePool.connect() }
     catch (error) { throw new IdentityDiagnosticFailure(connectionCode(error, 'RUNTIME')) }
     try { admin = await connectAdmin() }
     catch (error) {
@@ -145,6 +164,7 @@ export async function runAdminDatabaseIdentityDiagnostic(
     return { identity: 'INCONCLUSIVE', code: codeFrom(error) }
   } finally {
     admin?.release()
-    await runtime?.end().catch(() => undefined)
+    runtime?.release()
+    await runtimePool?.end().catch(() => undefined)
   }
 }

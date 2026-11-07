@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { adminDatabaseIdentityContextFailure, adminDatabaseIdentityLog, isNodeJsProcess, registerAdminDatabaseIdentityDiagnostic, shouldRunAdminDatabaseIdentityDiagnostic } from '../../../instrumentation'
-import { compareDatabaseSessions, runAdminDatabaseIdentityDiagnostic } from '../../../lib/adminDatabaseIdentityDiagnostic.server'
+import { compareDatabaseSessions, connectionCode, runAdminDatabaseIdentityDiagnostic } from '../../../lib/adminDatabaseIdentityDiagnostic.server'
 
 function pair(options: { importFails?: boolean; runtimeReadOnly?: boolean; differentSchema?: boolean;
   differentDatabase?: boolean; exportFails?: boolean; invalidSnapshot?: boolean } = {}) {
@@ -132,15 +132,33 @@ test('configuration and connection stages produce only fixed internal codes', as
   const env = { NODE_ENV: 'production' as const, DATABASE_URL: 'private-runtime-url', FUTSCOUT_ADMIN_DATABASE_URL: 'private-admin-url' }
   assert.equal((await runAdminDatabaseIdentityDiagnostic({ env: { NODE_ENV: 'production' } })).code, 'CONFIG_RUNTIME_MISSING')
   assert.equal((await runAdminDatabaseIdentityDiagnostic({ env: { NODE_ENV: 'production', DATABASE_URL: 'present' } })).code, 'CONFIG_ADMIN_MISSING')
-  const runtime = (connectError?: unknown) => ({
-    async connect() { if (connectError) throw connectError },
+  const runtimePool = (connectError?: unknown) => ({
+    async connect() { if (connectError) throw connectError; return { ...pair().runtime, release() {} } },
     async end() {},
-    ...pair().runtime,
   })
-  assert.equal((await runAdminDatabaseIdentityDiagnostic({ env, createRuntime: () => runtime({ code: '28P01' }) as never })).code,
+  assert.equal((await runAdminDatabaseIdentityDiagnostic({ env, createRuntimePool: () => runtimePool({ code: '28P01' }) as never })).code,
     'CONNECT_RUNTIME_AUTH')
-  assert.equal((await runAdminDatabaseIdentityDiagnostic({ env, createRuntime: () => runtime() as never,
+  assert.equal((await runAdminDatabaseIdentityDiagnostic({ env, createRuntimePool: () => runtimePool() as never,
     connectAdmin: async () => { throw Error('ADMIN_CONNECTION_TLS_REQUIRED') } })).code, 'CONFIG_ADMIN_TLS')
-  assert.equal((await runAdminDatabaseIdentityDiagnostic({ env, createRuntime: () => runtime() as never,
+  assert.equal((await runAdminDatabaseIdentityDiagnostic({ env, createRuntimePool: () => runtimePool() as never,
     connectAdmin: async () => { throw { code: '28P01', message: 'private password' } } })).code, 'CONNECT_ADMIN_AUTH')
+})
+
+test('connection failures use fixed categories without leaking driver messages', () => {
+  const failures = [
+    [{ code: 'EAI_AGAIN', message: 'private host' }, 'DNS'],
+    [{ code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE', message: 'private certificate' }, 'TLS'],
+    [{ message: 'Connection terminated due to connection timeout' }, 'TIMEOUT'],
+    [{ message: 'private pgbouncer failure' }, 'POOLER'],
+    [{ code: 'ECONNRESET', message: 'private host' }, 'NETWORK'],
+    [{ code: 'ERR_INVALID_URL', message: 'private URL' }, 'CONFIG'],
+    [{ message: 'private unclassified error' }, 'UNKNOWN'],
+  ] as const
+  for (const [error, suffix] of failures) {
+    for (const side of ['RUNTIME', 'ADMIN'] as const) {
+      const code = connectionCode(error, side)
+      assert.equal(code, `CONNECT_${side}_${suffix}`)
+      assert.ok(!code.includes('private'))
+    }
+  }
 })
