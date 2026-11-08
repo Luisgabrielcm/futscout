@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import { scryptSync } from "node:crypto"
 import { parseManualPayload } from "../../../lib/adminEconomic"
-import { sameOrigin, verifyPassword } from "../../../lib/adminAuth"
+import { normalizeOwnerLogin, passwordHashFormatValid, sameOrigin, verifyPassword } from "../../../lib/adminAuth"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 
 test("manual salary, contract and clause reject incompatible inputs", () => {
@@ -21,8 +21,13 @@ test("manual salary, contract and clause reject incompatible inputs", () => {
 test("strong password verifier and origin check", () => {
   const salt = "a".repeat(32), password = "long owner password"
   const encoded = salt + ":" + scryptSync(password, Buffer.from(salt, "hex"), 32).toString("hex")
+  assert.equal(passwordHashFormatValid(encoded), true)
+  assert.equal(passwordHashFormatValid(` ${encoded}\r\n`), true)
+  assert.equal(passwordHashFormatValid(encoded.slice(0, -1)), false)
   assert.equal(verifyPassword(password, encoded), true)
+  assert.equal(verifyPassword(password, ` ${encoded}\r\n`), true)
   assert.equal(verifyPassword("wrong", encoded), false)
+  assert.equal(normalizeOwnerLogin(" Owner@Test.Invalid \r\n"), "owner@test.invalid")
   const shortPassword = "short-pass-1234"
   const shortEncoded = salt + ":" + scryptSync(shortPassword, Buffer.from(salt, "hex"), 32).toString("hex")
   assert.equal(verifyPassword(shortPassword, shortEncoded), false)

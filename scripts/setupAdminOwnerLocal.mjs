@@ -42,7 +42,7 @@ async function pasteStep(label, value) {
 }
 
 try {
-  const owner = (await question("Login exclusivo do proprietário (email): ")).trim()
+  const owner = (await question("Login exclusivo do proprietário (email): ")).trim().toLowerCase()
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(owner) || owner.length > 200) throw Error("Login inválido.")
   const password = await hidden("Senha forte (entrada oculta): ")
   const confirmation = await hidden("Repita a senha (entrada oculta): ")

@@ -7,11 +7,13 @@ export const SESSION_MS = 30 * 60 * 1000
 export const randomToken = () => randomBytes(32).toString("base64url")
 export const sha256 = (value: string) => createHash("sha256").update(value).digest("hex")
 const equal = (a: Buffer, b: Buffer) => a.length === b.length && timingSafeEqual(a, b)
+export const normalizeOwnerLogin = (value: string) => value.trim().toLowerCase()
+export const passwordHashFormatValid = (value: string) => /^[a-f0-9]{32}:[a-f0-9]{64}$/.test(value.trim())
 
 export function verifyPassword(password: string, encoded: string) {
   if (password.length < 16 || password.length > 1024) return false
-  const [salt, expected] = encoded.split(":")
-  if (!salt || !expected || !/^[a-f0-9]{64}$/.test(expected) || !/^[a-f0-9]{32}$/.test(salt)) return false
+  if (!passwordHashFormatValid(encoded)) return false
+  const [salt, expected] = encoded.trim().split(":")
   return equal(scryptSync(password, Buffer.from(salt, "hex"), 32), Buffer.from(expected, "hex"))
 }
 

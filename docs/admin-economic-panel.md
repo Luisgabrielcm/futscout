@@ -2,6 +2,8 @@
 
 Implementação local: `/admin`. O login exige a conta do proprietário e senha de pelo menos 16 caracteres; todas as operações consultam a sessão no servidor. Tentativas inválidas são limitadas e bloqueadas temporariamente por origem e globalmente. A edição exige `FUTSCOUT_ADMIN_DATABASE_URL` separada de `DATABASE_URL` e `DIRECT_URL`; não há fallback. A sessão de banco do painel usa TLS em Production.
 
+O login é normalizado com `trim().toLowerCase()` no gerador local e no servidor; a senha permanece exata. O hash `scrypt` aceita apenas `saltHex:hashHex` (32 e 64 caracteres hexadecimais), tolerando somente espaços externos de configuração. Para diagnóstico privado, `FUTSCOUT_ADMIN_AUTH_DIAGNOSTIC=1` habilita códigos fixos nos Runtime Logs para configuração, formato do hash, bloqueio, divergência de login/senha e sessão. Sem a flag, não emite esses códigos. A resposta HTTP permanece genérica; os logs não contêm login, senha, hash, token ou IP. Não ativar a flag nem publicar outro artefato sem autorização específica.
+
 ## Bloqueador do provedor
 
 O Production atual usa Prisma Postgres. Segundo a [FAQ oficial](https://www.prisma.io/docs/postgres/faq#can-i-create-my-own-database-roles), ele não permite `CREATE ROLE`. A [documentação de conexões](https://www.prisma.io/docs/postgres/database/connecting-to-your-database#access-and-permissions) afirma que todas as credenciais do mesmo banco têm acesso integral; senhas distintas não oferecem privilégios SQL distintos. Portanto, `prisma/admin-economic-role.candidate.sql` é válido apenas no ensaio PostgreSQL descartável ou em outro provedor que suporte roles. **Não executá-lo no Prisma Postgres Production.** Tampouco é possível conceder SELECT somente à view para a credencial pública atual nesse provedor.
