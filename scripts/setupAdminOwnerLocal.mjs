@@ -5,6 +5,24 @@ import readline from "node:readline"
 import { Writable } from "node:stream"
 import { spawnSync } from "node:child_process"
 
+const hashPattern = /^[a-f0-9]{32}:[a-f0-9]{64}$/
+const validHash = value => value.length === 97 && hashPattern.test(value)
+const hashOnly = process.argv.includes("--hash-only")
+const verifyClipboardOnly = process.argv.includes("--verify-clipboard")
+function clipboardCheck(expected) {
+  const script = expected === undefined
+    ? "$actual = Get-Clipboard -Raw; if ($actual.Length -eq 97 -and $actual -cmatch '^[a-f0-9]{32}:[a-f0-9]{64}$') { exit 0 } else { exit 1 }"
+    : "$expected = [Console]::In.ReadToEnd(); $actual = Get-Clipboard -Raw; if ([string]::Equals($actual, $expected, [StringComparison]::Ordinal) -and $actual.Length -eq 97 -and $actual -cmatch '^[a-f0-9]{32}:[a-f0-9]{64}$') { exit 0 } else { exit 1 }"
+  return spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Sta", "-Command", script], {
+    input: expected ?? "", timeout: 3000, stdio: ["pipe", "ignore", "ignore"], windowsHide: true,
+  }).status === 0
+}
+if (verifyClipboardOnly) {
+  const valid = process.platform === "win32" && clipboardCheck()
+  process.stdout.write(valid ? "FORMATO_OK\n" : "FORMATO_INVALIDO\n")
+  process.exit(valid ? 0 : 1)
+}
+
 if (!process.stdin.isTTY || !process.stdout.isTTY) {
   process.stderr.write("Execute em um terminal interativo local.\n")
   process.exit(1)
@@ -36,14 +54,23 @@ function clipboard(value) {
   if (result.status !== 0) throw Error("Área de transferência indisponível. Nenhuma credencial foi exibida.")
   clipboardUsed = true
 }
-async function pasteStep(label, value) {
+async function pasteStep(label, value, hash = false) {
+  if (hash && !validHash(value)) throw Error("FORMATO_INVALIDO")
   clipboard(value)
-  await question(`${label} copiado. Cole no campo Secret da Vercel Production, salve e pressione Enter aqui. `)
+  if (hash) {
+    if (!clipboardCheck(value)) throw Error("FORMATO_INVALIDO")
+    process.stdout.write("FORMATO_OK\n")
+  }
+  const confirmation = await question(`${label} copiado. Cole somente o valor no Secret de Production, salve e digite COLEI aqui. `)
+  if (confirmation.trim() !== "COLEI") throw Error("Cópia não confirmada; execute novamente antes de salvar o Secret.")
 }
 
 try {
-  const owner = (await question("Login exclusivo do proprietário (email): ")).trim().toLowerCase()
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(owner) || owner.length > 200) throw Error("Login inválido.")
+  let owner
+  if (!hashOnly) {
+    owner = (await question("Login exclusivo do proprietário (email): ")).trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(owner) || owner.length > 200) throw Error("Login inválido.")
+  }
   const password = await hidden("Senha forte (entrada oculta): ")
   const confirmation = await hidden("Repita a senha (entrada oculta): ")
   if (password !== confirmation || password.length < 16 || password.length > 1024) throw Error("As senhas devem coincidir e ter de 16 a 1024 caracteres.")
@@ -53,10 +80,14 @@ try {
   }
   const salt = randomBytes(16)
   const hash = scryptSync(password, salt, 32)
+  const encoded = `${salt.toString("hex")}:${hash.toString("hex")}`
+  if (!validHash(encoded)) throw Error("FORMATO_INVALIDO")
   process.stdout.write("\nOs valores serão copiados um por vez; nenhum será exibido.\n")
-  process.stdout.write("Configure as duas variáveis como Secret, somente em Production.\n")
-  await pasteStep("FUTSCOUT_ADMIN_OWNER_LOGIN", owner)
-  await pasteStep("FUTSCOUT_ADMIN_PASSWORD_HASH", `${salt.toString("hex")}:${hash.toString("hex")}`)
+  process.stdout.write(hashOnly
+    ? "Substitua somente FUTSCOUT_ADMIN_PASSWORD_HASH como Secret em Production.\n"
+    : "Configure as duas variáveis como Secret, somente em Production.\n")
+  if (owner) await pasteStep("FUTSCOUT_ADMIN_OWNER_LOGIN", owner)
+  await pasteStep("FUTSCOUT_ADMIN_PASSWORD_HASH", encoded, true)
   process.stdout.write("Configuração manual concluída. Nenhum deploy foi executado.\n")
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : "Falha local."}\n`)
