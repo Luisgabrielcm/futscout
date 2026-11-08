@@ -24,20 +24,20 @@ import ClubBadge from "./ClubBadge"
 import LeagueLogo from "./LeagueLogo"
 import { visualText } from "../../lib/i18n/visualRevision"
 import { wagePresentation, type PublishedWage } from "../../lib/wagePublication"
-import type { ManualEconomic } from "../../services/adminEconomic.server"
+import { publicClause, publicContractUntil, type PublicEconomicOverlay } from "../../lib/publicEconomicOverlay"
 
 type PlayerHeaderProps = {
   locale?: Locale
   player: Player
   valueContext?: "market" | "career-mode"
   wage?: PublishedWage
-  manualEconomic?: ManualEconomic
+  economicOverlay?: PublicEconomicOverlay
 }
 
 export default function PlayerHeader({ locale = "pt",
   player,
   wage,
-  manualEconomic,
+  economicOverlay,
 }: PlayerHeaderProps) {
   const publishedWage = wagePresentation(wage, player.id, locale)
   const positions = getPlayerProfilePositions(player)
@@ -258,12 +258,8 @@ export default function PlayerHeader({ locale = "pt",
             <div><dt>{publishedWage?.title ?? visualText(locale, "weeklySalary")}</dt><dd>{publishedWage?.value ?? "—"}
               {publishedWage && <><small className="mutedText" style={{ display: "block" }}>{publishedWage.label}</small><small className="mutedText" style={{ display: "block" }}>{publishedWage.detail}</small></>}
             </dd></div>
-          <div><dt>{visualText(locale, "contractUntil")}</dt><dd>{manualEconomic?.contract?.until
-            ? new Intl.DateTimeFormat(locale === "pt" ? "pt-BR" : "en-GB", { timeZone: "UTC", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(manualEconomic.contract.until + "T00:00:00Z"))
-            : "—"}</dd></div>
-          <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{manualEconomic?.clause?.status === "YES" && manualEconomic.clause.amount && manualEconomic.clause.currency
-            ? new Intl.NumberFormat(locale === "pt" ? "pt-BR" : "en-GB", { style: "currency", currency: manualEconomic.clause.currency }).format(Number(manualEconomic.clause.amount))
-            : manualEconomic?.clause?.status === "NO" ? (locale === "pt" ? "Sem cláusula" : "No clause") : "—"}</dd></div>
+          <div><dt>{visualText(locale, "contractUntil")}</dt><dd>{publicContractUntil(economicOverlay, locale)}</dd></div>
+          <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{publicClause(economicOverlay, locale)}</dd></div>
         </dl>
       </div>
     </section>

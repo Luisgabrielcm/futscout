@@ -54,6 +54,37 @@ model AdminTotpStep {
   usedAt DateTime @default(now()) @db.Timestamptz(3)
 }
 
+// Source research is separate from owner edits. Only a PUBLISH/ROLLBACK head is public.
+model ResearchEconomicRevision {
+  id String @id
+  playerId String
+  eaId String
+  clubId String
+  field String
+  revision Int
+  requestId String @unique
+  requestHash String
+  action String
+  payload Json?
+  classification String
+  sourceUrl String
+  sourcePublishedOn String?
+  capturedOn String
+  priorId String?
+  contentHash String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([playerId, field, revision])
+  @@index([playerId, field, revision(sort: Desc)])
+}
+
+model ResearchEconomicHead {
+  playerId String
+  field String
+  revisionId String
+  revision Int
+  @@id([playerId, field])
+}
+
 model PlayerEconomicState {
   id String @id @default(cuid())
   playerId String

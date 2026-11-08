@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { connection } from "next/server"
 import { localizedHref, t } from "../../../../lib/i18n"
 import { localizedMetadata } from "../../../../lib/i18n/metadata"
 import { playerExperienceText } from "../../../../lib/i18n/playerExperience"
@@ -7,6 +8,9 @@ import { requireLocale } from "../../../../lib/i18n/server"
 import { visualText } from "../../../../lib/i18n/visualRevision"
 import { getPlayerBySlug } from "../../../../services/playerService"
 import { manualWage, readManualEconomics } from "../../../../services/adminEconomic.server"
+import { readResearchEconomics } from "../../../../services/researchEconomicRead.server"
+import { researchWage } from "../../../../lib/researchEconomic"
+import { publicClause, publicContractUntil, publicEconomicOverlay } from "../../../../lib/publicEconomicOverlay"
 import { wagePresentation } from "../../../../lib/wagePublication"
 import PlayerActions from "../../../components/PlayerActions"
 import PlayerAttributes from "../../../components/PlayerAttributes"
@@ -22,6 +26,7 @@ import GoalkeeperScoutAnalysis from "../../../components/GoalkeeperScoutAnalysis
 type PlayerPageProps = { params: Promise<{ slug: string; locale?: string }> }
 
 export default async function PlayerPage({ params }: PlayerPageProps) {
+  await connection()
   const { slug, locale: routeLocale } = await params
   const locale = requireLocale(routeLocale ?? "pt")
   const profile = await getPlayerBySlug(slug)
@@ -29,7 +34,9 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
 
   if (profile.status === "incomplete") {
     const manual = (await readManualEconomics([profile.id])).get(profile.id)
-    const wage = wagePresentation(manualWage(profile.id, manual), profile.id, locale)
+    const research = (await readResearchEconomics([profile.id])).get(profile.id)
+    const economic = publicEconomicOverlay(manual, research)
+    const wage = wagePresentation(manualWage(profile.id, manual) ?? researchWage(profile.id, research), profile.id, locale)
     return <main className="playerPage">
       <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}>
         <Link href={localizedHref(locale, "/jogadores")} className="backButton">{t(locale, "Jogadores")}</Link>
@@ -42,12 +49,8 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
         <p>{t(locale, "Perfil incompleto: os atributos deste jogador ainda não estão disponíveis. Nenhuma estatística foi estimada para preencher esses dados.")}</p>
         <dl className="careerFields" aria-label={visualText(locale, "economicData")}>
           <div><dt>{visualText(locale, "weeklySalary")}</dt><dd>{wage?.value ?? "—"}</dd></div>
-          <div><dt>{visualText(locale, "contractUntil")}</dt><dd>{manual?.contract?.until
-            ? new Intl.DateTimeFormat(locale === "pt" ? "pt-BR" : "en-GB", { timeZone: "UTC", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(manual.contract.until + "T00:00:00Z"))
-            : "—"}</dd></div>
-          <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{manual?.clause?.status === "YES" && manual.clause.amount && manual.clause.currency
-            ? new Intl.NumberFormat(locale === "pt" ? "pt-BR" : "en-GB", { style: "currency", currency: manual.clause.currency }).format(Number(manual.clause.amount))
-            : manual?.clause?.status === "NO" ? (locale === "pt" ? "Sem cláusula" : "No clause") : "—"}</dd></div>
+          <div><dt>{visualText(locale, "contractUntil")}</dt><dd>{publicContractUntil(economic, locale)}</dd></div>
+          <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{publicClause(economic, locale)}</dd></div>
         </dl>
       </div>
     </main>
@@ -56,13 +59,15 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
   const player = profile.player
   const isGoalkeeper = player.position === "GOL"
   const manual = (await readManualEconomics([player.id])).get(player.id)
-  const wage = manualWage(player.id, manual)
+  const research = (await readResearchEconomics([player.id])).get(player.id)
+  const wage = manualWage(player.id, manual) ?? researchWage(player.id, research)
+  const economic = publicEconomicOverlay(manual, research)
   return <main className="playerPage">
     <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}>
       <Link href={localizedHref(locale, "/jogadores")} className="backButton">{t(locale, "Jogadores")}</Link>
       <span aria-hidden="true">›</span><span aria-current="page">{player.name}</span>
     </nav>
-    <PlayerHeader locale={locale} player={player} valueContext="career-mode" wage={wage} manualEconomic={manual} />
+    <PlayerHeader locale={locale} player={player} valueContext="career-mode" wage={wage} economicOverlay={economic} />
     <PlayerActions locale={locale} slug={player.slug} name={player.name} />
     <PlayerExperienceNav locale={locale} slug={slug} active="ea" />
 

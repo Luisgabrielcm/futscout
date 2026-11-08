@@ -19,6 +19,7 @@ import { mapDatabasePlayer } from "../../mappers/mapDatabasePlayer"
 import { getPlayerProfilePositions } from "../../lib/playerProfilePositions"
 import { formatCurrency } from "../../utils/formatCurrency"
 import { getOverallDifference } from "../../utils/getOverallDifference"
+import { publicClause, publicContractUntil } from "../../lib/publicEconomicOverlay"
 
 assert(process.argv.includes("--disposable-authorized"))
 const root = path.resolve("audit/output")
@@ -158,10 +159,13 @@ try {
       "../../lib/playerProfilePositions": { getPlayerProfilePositions },
       "../../utils/formatCurrency": { formatCurrency },
       "../../utils/getOverallDifference": { getOverallDifference },
+      "../../lib/publicEconomicOverlay": { publicClause, publicContractUntil },
     })
   const publicPlayer = { ...mapDatabasePlayer(catalogPlayer()), id: "test-mbappe", name: "Kylian Mbappé" }
   const publicHtml = renderToStaticMarkup(createElement(Header, {
-    player: publicPlayer, locale: "pt", wage: service.manualWage(publicPlayer.id, publicValues), manualEconomic: publicValues,
+    player: publicPlayer, locale: "pt", wage: service.manualWage(publicPlayer.id, publicValues),
+    economicOverlay: { contract: publicValues?.contract?.until ? { until: publicValues.contract.until, precision: "DAY" } : undefined,
+      clause: publicValues?.clause },
   }))
   assert.match(publicHtml, /123\.457/)
   assert.match(publicHtml, /30\/06\/2029/)

@@ -25,18 +25,21 @@ import { potentialWhere, potentialPageSql } from "../lib/futscoutPotential/catal
 import { economicMarketValueReadSelect, readEconomicMarketValue } from "../lib/economicData/read"
 import { marketValueWhere, economicBargainsSql } from "../lib/economicData/catalog"
 import { manualWage, readManualEconomics } from "./adminEconomic.server"
+import { readResearchEconomics } from "./researchEconomicRead.server"
+import { researchWage } from "../lib/researchEconomic"
 
 async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapDatabasePlayer>[0][], withWage = true): Promise<Player[]> {
-  const [assets, manual] = await Promise.all([getBrandAssetsForEntities({
+  const [assets, manual, research] = await Promise.all([getBrandAssetsForEntities({
     clubIds: databasePlayers.flatMap(player => player.club?.id ? [player.club.id] : []),
     leagueIds: databasePlayers.flatMap(player => player.club?.league.id ? [player.club.league.id] : []),
   }),
-    withWage ? readManualEconomics(databasePlayers.map(player => player.id)) : Promise.resolve(new Map())])
+    withWage ? readManualEconomics(databasePlayers.map(player => player.id)) : Promise.resolve(new Map()),
+    withWage ? readResearchEconomics(databasePlayers.map(player => player.id)) : Promise.resolve(new Map())])
   return databasePlayers.map(databasePlayer => {
     const player = { ...mapDatabasePlayer(databasePlayer), ...readFutscoutPotential(databasePlayer), ...readEconomicMarketValue(databasePlayer) }
     if (player.club && databasePlayer.club?.id) player.club.asset = assets.clubs.get(databasePlayer.club.id) ?? null
     if (databasePlayer.club?.league.id) player.leagueAsset = assets.leagues.get(databasePlayer.club.league.id) ?? null
-    const wage = manualWage(player.id, manual.get(player.id))
+    const wage = manualWage(player.id, manual.get(player.id)) ?? researchWage(player.id, research.get(player.id))
     if (wage) player.wage = wage
     return player
   })

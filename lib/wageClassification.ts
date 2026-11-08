@@ -1,7 +1,7 @@
 // Pure public taxonomy. No salary sources, private files or provider payloads.
 export type WageTaxType = "NET" | "GROSS" | "UNKNOWN"
 export type WageComposition = "BASE" | "GUARANTEED" | "TOTAL" | "MIXED_UNCLASSIFIED" | "UNKNOWN"
-export type WageMethod = "OFFICIAL_REFERENCE" | "HISTORICAL_REFERENCE" | "MODEL_ESTIMATE" | "FALLBACK" | "MANUAL_ENTRY"
+export type WageMethod = "OFFICIAL_REFERENCE" | "HISTORICAL_REFERENCE" | "RESEARCHED_REFERENCE" | "MODEL_ESTIMATE" | "FALLBACK" | "MANUAL_ENTRY"
 export type WageClassification = Readonly<{ taxType: WageTaxType; composition: WageComposition; method: WageMethod }>
 export type WageDisclosure = WageClassification & Readonly<{
   version: 1; currency: "EUR"; periodicity: "YEAR"; season: string
@@ -14,7 +14,7 @@ export function isWageClassification(value: unknown): value is WageClassificatio
   const v = value as WageClassification
   return ["NET", "GROSS", "UNKNOWN"].includes(v.taxType) &&
     ["BASE", "GUARANTEED", "TOTAL", "MIXED_UNCLASSIFIED", "UNKNOWN"].includes(v.composition) &&
-    ["OFFICIAL_REFERENCE", "HISTORICAL_REFERENCE", "MODEL_ESTIMATE", "FALLBACK", "MANUAL_ENTRY"].includes(v.method)
+    ["OFFICIAL_REFERENCE", "HISTORICAL_REFERENCE", "RESEARCHED_REFERENCE", "MODEL_ESTIMATE", "FALLBACK", "MANUAL_ENTRY"].includes(v.method)
 }
 
 export function legacyWageClassification(method: string): WageClassification {
