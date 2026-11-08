@@ -49,7 +49,7 @@ export async function searchAdminPlayers(query: string) {
   const q = query.trim()
   if (q.length < 2 || q.length > 80) return []
   const rows = await adminPool().query<{ id: string; externalId: string; name: string; slug: string }>(
-    'SELECT id,"externalId",name,slug FROM "Player" WHERE "externalId"=$1 OR name ILIKE $2 ORDER BY CASE WHEN "externalId"=$1 THEN 0 ELSE 1 END,name LIMIT 20',
+    'SELECT id,"externalId",name,slug FROM "Player" WHERE "externalId"=$1 OR name ILIKE $2 OR slug ILIKE $2 ORDER BY CASE WHEN "externalId"=$1 THEN 0 ELSE 1 END,name LIMIT 20',
     [q, `%${q.replace(/[\\%_]/g, "\\$&")}%`])
   return rows.rows
 }

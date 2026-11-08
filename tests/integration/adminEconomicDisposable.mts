@@ -122,6 +122,8 @@ try {
     return (await readerPool.query(sql, values)).rows
   } }
   const service = loadCatalogModule<{
+    searchAdminPlayers: (query: string) => Promise<Array<{ id: string }>>
+    readAdminPlayer: (id: string) => Promise<{ id: string; sections: Record<string, { revision: number }>; history: unknown[] } | null>
     saveManualEconomic: (input: { playerId: string; eaId: string; section: domain.ManualSection; payload?: unknown;
       rollbackTo?: string; expectedRevision: number; requestId: string; actor: string }) => Promise<{ revision: number }>
     readManualEconomics: (ids: string[]) => Promise<Map<string, { salary?: domain.SalaryPayload; contract?: domain.ContractPayload;
@@ -131,10 +133,15 @@ try {
     "server-only": {}, "node:crypto": crypto, "../lib/prisma": { prisma: fakePrisma },
     "../lib/adminEconomic": domain, "./adminAuth.server": { adminPool: () => pool },
   })
+  assert.deepEqual((await service.searchAdminPlayers("mbappe")).map(p => p.id), ["test-mbappe"])
+  assert.deepEqual((await service.searchAdminPlayers("Mbappé")).map(p => p.id), ["test-mbappe"])
+  assert.deepEqual((await service.searchAdminPlayers("231747")).map(p => p.id), ["test-mbappe"])
+  assert.equal((await service.readAdminPlayer("test-mbappe"))?.id, "test-mbappe")
   const base = { playerId: "test-mbappe", eaId: "231747", actor: "owner" }
   const salaryInput = { ...base, section: "SALARY" as const, expectedRevision: 0, requestId: randomUUID(),
     payload: { weeklyEur: "123456.78", taxType: "GROSS", composition: "BASE" } }
   assert.equal((await service.saveManualEconomic(salaryInput)).revision, 1)
+  assert.equal((await service.readAdminPlayer("test-mbappe"))?.sections.SALARY.revision, 1)
   const manual = (await service.readManualEconomics(["test-mbappe"])).get("test-mbappe")
   assert.equal(manual?.salary?.weeklyEur, "123456.78")
   assert.match(wagePresentation(service.manualWage("test-mbappe", manual), "test-mbappe", "pt")?.value ?? "", /123.457/)

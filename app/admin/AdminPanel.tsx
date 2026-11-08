@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useRef, useState } from "react"
 import type { ManualSection } from "../../lib/adminEconomic"
+import styles from "./AdminPanel.module.css"
 
 type Match = { id: string; externalId: string; name: string; slug: string }
 type Revision = { id: string; section: ManualSection; revision: number; action: string; createdAt: string }
@@ -16,6 +17,7 @@ export default function AdminPanel() {
   const [password, setPassword] = useState("")
   const [query, setQuery] = useState("")
   const [matches, setMatches] = useState<Match[]>([])
+  const [searched, setSearched] = useState(false)
   const [player, setPlayer] = useState<Player | null>(null)
   const [salary, setSalary] = useState(emptySalary)
   const [contract, setContract] = useState(emptyContract)
@@ -55,6 +57,7 @@ export default function AdminPanel() {
       const response = await fetch(`/admin/api/players?q=${encodeURIComponent(query)}`, { cache: "no-store" })
       if (!response.ok) throw Error("Busca indisponível.")
       setMatches((await response.json()).players as Match[])
+      setSearched(true)
     } catch (error) { setMessage(error instanceof Error ? error.message : "Falha de busca.") }
     finally { setBusy(false) }
   }
@@ -83,57 +86,146 @@ export default function AdminPanel() {
   }
   async function logout() {
     await fetch("/admin/api/logout", { method: "POST", headers: { "x-csrf-token": csrf() } })
-    setAuthorized(false); setPlayer(null); setMatches([])
+    setAuthorized(false); setPlayer(null); setMatches([]); setSearched(false)
   }
 
-  return <main style={{ maxWidth: 920, margin: "2rem auto", padding: "1rem", color: "#f4f1e8" }}>
-    <h1>Painel privado FutScout</h1>
-    {!authorized ? <form onSubmit={login} style={{ display: "grid", gap: 18, maxWidth: 380 }}>
-      <label style={{ display: "grid", gap: 8 }}>Conta do proprietário
-        <input required autoComplete="username" value={owner} onChange={e => setOwner(e.target.value)}
-          style={{ width: "100%", minHeight: 44, padding: "8px 12px", boxSizing: "border-box" }} />
-      </label>
-      <label style={{ display: "grid", gap: 8 }}>Senha
-        <input required type="password" minLength={16} autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}
-          style={{ width: "100%", minHeight: 44, padding: "8px 12px", boxSizing: "border-box" }} />
-      </label>
-      <button disabled={busy} style={{ minHeight: 44 }}>Entrar</button>
-    </form> : <>
-      <button type="button" onClick={logout}>Sair</button>
-      <form onSubmit={search} style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "1rem 0" }}>
-        <input aria-label="Nome ou ID EA" placeholder="Nome ou ID EA" minLength={2} maxLength={80} value={query} onChange={e => setQuery(e.target.value)} />
-        <button disabled={busy}>Buscar</button>
-      </form>
-      <ul>{matches.map(m => <li key={m.id}><button type="button" onClick={() => void open(m.id).catch(() => setMessage("Não foi possível abrir o jogador."))}>{m.name} · EA {m.externalId}</button></li>)}</ul>
-      {player && <div style={{ display: "grid", gap: 24 }}>
-        <h2>{player.name} · EA {player.externalId}</h2>
-        <a href={`/pt/jogadores/${encodeURIComponent(player.slug)}`} target="_blank" rel="noreferrer">Abrir perfil público</a>
-        <section><h3>Salário semanal</h3>
-          <label>EUR/semana<input type="number" min="0.01" step="0.01" value={salary.weeklyEur} onChange={e => setSalary({ ...salary, weeklyEur: e.target.value })} /></label>
-          <label>Tributação<select value={salary.taxType} onChange={e => setSalary({ ...salary, taxType: e.target.value })}><option value="UNKNOWN">Desconhecida</option><option value="GROSS">Bruto</option><option value="NET">Líquido</option></select></label>
-          <label>Composição<select value={salary.composition} onChange={e => setSalary({ ...salary, composition: e.target.value })}><option value="UNKNOWN">Desconhecida</option><option value="BASE">Fixo</option><option value="GUARANTEED">Garantido</option><option value="TOTAL">Total</option></select></label>
-          <button type="button" disabled={busy} onClick={() => void save("SALARY")}>Salvar salário</button>
+  return <main className={styles.page}>
+    <div className={styles.shell}>
+      <header className={styles.header}>
+        <div>
+          <p className={styles.eyebrow}>Área restrita · FutScout</p>
+          <h1 className={styles.title}>Painel do proprietário</h1>
+          <p className={styles.subtitle}>Gerencie salários, contratos e cláusulas com histórico de cada edição.</p>
+        </div>
+        {authorized && <button className={styles.secondaryButton} type="button" onClick={logout}>Sair</button>}
+      </header>
+
+      {message && <p className={styles.notice} role="status">{message}</p>}
+
+      {!authorized ? <section className={`${styles.card} ${styles.loginCard}`}>
+        <h2 className={styles.cardTitle}>Acessar painel</h2>
+        <p className={styles.cardDescription}>Entre com a conta exclusiva do proprietário.</p>
+        <form className={styles.form} onSubmit={login}>
+          <label className={styles.field}>Conta do proprietário
+            <input className={styles.input} required autoComplete="username" value={owner} onChange={e => setOwner(e.target.value)} />
+          </label>
+          <label className={styles.field}>Senha
+            <input className={styles.input} required type="password" minLength={16} autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} />
+          </label>
+          <button className={styles.primaryButton} disabled={busy}>Entrar</button>
+        </form>
+      </section> : <div className={styles.workspace}>
+        <section className={styles.card}>
+          <div className={styles.sectionHeading}>
+            <div>
+              <p className={styles.eyebrow}>01 · Catálogo</p>
+              <h2 className={styles.cardTitle}>Encontrar jogador</h2>
+              <p className={styles.cardDescription}>Busque por nome, nome sem acento ou ID EA.</p>
+            </div>
+          </div>
+          <form className={styles.searchForm} onSubmit={search}>
+            <label className={styles.field}>Nome ou ID EA
+              <input className={styles.input} placeholder="Ex.: Mbappé, mbappe ou 231747" minLength={2} maxLength={80}
+                value={query} onChange={e => setQuery(e.target.value)} />
+            </label>
+            <button className={styles.primaryButton} disabled={busy || query.trim().length < 2} type="submit">
+              {busy ? "Buscando…" : "Buscar jogador"}
+            </button>
+          </form>
+          {searched && <p className={styles.resultCount} aria-live="polite">
+            {matches.length ? `${matches.length} jogador${matches.length === 1 ? " encontrado" : "es encontrados"}. Selecione um para editar.`
+              : "Nenhum jogador encontrado. Tente o nome completo ou o ID EA."}
+          </p>}
+          {matches.length > 0 && <ul className={styles.resultList}>
+            {matches.map(m => <li key={m.id}>
+              <button className={styles.resultButton} type="button" onClick={() => void open(m.id).catch(() => setMessage("Não foi possível abrir o jogador."))}>
+                <span>{m.name}</span><span className={styles.resultId}>EA {m.externalId} <span aria-hidden="true">→</span></span>
+              </button>
+            </li>)}
+          </ul>}
         </section>
-        <section><h3>Contrato</h3>
-          <label>Início<input type="date" value={contract.start} onChange={e => setContract({ ...contract, start: e.target.value })} /></label>
-          <label>Vencimento<input type="date" value={contract.until} onChange={e => setContract({ ...contract, until: e.target.value })} /></label>
-          <label>Renovação<input type="date" value={contract.renewed} onChange={e => setContract({ ...contract, renewed: e.target.value })} /></label>
-          <button type="button" disabled={busy} onClick={() => void save("CONTRACT")}>Salvar contrato</button>
-        </section>
-        <section><h3>Cláusula</h3>
-          <label>Situação<select value={clause.status} onChange={e => setClause({ ...clause, status: e.target.value })}><option value="UNKNOWN">Desconhecida</option><option value="YES">Sim</option><option value="NO">Não</option></select></label>
-          {clause.status === "YES" && <>
-            <label>Valor, se conhecido<input type="number" min="0.01" step="0.01" value={clause.amount} onChange={e => setClause({ ...clause, amount: e.target.value })} /></label>
-            <label>Moeda<select value={clause.currency} onChange={e => setClause({ ...clause, currency: e.target.value })}><option>EUR</option><option>GBP</option><option>USD</option></select></label>
-            <label>Condições<textarea value={clause.conditions} onChange={e => setClause({ ...clause, conditions: e.target.value })} /></label>
-            <label>Validade<input type="date" value={clause.validUntil} onChange={e => setClause({ ...clause, validUntil: e.target.value })} /></label>
-          </>}
-          <button type="button" disabled={busy} onClick={() => void save("CLAUSE")}>Salvar cláusula</button>
-        </section>
-        <section><h3>Restaurar revisão anterior</h3>{player.history.map(h => <div key={h.id}>{h.section} · revisão {h.revision} · {h.action} · {new Date(h.createdAt).toLocaleString("pt-BR")}
-          <button type="button" disabled={busy} onClick={() => void save(h.section, h.id)}>Restaurar esta revisão</button></div>)}</section>
+
+        {!player ? <section className={styles.emptyState}>
+          <span className={styles.emptyIcon} aria-hidden="true">↗</span>
+          <h2>Selecione um jogador</h2>
+          <p>As opções de salário, contrato e cláusula aparecerão aqui depois da busca.</p>
+        </section> : <div className={styles.editor}>
+          <div className={styles.playerHeading}>
+            <div><p className={styles.eyebrow}>02 · Edição manual</p><h2>{player.name}</h2><p>Jogador EA {player.externalId}</p></div>
+            <a className={styles.secondaryButton} href={`/pt/jogadores/${encodeURIComponent(player.slug)}`} target="_blank" rel="noreferrer">Ver perfil público ↗</a>
+          </div>
+          <div className={styles.editorGrid}>
+            <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Salário semanal</h3>
+              <p className={styles.cardDescription}>Informe apenas dados conhecidos. Salve esta seção separadamente.</p>
+              <div className={styles.form}>
+                <label className={styles.field}>EUR por semana
+                  <input className={styles.input} type="number" min="0.01" step="0.01" value={salary.weeklyEur} onChange={e => setSalary({ ...salary, weeklyEur: e.target.value })} />
+                </label>
+                <div className={styles.fieldRow}>
+                  <label className={styles.field}>Tributação
+                    <select className={styles.input} value={salary.taxType} onChange={e => setSalary({ ...salary, taxType: e.target.value })}><option value="UNKNOWN">Desconhecida</option><option value="GROSS">Bruto</option><option value="NET">Líquido</option></select>
+                  </label>
+                  <label className={styles.field}>Composição
+                    <select className={styles.input} value={salary.composition} onChange={e => setSalary({ ...salary, composition: e.target.value })}><option value="UNKNOWN">Desconhecida</option><option value="BASE">Fixo</option><option value="GUARANTEED">Garantido</option><option value="TOTAL">Total</option></select>
+                  </label>
+                </div>
+                <button className={styles.primaryButton} type="button" disabled={busy} onClick={() => void save("SALARY")}>Salvar salário</button>
+              </div>
+            </section>
+            <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Contrato</h3>
+              <p className={styles.cardDescription}>Registre as datas com a precisão disponível.</p>
+              <div className={styles.form}>
+                <label className={styles.field}>Início
+                  <input className={styles.input} type="date" value={contract.start} onChange={e => setContract({ ...contract, start: e.target.value })} />
+                </label>
+                <label className={styles.field}>Vencimento
+                  <input className={styles.input} type="date" value={contract.until} onChange={e => setContract({ ...contract, until: e.target.value })} />
+                </label>
+                <label className={styles.field}>Renovação
+                  <input className={styles.input} type="date" value={contract.renewed} onChange={e => setContract({ ...contract, renewed: e.target.value })} />
+                </label>
+                <button className={styles.primaryButton} type="button" disabled={busy} onClick={() => void save("CONTRACT")}>Salvar contrato</button>
+              </div>
+            </section>
+            <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Cláusula de rescisão</h3>
+              <p className={styles.cardDescription}>“Desconhecido” não significa que o jogador não possua cláusula.</p>
+              <div className={styles.form}>
+                <label className={styles.field}>Situação
+                  <select className={styles.input} value={clause.status} onChange={e => setClause({ ...clause, status: e.target.value })}><option value="UNKNOWN">Desconhecida</option><option value="YES">Sim</option><option value="NO">Não</option></select>
+                </label>
+                {clause.status === "YES" && <>
+                  <div className={styles.fieldRow}>
+                    <label className={styles.field}>Valor, se conhecido
+                      <input className={styles.input} type="number" min="0.01" step="0.01" value={clause.amount} onChange={e => setClause({ ...clause, amount: e.target.value })} />
+                    </label>
+                    <label className={styles.field}>Moeda
+                      <select className={styles.input} value={clause.currency} onChange={e => setClause({ ...clause, currency: e.target.value })}><option>EUR</option><option>GBP</option><option>USD</option></select>
+                    </label>
+                  </div>
+                  <label className={styles.field}>Condições
+                    <textarea className={styles.input} rows={3} value={clause.conditions} onChange={e => setClause({ ...clause, conditions: e.target.value })} />
+                  </label>
+                  <label className={styles.field}>Validade
+                    <input className={styles.input} type="date" value={clause.validUntil} onChange={e => setClause({ ...clause, validUntil: e.target.value })} />
+                  </label>
+                </>}
+                <button className={styles.primaryButton} type="button" disabled={busy} onClick={() => void save("CLAUSE")}>Salvar cláusula</button>
+              </div>
+            </section>
+            <section className={styles.card}>
+              <h3 className={styles.cardTitle}>Histórico manual</h3>
+              <p className={styles.cardDescription}>Restaure uma revisão anterior sem apagar o histórico.</p>
+              {player.history.length ? <ul className={styles.historyList}>{player.history.map(h => <li key={h.id}>
+                <div><strong>{h.section}</strong><span>Revisão {h.revision} · {h.action} · {new Date(h.createdAt).toLocaleString("pt-BR")}</span></div>
+                <button className={styles.secondaryButton} type="button" disabled={busy} onClick={() => void save(h.section, h.id)}>Restaurar</button>
+              </li>)}</ul> : <p className={styles.emptyHistory}>Nenhuma edição manual anterior para este jogador.</p>}
+            </section>
+          </div>
+        </div>}
       </div>}
-    </>}
-    {message && <p role="status">{message}</p>}
+    </div>
   </main>
 }
