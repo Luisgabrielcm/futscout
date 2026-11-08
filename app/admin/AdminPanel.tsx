@@ -88,10 +88,16 @@ export default function AdminPanel() {
 
   return <main style={{ maxWidth: 920, margin: "2rem auto", padding: "1rem", color: "#f4f1e8" }}>
     <h1>Painel privado FutScout</h1>
-    {!authorized ? <form onSubmit={login} style={{ display: "grid", gap: 12, maxWidth: 380 }}>
-      <label>Conta do proprietário<input required autoComplete="username" value={owner} onChange={e => setOwner(e.target.value)} /></label>
-      <label>Senha<input required type="password" minLength={16} autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></label>
-      <button disabled={busy}>Entrar</button>
+    {!authorized ? <form onSubmit={login} style={{ display: "grid", gap: 18, maxWidth: 380 }}>
+      <label style={{ display: "grid", gap: 8 }}>Conta do proprietário
+        <input required autoComplete="username" value={owner} onChange={e => setOwner(e.target.value)}
+          style={{ width: "100%", minHeight: 44, padding: "8px 12px", boxSizing: "border-box" }} />
+      </label>
+      <label style={{ display: "grid", gap: 8 }}>Senha
+        <input required type="password" minLength={16} autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)}
+          style={{ width: "100%", minHeight: 44, padding: "8px 12px", boxSizing: "border-box" }} />
+      </label>
+      <button disabled={busy} style={{ minHeight: 44 }}>Entrar</button>
     </form> : <>
       <button type="button" onClick={logout}>Sair</button>
       <form onSubmit={search} style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "1rem 0" }}>
