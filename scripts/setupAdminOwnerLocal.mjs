@@ -7,7 +7,8 @@ import { spawnSync } from "node:child_process"
 
 const hashPattern = /^[a-f0-9]{32}:[a-f0-9]{64}$/
 const validHash = value => value.length === 97 && hashPattern.test(value)
-const hashOnly = process.argv.includes("--hash-only")
+const configureVercel = process.argv.includes("--configure-vercel")
+const hashOnly = configureVercel || process.argv.includes("--hash-only")
 const verifyClipboardOnly = process.argv.includes("--verify-clipboard")
 function clipboardCheck(expected) {
   const script = expected === undefined
@@ -82,17 +83,29 @@ try {
   const hash = scryptSync(password, salt, 32)
   const encoded = `${salt.toString("hex")}:${hash.toString("hex")}`
   if (!validHash(encoded)) throw Error("FORMATO_INVALIDO")
-  process.stdout.write("\nOs valores serão copiados um por vez; nenhum será exibido.\n")
-  process.stdout.write(hashOnly
-    ? "Substitua somente FUTSCOUT_ADMIN_PASSWORD_HASH como Secret em Production.\n"
-    : "Configure as duas variáveis como Secret, somente em Production.\n")
-  if (owner) await pasteStep("FUTSCOUT_ADMIN_OWNER_LOGIN", owner)
-  await pasteStep("FUTSCOUT_ADMIN_PASSWORD_HASH", encoded, true)
-  process.stdout.write("Configuração manual concluída. Nenhum deploy foi executado.\n")
+  if (configureVercel) {
+    const result = spawnSync("npx.cmd", ["vercel", "env", "add", "FUTSCOUT_ADMIN_PASSWORD_HASH",
+      "--environment", "production", "--sensitive", "--force", "--yes",
+      "--project", "prj_bxwmEhksloSEAEbCqdEUJRAmeiQm"], {
+      input: encoded, timeout: 120000, stdio: ["pipe", "pipe", "pipe"], windowsHide: true,
+      shell: true, // Node 24 cannot launch a .cmd file directly on Windows.
+    })
+    if (result.status !== 0) throw Error("CONFIGURATION_FAILED")
+    process.stdout.write("CONFIGURED: senha protegida em Production. Nenhum deploy foi executado.\n")
+  } else {
+    process.stdout.write("\nOs valores serão copiados um por vez; nenhum será exibido.\n")
+    process.stdout.write(hashOnly
+      ? "Substitua somente FUTSCOUT_ADMIN_PASSWORD_HASH como Secret em Production.\n"
+      : "Configure as duas variáveis como Secret, somente em Production.\n")
+    if (owner) await pasteStep("FUTSCOUT_ADMIN_OWNER_LOGIN", owner)
+    await pasteStep("FUTSCOUT_ADMIN_PASSWORD_HASH", encoded, true)
+    process.stdout.write("Configuração manual concluída. Nenhum deploy foi executado.\n")
+  }
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : "Falha local."}\n`)
   process.exitCode = 1
 } finally {
+  if (configureVercel) await question("Pressione Enter para fechar esta janela. ")
   if (process.platform === "win32" && clipboardUsed) {
     try { clipboard(" ") } catch {
       process.stderr.write("Não foi possível limpar a área de transferência; limpe-a manualmente.\n")
