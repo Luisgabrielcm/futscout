@@ -34,7 +34,7 @@ export function parseResearchPayload(field: ResearchField, action: ResearchActio
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw Error("RESEARCH_PAYLOAD_INVALID")
   const p = raw as Record<string, unknown>
   if (field === "SALARY") {
-    if (action === "PUBLISH" || action === "ROLLBACK") {
+    if ((action === "PUBLISH" || action === "ROLLBACK") && !Object.hasOwn(p, "weeklyAmount")) {
       const salary = parseManualPayload("SALARY", raw) as SalaryPayload
       if (salary.taxType !== "GROSS" || salary.composition !== "TOTAL") throw Error("RESEARCH_SALARY_NOT_GROSS_TOTAL")
       return salary
@@ -43,6 +43,8 @@ export function parseResearchPayload(field: ResearchField, action: ResearchActio
         !["GROSS", "NET", "UNKNOWN"].includes(String(p.taxType)) ||
         !["BASE", "GUARANTEED", "TOTAL", "UNKNOWN"].includes(String(p.composition)))
       throw Error("RESEARCH_SALARY_REFERENCE_INVALID")
+    if (action !== "RECORD" && (p.taxType !== "GROSS" || p.composition !== "BASE"))
+      throw Error("RESEARCH_SALARY_REFERENCE_NOT_PUBLISHABLE")
     return { weeklyAmount: p.weeklyAmount as string, currency: p.currency as ResearchSalaryReference["currency"],
       taxType: p.taxType as ResearchSalaryReference["taxType"], composition: p.composition as ResearchSalaryReference["composition"] }
   }
@@ -97,12 +99,27 @@ export function formatResearchContract(contract: ResearchContract, locale: "pt" 
     day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${contract.until}T00:00:00Z`))
 }
 
-export function researchWage(playerId: string, research: { salary?: { value: SalaryPayload; sourceUrl: string;
+export function researchWage(playerId: string, research: { salary?: { value: SalaryPayload | ResearchSalaryReference; sourceUrl: string;
   sourcePublishedOn: string | null } } | undefined): PublishedWage | undefined {
   const salary = research?.salary
-  if (!salary || salary.value.taxType !== "GROSS" || salary.value.composition !== "TOTAL") return undefined
+  if (!salary || !("weeklyEur" in salary.value) || salary.value.taxType !== "GROSS" || salary.value.composition !== "TOTAL") return undefined
   return { playerId, weeklyEur: Number(salary.value.weeklyEur), kind: "RESEARCHED", source: "External",
     sourceUrl: salary.sourceUrl, sourceName: "Fonte pesquisada", period: salary.sourcePublishedOn,
     classification: { taxType: "GROSS", composition: "TOTAL", method: "RESEARCHED_REFERENCE" },
     confidence: "LOW", contractVerified: false }
+}
+
+export function researchFixedSalary(research: { salary?: { value: SalaryPayload | ResearchSalaryReference;
+  sourceUrl: string; classification: ResearchClassification } } | undefined, locale: "pt" | "en") {
+  const salary = research?.salary
+  if (!salary || !("weeklyAmount" in salary.value) || salary.value.taxType !== "GROSS" ||
+      salary.value.composition !== "BASE" || !["EUR", "GBP", "USD"].includes(salary.value.currency)) return undefined
+  const amount = Number(salary.value.weeklyAmount)
+  if (!Number.isFinite(amount) || amount <= 0) return undefined
+  const pt = locale === "pt"
+  const symbol = { EUR: "€", GBP: "£", USD: "$" }[salary.value.currency]
+  return { title: pt ? "Salário bruto fixo estimado" : "Estimated gross base salary",
+    value: `${symbol} ${new Intl.NumberFormat(pt ? "pt-BR" : "en-GB", { maximumFractionDigits: 0 }).format(amount)}/${pt ? "semana" : "week"}`,
+    detail: pt ? "Estimativa da fonte; bônus excluídos" : "Source estimate; bonuses excluded",
+    sourceUrl: salary.sourceUrl }
 }

@@ -80,7 +80,29 @@ try {
   await assert.rejects(write({ ...publication, requestId: randomUUID(), expectedHeadRevision: 4 }), /RESEARCH_MANUAL_PRIORITY/)
   await assert.rejects(owner.query('DELETE FROM "ResearchEconomicRevision"'), /IMMUTABLE/)
   assert.equal((await pool.query('SELECT count(*)::int count FROM "ResearchEconomicRevision"')).rows[0].count, 5)
-  assert.throws(() => parseResearchPayload("SALARY", "PUBLISH", salaryReference.payload), /INVALID_SALARY/)
+  await owner.query(fs.readFileSync("prisma/migrations/20261108010000_researched_gross_base_reference/migration.sql", "utf8"))
+  assert.deepEqual(parseResearchPayload("SALARY", "PUBLISH", salaryReference.payload), salaryReference.payload)
+  const salaryPublication = { ...salaryReference, action: "PUBLISH" as const,
+    requestId: randomUUID(), expectedHeadRevision: 0 }
+  const salaryPublished = await write(salaryPublication)
+  assert.equal(salaryPublished.publishedNow, true)
+  assert.equal((await write(salaryPublication)).replay, true)
+  assert.equal((await pool.query('SELECT count(*)::int count FROM "ResearchEconomicPublic" WHERE field=$1',
+    ["SALARY"])).rows[0].count, 1)
+  await owner.query(`INSERT INTO "AdminEconomicRevision" (id,"playerId","eaId",section,revision,"requestId",action,payload,"contentHash",actor)
+    VALUES ($1,$2,$3,$4,1,$5,'EDIT',$6::jsonb,$7,'test-owner')`,
+  [randomUUID(), "player-1", "123", "SALARY", randomUUID(), JSON.stringify({ weeklyEur: "200", taxType: "GROSS", composition: "TOTAL" }), "b".repeat(64)])
+  const manualSalaryId = (await owner.query('SELECT id FROM "AdminEconomicRevision" WHERE section=$1', ["SALARY"])).rows[0].id
+  await owner.query('INSERT INTO "AdminEconomicHead" VALUES ($1,$2,$3,1)', ["player-1", "SALARY", manualSalaryId])
+  assert.equal((await pool.query('SELECT count(*)::int count FROM "ResearchEconomicPublic" WHERE field=$1',
+    ["SALARY"])).rows[0].count, 0)
+  await assert.rejects(write({ ...salaryPublication, requestId: randomUUID(), expectedHeadRevision: salaryPublished.revision }),
+    /RESEARCH_MANUAL_PRIORITY/)
+  await assert.rejects(owner.query('DELETE FROM "ResearchEconomicRevision" WHERE id=$1',
+    [salaryPublished.id]), /IMMUTABLE/)
+  await assert.rejects(write({ ...salaryPublication, action: "ROLLBACK", payload: null,
+    rollbackToId: null, requestId: randomUUID(), expectedHeadRevision: salaryPublished.revision }),
+  /RESEARCH_MANUAL_PRIORITY/)
   console.log("PG17 RESEARCH_ECONOMIC_PASS: evidence, publication, manual priority, CAS, idempotency, rollback, history")
 } finally {
   await pool?.end(); await owner?.end()

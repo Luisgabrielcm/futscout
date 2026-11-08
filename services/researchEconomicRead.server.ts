@@ -1,10 +1,10 @@
 import "server-only"
 import { prisma } from "../lib/prisma"
-import { parseResearchPayload, type ResearchContract, type ResearchClassification } from "../lib/researchEconomic"
+import { parseResearchPayload, type ResearchContract, type ResearchClassification, type ResearchSalaryReference } from "../lib/researchEconomic"
 import type { ClausePayload, SalaryPayload } from "../lib/adminEconomic"
 
 export type ResearchEconomic = {
-  salary?: { value: SalaryPayload; classification: ResearchClassification; sourceUrl: string; sourcePublishedOn: string | null }
+  salary?: { value: SalaryPayload | ResearchSalaryReference; classification: ResearchClassification; sourceUrl: string; sourcePublishedOn: string | null }
   contract?: ResearchContract
   clause?: ClausePayload
 }
@@ -22,7 +22,7 @@ export async function readResearchEconomics(playerIds: readonly string[]): Promi
       try {
         const payload = parseResearchPayload(row.field, "PUBLISH", row.payload)
         const entry = result.get(row.playerId) ?? {}
-        if (row.field === "SALARY") entry.salary = { value: payload as SalaryPayload,
+        if (row.field === "SALARY") entry.salary = { value: payload as SalaryPayload | ResearchSalaryReference,
           classification: row.classification, sourceUrl: row.sourceUrl, sourcePublishedOn: row.sourcePublishedOn }
         if (row.field === "CONTRACT") entry.contract = payload as ResearchContract
         if (row.field === "CLAUSE") entry.clause = payload as ClausePayload

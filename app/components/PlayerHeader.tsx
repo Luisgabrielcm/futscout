@@ -31,12 +31,14 @@ type PlayerHeaderProps = {
   player: Player
   valueContext?: "market" | "career-mode"
   wage?: PublishedWage
+  fixedSalary?: { title: string; value: string; detail: string; sourceUrl: string }
   economicOverlay?: PublicEconomicOverlay
 }
 
 export default function PlayerHeader({ locale = "pt",
   player,
   wage,
+  fixedSalary,
   economicOverlay,
 }: PlayerHeaderProps) {
   const publishedWage = wagePresentation(wage, player.id, locale)
@@ -258,6 +260,10 @@ export default function PlayerHeader({ locale = "pt",
             <div><dt>{publishedWage?.title ?? visualText(locale, "weeklySalary")}</dt><dd>{publishedWage?.value ?? "—"}
               {publishedWage && <><small className="mutedText" style={{ display: "block" }}>{publishedWage.label}</small><small className="mutedText" style={{ display: "block" }}>{publishedWage.detail}</small></>}
             </dd></div>
+          {fixedSalary && <div><dt>{fixedSalary.title}</dt><dd>{fixedSalary.value}
+            <small className="mutedText" style={{ display: "block" }}>{fixedSalary.detail}</small>
+            <a href={fixedSalary.sourceUrl} target="_blank" rel="noopener noreferrer">{locale === "pt" ? "Fonte" : "Source"}</a>
+          </dd></div>}
           <div><dt>{visualText(locale, "contractUntil")}</dt><dd>{publicContractUntil(economicOverlay, locale)}</dd></div>
           <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{publicClause(economicOverlay, locale)}</dd></div>
         </dl>
