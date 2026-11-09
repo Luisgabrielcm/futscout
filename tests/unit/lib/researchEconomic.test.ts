@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 import { randomUUID } from "node:crypto"
-import { formatResearchContract, parseResearchPayload, prepareResearchCommand, researchFixedSalary, researchWage } from "../../../lib/researchEconomic"
+import { formatResearchContract, normalizeResearchSalary, parseResearchPayload, prepareResearchCommand, researchFixedSalary, researchWage } from "../../../lib/researchEconomic"
 import { publicClause, publicContractUntil, publicEconomicOverlay } from "../../../lib/publicEconomicOverlay"
 import { wagePresentation } from "../../../lib/wagePublication"
 
@@ -19,6 +19,22 @@ test("research evidence validates precision, provenance and salary composition",
   assert.deepEqual(parseResearchPayload("SALARY", "PUBLISH", { weeklyAmount: "500", currency: "EUR", taxType: "GROSS", composition: "BASE" }),
     { weeklyAmount: "500", currency: "EUR", taxType: "GROSS", composition: "BASE" })
   assert.throws(() => parseResearchPayload("SALARY", "PUBLISH", { weeklyAmount: "500", currency: "EUR", taxType: "NET", composition: "BASE" }))
+  const net = { weeklyAmount: "500", weeklyEur: "500", currency: "EUR", taxType: "NET", composition: "BASE",
+    season: "2026-2027", fx: null }
+  assert.deepEqual(parseResearchPayload("SALARY", "PUBLISH", net), net)
+  const gbp = { weeklyAmount: "834.15", weeklyEur: "1000", currency: "GBP", taxType: "GROSS", composition: "BASE",
+    season: "2026-2027", fx: { unitsPerEur: "0.83415", asOf: "2026-11-06", sourceUrl: "https://www.ecb.europa.eu/rates" } }
+  assert.deepEqual(parseResearchPayload("SALARY", "PUBLISH", gbp), gbp)
+  assert.throws(() => parseResearchPayload("SALARY", "PUBLISH", { ...gbp, fx: null }))
+  assert.throws(() => parseResearchPayload("SALARY", "PUBLISH", { ...gbp, weeklyEur: "1100" }))
+  assert.throws(() => parseResearchPayload("SALARY", "PUBLISH", { ...gbp,
+    fx: { ...gbp.fx, sourceUrl: "https://user:secret@example.test/rates" } }))
+  assert.deepEqual(normalizeResearchSalary({ amount: "52000", period: "YEAR", currency: "EUR", taxType: "NET",
+    composition: "BASE", season: "2026-2027", fx: null }),
+  { weeklyAmount: "1000.00", weeklyEur: "1000.00", originalAmount: "52000", originalPeriod: "YEAR",
+    currency: "EUR", taxType: "NET", composition: "BASE", season: "2026-2027", fx: null })
+  assert.equal(normalizeResearchSalary({ amount: "4333.33", period: "MONTH", currency: "EUR", taxType: "UNKNOWN",
+    composition: "UNKNOWN", season: "2026-2027", fx: null }).weeklyAmount, "1000.00")
   assert.throws(() => prepareResearchCommand({ ...base, sourceUrl: "http://example.test", payload: { until: "2030", precision: "YEAR" } }))
   const first = prepareResearchCommand({ ...base, payload: { until: "2030", precision: "YEAR" } })
   const second = prepareResearchCommand({ ...base, payload: { precision: "YEAR", until: "2030" } })
@@ -47,4 +63,10 @@ test("manual values dominate researched contract, clause and wage", () => {
   assert.equal(researchWage("p", fixed), undefined)
   assert.equal(researchFixedSalary(fixed, "pt")?.value, "€ 300.577/semana")
   assert.equal(researchFixedSalary({ salary: { ...fixed.salary, value: { ...fixed.salary.value, taxType: "NET" } } }, "pt"), undefined)
+  const researchedNet = researchWage("p", { salary: { value: { weeklyAmount: "500", weeklyEur: "500",
+    currency: "EUR", taxType: "NET", composition: "BASE", season: "2026-2027", fx: null },
+    sourceUrl: "https://example.test/salary", sourcePublishedOn: null } })
+  assert.equal(researchedNet?.weeklyEur, 500)
+  assert.match(wagePresentation(researchedNet, "p", "pt")?.title ?? "", /líquido/i)
+  assert.match(wagePresentation(researchedNet, "p", "pt")?.detail ?? "", /Base/)
 })

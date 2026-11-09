@@ -23,7 +23,7 @@ export function wagePresentation(wage: PublishedWage | undefined, playerId: stri
   const external = wage.source === "External" && classification.method === "HISTORICAL_REFERENCE"
   const manual = wage.kind === "MANUAL" && classification.method === "MANUAL_ENTRY" && wage.source === "FutScout"
   const researched = wage.kind === "RESEARCHED" && classification.method === "RESEARCHED_REFERENCE" &&
-    wage.source === "External" && classification.taxType === "GROSS" && classification.composition === "TOTAL"
+    wage.source === "External"
   const reference = ["OFFICIAL_REFERENCE", "HISTORICAL_REFERENCE"].includes(classification.method)
   if ((!manual && !researched && reference !== (wage.kind === "HISTORICAL_REFERENCE")) ||
       (wage.kind === "MANUAL" && !manual) ||
@@ -43,6 +43,7 @@ export function wagePresentation(wage: PublishedWage | undefined, playerId: stri
   return {
     title: classification.taxType === "NET" ? (pt ? "Salário líquido" : "Net salary")
       : classification.taxType === "GROSS" ? (pt ? "Salário bruto" : "Gross salary")
+      : researched ? (pt ? "Referência salarial — base tributária não confirmada" : "Salary reference — tax basis unconfirmed")
       : manual ? (pt ? "Salário cadastrado — composição não confirmada" : "Entered salary — composition unconfirmed")
       : reference ? (pt ? "Referência salarial — composição não confirmada" : "Salary reference — composition unconfirmed")
       : (pt ? "Salário estimado — composição não confirmada" : "Estimated salary — composition unconfirmed"),

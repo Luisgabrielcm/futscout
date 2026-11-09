@@ -37,7 +37,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     const research = (await readResearchEconomics([profile.id])).get(profile.id)
     const economic = publicEconomicOverlay(manual, research)
     const wage = wagePresentation(manualWage(profile.id, manual) ?? researchWage(profile.id, research), profile.id, locale)
-    const fixedSalary = !manual?.salary ? researchFixedSalary(research, locale) : undefined
+    const fixedSalary = !manual?.salary && !researchWage(profile.id, research) ? researchFixedSalary(research, locale) : undefined
     return <main className="playerPage">
       <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}>
         <Link href={localizedHref(locale, "/jogadores")} className="backButton">{t(locale, "Jogadores")}</Link>
@@ -73,7 +73,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
       <span aria-hidden="true">›</span><span aria-current="page">{player.name}</span>
     </nav>
     <PlayerHeader locale={locale} player={player} valueContext="career-mode" wage={wage}
-      fixedSalary={!manual?.salary ? researchFixedSalary(research, locale) : undefined} economicOverlay={economic} />
+      fixedSalary={!manual?.salary && !researchWage(player.id, research) ? researchFixedSalary(research, locale) : undefined} economicOverlay={economic} />
     <PlayerActions locale={locale} slug={player.slug} name={player.name} />
     <PlayerExperienceNav locale={locale} slug={slug} active="ea" />
 
