@@ -1,4 +1,5 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "./";
 
 /* Official source lineup: source order, never rated/reselected on the client. */
 .officialLineupPanel { min-width: 0; overflow-wrap: anywhere; }

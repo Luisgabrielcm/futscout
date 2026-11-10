@@ -13,7 +13,7 @@ const links = [
   ["/ligas", "Ligas"], ["/comparar", "Comparar"], ["/favoritos", "Favoritos"],
 ] as const
 
-export default function SiteNav({ locale = "pt" }: LocaleProps = {}) {
+export default function SiteNav({ locale = "pt", nationalTeamsEnabled = false }: LocaleProps & { nationalTeamsEnabled?: boolean } = {}) {
   const pathname = usePathname()
   const query = useSearchParams().toString()
   const [openedPath, setOpenedPath] = useState<string | null>(null)
@@ -54,7 +54,12 @@ export default function SiteNav({ locale = "pt" }: LocaleProps = {}) {
           onClick={() => setOpenedPath(null)}>{t(locale, label)}</Link>
       })}
       <span className="siteNavUnavailable">{t(locale, "Scout IA")} <small>{t(locale, "Em breve")}</small></span>
-      <Link href={localizedHref(locale, "/selecoes")} aria-current={pathname.startsWith(localizedHref(locale, "/selecoes")) ? "page" : undefined} onClick={() => setOpenedPath(null)}>{clubText(locale, "countries")}</Link>
+      <Link href={localizedHref(locale, "/selecoes")}
+        aria-current={pathname === localizedHref(locale, "/selecoes") || pathname.startsWith(`${localizedHref(locale, "/selecoes")}/`) ? "page" : undefined}
+        onClick={() => setOpenedPath(null)}>{clubText(locale, "countries")}</Link>
+      {nationalTeamsEnabled && <Link href={localizedHref(locale, "/selecoes-nacionais")}
+        aria-current={pathname.startsWith(localizedHref(locale, "/selecoes-nacionais")) ? "page" : undefined}
+        onClick={() => setOpenedPath(null)}>{locale === "pt" ? "Seleções" : "National teams"}</Link>}
       <span className="siteNavUnavailable">{t(locale, "Elencos")} <small>{t(locale, "Em breve")}</small></span>
     </nav>
   </header>

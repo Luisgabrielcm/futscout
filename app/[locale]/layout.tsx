@@ -23,7 +23,7 @@ export default async function RootLayout({ children }: LayoutProps<"/[locale]">)
     <body className="min-h-full flex flex-col">
       <a href="#main-content" className="skipLink">{t(locale, "Pular para o conteúdo")}</a>
       <div className="siteShell">
-        <SiteNav locale={locale} />
+        <SiteNav locale={locale} nationalTeamsEnabled={process.env.FUTSCOUT_NATIONAL_TEAMS_PUBLIC === "1"} />
         <div className="siteContent" id="main-content" tabIndex={-1}>{children}</div>
       </div>
     </body>
