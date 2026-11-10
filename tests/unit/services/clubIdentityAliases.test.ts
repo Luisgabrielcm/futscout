@@ -55,6 +55,6 @@ test("the Bayer legacy club URL reads the populated roster without changing eith
   assert.equal(roster.length, 26)
   assert.equal((rosterQueries[0] as { where: { clubId: string } }).where.clubId, "populated")
   assert.deepEqual(JSON.parse(JSON.stringify(lookups.map(args => (args as { where: unknown }).where))), [
-    { slug: "bayer-leverkusen" }, { apiFootballId: 168 },
+    { slug: "bayer-leverkusen", eaImportVisibility: "PUBLIC" }, { apiFootballId: 168 },
   ])
 })

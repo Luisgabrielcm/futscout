@@ -27,7 +27,7 @@ test("comparison resolves two players in one bounded IN query and restores URL o
   const f = fixture()
   const result = await f.service.getSelectedPlayers(["b", "a", "c"], 2)
   assert.equal(f.reads.length, 1)
-  assert.deepEqual(JSON.parse(JSON.stringify(f.reads[0].where)), { slug: { in: ["b", "a"] } })
+  assert.deepEqual(JSON.parse(JSON.stringify(f.reads[0].where)), { eaImportVisibility: "PUBLIC", slug: { in: ["b", "a"] } })
   assert.equal(f.reads[0].take, 2)
   assert.deepEqual(Array.from(result, (player) => player.slug), ["b", "a"])
   assert.equal(f.reads[0].include, undefined)

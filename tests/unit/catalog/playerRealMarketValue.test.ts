@@ -19,7 +19,7 @@ async function rendered(locale: "pt" | "en", economicCurrents: unknown[], extra:
       assert.deepEqual(args.select.economicCurrents, economicMarketValueReadSelect)
       assert.equal(args.select.marketValue, undefined)
       assert.equal(args.select.economicObservations, undefined)
-      return { id: "synthetic-player", slug: "synthetic-player", name: "Synthetic Player", nationality: null,
+      return { id: "synthetic-player", slug: "synthetic-player", name: "Synthetic Player", nationality: null, eaImportVisibility: "PUBLIC",
         imageUrl: null, club: null, approvedCurrentClub: null, realLifeStats: [], economicCurrents, ...extra }
     } } } },
     "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },

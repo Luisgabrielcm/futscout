@@ -72,9 +72,9 @@ test("clubs pagination uses take 24, skip and stable name/id order", async () =>
 test("clubs search and league use identical count/list predicates with relation count", async () => {
   const f = fixture()
   await f.clubService.getClubs({ search: " Teste ", league: " liga-teste " })
-  assert.deepEqual(plain(f.clubs[0].where), { name: { contains: "Teste", mode: "insensitive" }, league: { is: { slug: "liga-teste" } } })
+  assert.deepEqual(plain(f.clubs[0].where), { eaImportVisibility: "PUBLIC", name: { contains: "Teste", mode: "insensitive" }, league: { is: { slug: "liga-teste" } } })
   assert.deepEqual(plain(f.counts[0]), { where: plain(f.clubs[0].where) })
-  assert.deepEqual(plain(f.clubs[0].select?._count), { select: { players: true } })
+  assert.deepEqual(plain(f.clubs[0].select?._count), { select: { players: { where: { eaImportVisibility: "PUBLIC" } } } })
   assert.deepEqual(plain(f.clubs[0].select?.league), { select: { id: true, name: true, slug: true } })
   assert.equal(f.clubs[0].select?.apiFootballId, undefined)
   assert.equal(f.clubs[0].select?.players, undefined)
@@ -85,14 +85,14 @@ test("club service validates malformed navigation independently", async () => {
   const result = await f.clubService.getClubs({ page: "not-a-page", search: {}, league: [] })
   assert.equal(result.page, 1)
   assert.equal(f.clubs[0].skip, 0)
-  assert.deepEqual(plain(f.clubs[0].where), {})
+  assert.deepEqual(plain(f.clubs[0].where), { eaImportVisibility: "PUBLIC" })
 })
 
 test("club detail uses the unique slug and returns null for absent records", async () => {
   const f = fixture()
   assert.deepEqual(plain(await f.clubService.getClubBySlug("clube-teste")), plain({ ...club, asset: null,
     league: { ...club.league, asset: null } }))
-  assert.deepEqual(plain(f.clubLookups[0].where), { slug: "clube-teste" })
+  assert.deepEqual(plain(f.clubLookups[0].where), { slug: "clube-teste", eaImportVisibility: "PUBLIC" })
   assert.equal(await fixture(true).clubService.getClubBySlug("absent"), null)
 })
 
@@ -116,7 +116,7 @@ test("league listing is paginated with stable order and club counts, without loa
   assert.equal(f.leagues[0].take, 24)
   assert.equal(f.leagues[0].skip, 24)
   assert.deepEqual(plain(f.leagues[0].orderBy), [{ name: "asc" }, { id: "asc" }])
-  assert.deepEqual(plain(f.leagues[0].select?._count), { select: { clubs: true } })
+  assert.deepEqual(plain(f.leagues[0].select?._count), { select: { clubs: { where: { eaImportVisibility: "PUBLIC" } } } })
   assert.equal(f.leagues[0].select?.clubs, undefined)
 })
 
@@ -140,7 +140,7 @@ test("league clubs delegate to the same bounded club query with league scope", a
   await f.leagueService.getLeagueClubs("liga-teste", { page: 2 })
   assert.equal(f.clubs[0].take, 24)
   assert.equal(f.clubs[0].skip, 24)
-  assert.deepEqual(plain(f.clubs[0].where), { league: { is: { slug: "liga-teste" } } })
+  assert.deepEqual(plain(f.clubs[0].where), { eaImportVisibility: "PUBLIC", league: { is: { slug: "liga-teste" } } })
 })
 
 test("league players traverse club relation with matching count and stable roster order", async () => {

@@ -10,9 +10,9 @@ export const catalogAttributes: NonNullable<DatabasePlayer["attributes"]> = {
   physical: 70, jumping: 65, stamina: 80, strength: 68, aggression: 60,
 }
 
-export function catalogPlayer(overrides: Partial<DatabasePlayer> = {}): DatabasePlayer {
+export function catalogPlayer(overrides: Partial<DatabasePlayer> = {}): DatabasePlayer & { eaImportVisibility: "PUBLIC" } {
   return {
-    id: "fixture-player", slug: "fixture-player", name: "Jogador de teste",
+    id: "fixture-player", slug: "fixture-player", name: "Jogador de teste", eaImportVisibility: "PUBLIC",
     dateOfBirth: null, nationality: null, position: "MC",
     secondaryPosition: null, secondaryPositions: [],
     preferredFoot: null, height: null, skillMoves: null, weakFootAbility: null,
