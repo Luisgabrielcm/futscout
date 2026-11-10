@@ -11,6 +11,7 @@ export async function getPlayerRealLifeBySlug(slug: string): Promise<PlayerRealL
     where: { slug },
     select: {
       id: true,
+      externalId: true,
       eaImportVisibility: true,
       slug: true,
       name: true,

@@ -21,7 +21,7 @@ test("overview shares one compact roster query with current potential, without p
   const result = await service.getClubRoster("one-club")
   assert.equal(queries.length, 1)
   assert.deepEqual(JSON.parse(JSON.stringify(queries[0].where)), { eaImportVisibility: "PUBLIC", clubId: "one-club" })
-  assert.deepEqual(Object.keys(queries[0].select!).sort(), ["id", "slug", "name", "imageUrl", "position", "officialOverall", "secondaryPosition", "secondaryPositions", "potential", "economicCurrents", "currentFutscoutPotential"].sort())
+  assert.deepEqual(Object.keys(queries[0].select!).sort(), ["id", "externalId", "slug", "name", "imageUrl", "position", "officialOverall", "secondaryPosition", "secondaryPositions", "potential", "economicCurrents", "currentFutscoutPotential"].sort())
   assert.equal(queries[0].take, undefined)
   assert.equal(queries[0].skip, undefined)
   assert.equal(queries[0].include, undefined)

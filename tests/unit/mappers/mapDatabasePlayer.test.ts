@@ -6,7 +6,7 @@ import { catalogPlayer } from "../../fixtures/catalogPlayer"
 test("profile without attributes returns an explicit incomplete state without crashing", () => {
   const row = catalogPlayer({ attributes: null })
   assert.deepEqual(mapDatabasePlayerProfile(row), {
-    status: "incomplete", name: "Jogador de teste",
+    status: "incomplete", id: row.id, name: "Jogador de teste",
   })
   assert.equal(row.attributes, null)
 })

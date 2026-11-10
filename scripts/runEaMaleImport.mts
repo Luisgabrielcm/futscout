@@ -3,7 +3,7 @@ import { resolve } from "node:path"
 import { Pool } from "pg"
 import { publishEaMaleBatch, publishEaMaleClubBatch, rollbackEaMaleClub, rollbackEaMaleEntry,
   stageEaMaleBatch, stageEaMaleClubBatch, validateEaMaleManifest,
-  type EaMaleClubPlan, type EaMaleImportTarget, type EaMaleManifest,
+  type EaMaleClubLeagueMapping, type EaMaleClubPlan, type EaMaleImportTarget, type EaMaleManifest,
   type EaMalePublicationApproval } from "../services/eaMaleImportBatches"
 
 const modes = ["stage-clubs", "stage-players", "publish-clubs", "publish-players",
@@ -49,12 +49,19 @@ try {
       const summary = JSON.parse(summaryText) as { clubPlanHash: string; sourceSha256: string }
       const plan: EaMaleClubPlan = { rawJsonl, sha256: summary.clubPlanHash,
         sourceBinarySha256: summary.sourceSha256 }
+      const mappingPath = process.env.FUTSCOUT_EA_IMPORT_LEAGUE_MAP_FILE
+      const mappingHash = process.env.FUTSCOUT_EA_IMPORT_LEAGUE_MAP_SHA256
+      if (target.kind === "production" && (!mappingPath || !mappingHash))
+        throw new Error("PRIVATE_LEAGUE_MAPPING_REQUIRED")
+      const mapping: EaMaleClubLeagueMapping | undefined = mappingPath && mappingHash
+        ? { rawJson: await readFile(resolve(mappingPath), "utf8"), sha256: mappingHash } : undefined
+      if (Boolean(mappingPath) !== Boolean(mappingHash)) throw new Error("PRIVATE_LEAGUE_MAPPING_INCOMPLETE")
       const approval = mode === "publish-clubs" ? JSON.parse(await readFile(approvalPath ?? "", "utf8")) as {
         sourcePlanHash: string; sourceBinarySha256: string; rightsForPublicUse: "APPROVED";
         undatedRosterAcknowledged: true } : null
-      for (const index of selection === "all" ? [0, 1] : [Number(selection)]) {
-        if (mode === "stage-clubs") await stageEaMaleClubBatch(pool, plan, index, target)
-        else await publishEaMaleClubBatch(pool, plan, index, target, approval!)
+      for (const index of selection === "all" ? mapping ? [0] : [0, 1] : [Number(selection)]) {
+        if (mode === "stage-clubs") await stageEaMaleClubBatch(pool, plan, index, target, mapping)
+        else await publishEaMaleClubBatch(pool, plan, index, target, approval!, mapping)
         completed++
       }
     }

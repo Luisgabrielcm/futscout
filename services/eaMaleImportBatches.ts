@@ -278,11 +278,56 @@ type ClubPlanRow = {
   identityStatus: string; missingMalePlayersLinked: number
 }
 export type EaMaleClubPlan = { rawJsonl: string; sha256: string; sourceBinarySha256: string }
+export type EaMaleClubLeagueMapping = { rawJson: string; sha256: string }
+type ResolvedClubRow = ClubPlanRow & { targetLeagueId?: string; targetLeagueName?: string; supportingEaClubIds?: string[] }
+
+function resolvedClubRows(plan: EaMaleClubPlan, mapping: EaMaleClubLeagueMapping | undefined,
+  target: EaMaleImportTarget): ResolvedClubRow[] {
+  const rows = clubPlanRows(plan)
+  if (!mapping) {
+    if (target.kind === "production") fail("PRIVATE_LEAGUE_MAPPING_REQUIRED")
+    return rows.filter(row => row.identityStatus === "EA_ID_ABSENT")
+  }
+  if (!/^[a-f0-9]{64}$/.test(mapping.sha256) || sha256(mapping.rawJson) !== mapping.sha256)
+    fail("CLUB_LEAGUE_MAPPING_HASH_MISMATCH")
+  const data = JSON.parse(mapping.rawJson) as { sourcePlanHash: string; sourceBinaryHash: string;
+    rows: Array<{ eaTeamId: string; sourceLeagueId: string; sourceLeagueName: string; sourceCountry: string | null;
+      targetLeagueId: string | null; targetLeagueName: string | null; supportingEaClubIds: string[];
+      classification: string; missingMalePlayersLinked: number }> }
+  if (data.sourcePlanHash !== plan.sha256 || data.sourceBinaryHash !== plan.sourceBinarySha256 ||
+    data.rows?.length !== rows.length || new Set(data.rows.map(row => row.eaTeamId)).size !== rows.length)
+    fail("CLUB_LEAGUE_MAPPING_SOURCE_MISMATCH")
+  const byId = new Map(data.rows.map(row => [row.eaTeamId, row]))
+  const selected: ResolvedClubRow[] = []
+  for (const row of rows) {
+    const resolution = byId.get(row.eaTeamId)
+    if (!resolution || resolution.sourceLeagueId !== String(row.leagueId) ||
+      resolution.sourceLeagueName !== row.leagueName || resolution.sourceCountry !== row.country ||
+      resolution.missingMalePlayersLinked !== row.missingMalePlayersLinked) fail("CLUB_LEAGUE_MAPPING_ROW_MISMATCH")
+    if (resolution.classification !== "LEAGUE_IDENTIFIED_BY_EA_ANCHOR") {
+      if (resolution.targetLeagueId !== null || resolution.targetLeagueName !== null ||
+        resolution.supportingEaClubIds.length !== 0) fail("CLUB_LEAGUE_MAPPING_HELD_ROW_INVALID")
+      continue
+    }
+    if (row.identityStatus !== "EA_ID_ABSENT" || !resolution.targetLeagueId ||
+      !resolution.targetLeagueName?.trim() || !Array.isArray(resolution.supportingEaClubIds) ||
+      resolution.supportingEaClubIds.length < 1 ||
+      new Set(resolution.supportingEaClubIds).size !== resolution.supportingEaClubIds.length ||
+      resolution.supportingEaClubIds.some(id => !/^\d+$/.test(id))) fail("CLUB_LEAGUE_MAPPING_EVIDENCE_INVALID")
+    selected.push({ ...row, targetLeagueId: resolution.targetLeagueId,
+      targetLeagueName: resolution.targetLeagueName, supportingEaClubIds: resolution.supportingEaClubIds })
+  }
+  if (selected.length !== 55) fail("CLUB_LEAGUE_MAPPING_SELECTION_CHANGED")
+  return selected
+}
 
 function clubPlanRows(plan: EaMaleClubPlan): ClubPlanRow[] {
   if (!/^[a-f0-9]{64}$/.test(plan.sha256) || sha256(plan.rawJsonl) !== plan.sha256 ||
     !/^[a-f0-9]{64}$/.test(plan.sourceBinarySha256)) fail("CLUB_PLAN_HASH_MISMATCH")
-  const rows = plan.rawJsonl.trim().split(/\r?\n/).map(line => JSON.parse(line) as ClubPlanRow)
+  const rows = plan.rawJsonl.trim().split(/\r?\n/).map(line => {
+    const row = JSON.parse(line) as ClubPlanRow & { leagueId: string | number }
+    return { ...row, leagueId: String(row.leagueId) }
+  })
   if (rows.length !== 127 || new Set(rows.map(row => row.eaTeamId)).size !== rows.length ||
     rows.some(row => !/^\d+$/.test(row.eaTeamId) || !/^\d+$/.test(row.leagueId) ||
       !row.name?.trim() || !["EA_ID_ABSENT", "HOMONYM_REVIEW"].includes(row.identityStatus) ||
@@ -291,12 +336,35 @@ function clubPlanRows(plan: EaMaleClubPlan): ClubPlanRow[] {
   return rows
 }
 
+async function requireClubLeague(tx: PoolClient, row: ResolvedClubRow): Promise<string> {
+  if (!row.targetLeagueId) {
+    const leagues = await tx.query<{ id: string; country: string }>(
+      'SELECT id,country FROM "League" WHERE "externalId"=$1', [row.leagueId])
+    if (leagues.rows.length !== 1 || row.country &&
+      leagues.rows[0].country.toLowerCase() !== row.country.toLowerCase()) fail("CLUB_LEAGUE_MAPPING_UNVERIFIED")
+    return leagues.rows[0].id
+  }
+  const leagues = await tx.query<{ id: string; name: string; country: string }>(
+    'SELECT id,name,country FROM "League" WHERE id=$1', [row.targetLeagueId])
+  const league = leagues.rows[0]
+  if (leagues.rows.length !== 1 || league.name !== row.targetLeagueName ||
+      league.country !== "Não informado" && row.country && league.country.toLowerCase() !== row.country.toLowerCase())
+    fail("CLUB_LEAGUE_MAPPING_UNVERIFIED")
+  const anchors = await tx.query<{ externalId: string; leagueId: string }>(
+    'SELECT "externalId","leagueId" FROM "Club" WHERE "externalId"=ANY($1::text[])', [row.supportingEaClubIds])
+  if (anchors.rows.length !== row.supportingEaClubIds?.length ||
+    anchors.rows.some(anchor => anchor.leagueId !== league.id)) fail("CLUB_LEAGUE_ANCHORS_CHANGED")
+  return league.id
+}
+
 /** Inserts at most 100 missing EA clubs, hidden until an independent publication step. */
 export async function stageEaMaleClubBatch(pool: Pick<Pool, "connect">, plan: EaMaleClubPlan,
-  batchIndex: number, target: EaMaleImportTarget = { kind: "disposable" }): Promise<"STAGED" | "ALREADY_STAGED"> {
-  const all = clubPlanRows(plan).filter(row => row.identityStatus === "EA_ID_ABSENT")
+  batchIndex: number, target: EaMaleImportTarget = { kind: "disposable" },
+  mapping?: EaMaleClubLeagueMapping): Promise<"STAGED" | "ALREADY_STAGED"> {
+  const all = resolvedClubRows(plan, mapping, target)
   if (!Number.isInteger(batchIndex) || batchIndex < 0 || batchIndex > 1) fail("CLUB_BATCH_INVALID")
   const batch = all.slice(batchIndex * 100, (batchIndex + 1) * 100)
+  if (!batch.length) fail("CLUB_BATCH_EMPTY")
   const tx = await pool.connect()
   try {
     await tx.query("BEGIN ISOLATION LEVEL SERIALIZABLE")
@@ -307,31 +375,30 @@ export async function stageEaMaleClubBatch(pool: Pick<Pool, "connect">, plan: Ea
     let existing = 0
     for (const row of batch) {
       const receipt = await tx.query<{ clubId: string; sourcePlanHash: string; sourceBinaryHash: string;
-        leagueExternalId: string; status: string; externalId: string; visibility: string; leagueEaId: string }>(
+        leagueExternalId: string; status: string; externalId: string; visibility: string; leagueEaId: string; leagueDbId: string }>(
         `SELECT e."clubId",e."sourcePlanHash",e."sourceBinaryHash",e."leagueExternalId",e.status,
-          c."externalId",c."eaImportVisibility" AS visibility,l."externalId" AS "leagueEaId"
+          c."externalId",c."eaImportVisibility" AS visibility,l."externalId" AS "leagueEaId",l.id AS "leagueDbId"
          FROM "EaMaleClubImportEntry" e JOIN "Club" c ON c.id=e."clubId"
          JOIN "League" l ON l.id=c."leagueId" WHERE e."eaTeamId"=$1 FOR UPDATE OF e,c`, [row.eaTeamId])
       if (receipt.rows.length) {
         const found = receipt.rows[0]
+        await requireClubLeague(tx, row)
         if (found.sourcePlanHash !== plan.sha256 || found.sourceBinaryHash !== plan.sourceBinarySha256 ||
-          found.leagueExternalId !== row.leagueId || found.externalId !== row.eaTeamId ||
-          found.leagueEaId !== row.leagueId || found.status !== "STAGED" || found.visibility !== "STAGED")
+          found.leagueExternalId !== String(row.leagueId) || found.externalId !== row.eaTeamId ||
+          (row.targetLeagueId ? found.leagueDbId !== row.targetLeagueId : found.leagueEaId !== String(row.leagueId)) ||
+          found.status !== "STAGED" || found.visibility !== "STAGED")
           fail("CLUB_RECEIPT_CONFLICT")
         existing++
         continue
       }
       if ((await tx.query('SELECT id FROM "Club" WHERE "externalId"=$1', [row.eaTeamId])).rowCount)
         fail("CLUB_EA_ID_ALREADY_PRESENT")
-      const leagues = await tx.query<{ id: string; country: string }>(
-        'SELECT id,country FROM "League" WHERE "externalId"=$1', [row.leagueId])
-      if (leagues.rows.length !== 1 || row.country &&
-        leagues.rows[0].country.toLowerCase() !== row.country.toLowerCase()) fail("CLUB_LEAGUE_MAPPING_UNVERIFIED")
+      const leagueId = await requireClubLeague(tx, row)
       const slug = slugFor({ name: row.name, eaPlayerId: row.eaTeamId } as EaMaleCandidate)
       if ((await tx.query('SELECT id FROM "Club" WHERE slug=$1', [slug])).rowCount) fail("CLUB_SLUG_CONFLICT")
       const clubId = randomUUID()
       await tx.query('INSERT INTO "Club" (id,"externalId",name,slug,"leagueId","eaImportVisibility","createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,now(),now())',
-        [clubId, row.eaTeamId, row.name, slug, leagues.rows[0].id, "STAGED"])
+        [clubId, row.eaTeamId, row.name, slug, leagueId, "STAGED"])
       await tx.query('INSERT INTO "EaMaleClubImportEntry" ("eaTeamId","clubId","sourcePlanHash","sourceBinaryHash","leagueExternalId",status) VALUES ($1,$2,$3,$4,$5,$6)',
         [row.eaTeamId, clubId, plan.sha256, plan.sourceBinarySha256, row.leagueId, "STAGED"])
       await tx.query('INSERT INTO "EaMaleClubImportEvent" (id,"eaTeamId",action,"sourcePlanHash") VALUES ($1,$2,$3,$4)',
@@ -347,13 +414,14 @@ export async function stageEaMaleClubBatch(pool: Pick<Pool, "connect">, plan: Ea
 export async function publishEaMaleClubBatch(pool: Pick<Pool, "connect">, plan: EaMaleClubPlan,
   batchIndex: number, target: EaMaleImportTarget,
   approval: { sourcePlanHash: string; sourceBinarySha256: string; rightsForPublicUse: "APPROVED";
-    undatedRosterAcknowledged: true }): Promise<"PUBLISHED" | "ALREADY_PUBLISHED"> {
-  const all = clubPlanRows(plan).filter(row => row.identityStatus === "EA_ID_ABSENT")
+    undatedRosterAcknowledged: true }, mapping?: EaMaleClubLeagueMapping): Promise<"PUBLISHED" | "ALREADY_PUBLISHED"> {
+  const all = resolvedClubRows(plan, mapping, target)
   if (!Number.isInteger(batchIndex) || batchIndex < 0 || batchIndex > 1) fail("CLUB_BATCH_INVALID")
   if (approval.sourcePlanHash !== plan.sha256 || approval.sourceBinarySha256 !== plan.sourceBinarySha256 ||
     approval.rightsForPublicUse !== "APPROVED" || approval.undatedRosterAcknowledged !== true)
     fail("PUBLICATION_APPROVAL_MISMATCH")
   const batch = all.slice(batchIndex * 100, (batchIndex + 1) * 100)
+  if (!batch.length) fail("CLUB_BATCH_EMPTY")
   const tx = await pool.connect()
   try {
     await tx.query("BEGIN ISOLATION LEVEL SERIALIZABLE")
@@ -365,15 +433,17 @@ export async function publishEaMaleClubBatch(pool: Pick<Pool, "connect">, plan: 
     for (const row of batch) {
       const found = await tx.query<{ clubId: string; sourcePlanHash: string; sourceBinaryHash: string;
         leagueExternalId: string; status: string; externalId: string; name: string;
-        visibility: string; leagueEaId: string }>(
+        visibility: string; leagueEaId: string; leagueDbId: string }>(
         `SELECT e."clubId",e."sourcePlanHash",e."sourceBinaryHash",e."leagueExternalId",e.status,
-          c."externalId",c.name,c."eaImportVisibility" AS visibility,l."externalId" AS "leagueEaId"
+          c."externalId",c.name,c."eaImportVisibility" AS visibility,l."externalId" AS "leagueEaId",l.id AS "leagueDbId"
          FROM "EaMaleClubImportEntry" e JOIN "Club" c ON c.id=e."clubId"
          JOIN "League" l ON l.id=c."leagueId" WHERE e."eaTeamId"=$1 FOR UPDATE OF e,c`, [row.eaTeamId])
       const current = found.rows[0]
+      await requireClubLeague(tx, row)
       if (found.rows.length !== 1 || current.sourcePlanHash !== plan.sha256 ||
-        current.sourceBinaryHash !== plan.sourceBinarySha256 || current.leagueExternalId !== row.leagueId ||
-        current.externalId !== row.eaTeamId || current.name !== row.name || current.leagueEaId !== row.leagueId)
+        current.sourceBinaryHash !== plan.sourceBinarySha256 || current.leagueExternalId !== String(row.leagueId) ||
+        current.externalId !== row.eaTeamId || current.name !== row.name ||
+        (row.targetLeagueId ? current.leagueDbId !== row.targetLeagueId : current.leagueEaId !== String(row.leagueId)))
         fail("CLUB_RECEIPT_CONFLICT")
       if (current.status === "PUBLISHED" && current.visibility === "PUBLIC") { published++; continue }
       if (current.status !== "STAGED" || current.visibility !== "STAGED") fail("CLUB_VISIBILITY_CONFLICT")

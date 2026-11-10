@@ -153,3 +153,57 @@ test("club staging excludes unresolved homonym and never makes a club public", a
     rightsForPublicUse: "APPROVED", undatedRosterAcknowledged: true,
   }), /PUBLICATION_APPROVAL_MISMATCH/)
 })
+
+function mappedClubs() {
+  const rows = Array.from({ length: 127 }, (_, index) => ({ eaTeamId: String(index + 1),
+    name: `Club ${index + 1}`, leagueId: "7", leagueName: "Source League", country: "Testland",
+    missingMalePlayersLinked: 1, identityStatus: index === 126 ? "HOMONYM_REVIEW" : "EA_ID_ABSENT" }))
+  const rawJsonl = rows.map(row => JSON.stringify(row)).join("\n") + "\n"
+  const plan = { rawJsonl, sha256: hash(rawJsonl), sourceBinarySha256: "a".repeat(64) }
+  const rawJson = JSON.stringify({ sourcePlanHash: plan.sha256, sourceBinaryHash: plan.sourceBinarySha256,
+    rows: rows.map((row, index) => ({ eaTeamId: row.eaTeamId, sourceLeagueId: row.leagueId,
+      sourceLeagueName: row.leagueName, sourceCountry: row.country, missingMalePlayersLinked: 1,
+      targetLeagueId: index < 55 ? "league-7" : null, targetLeagueName: index < 55 ? "Target League" : null,
+      supportingEaClubIds: index < 55 ? ["999"] : [],
+      classification: index < 55 ? "LEAGUE_IDENTIFIED_BY_EA_ANCHOR" : "LEAGUE_REVIEW_REQUIRED" })) })
+  return { plan, mapping: { rawJson, sha256: hash(rawJson) } }
+}
+
+test("frozen private league map stages only 55 EA-identified clubs without League.externalId", async () => {
+  const { plan, mapping } = mappedClubs()
+  const statements: Array<{ sql: string; args: unknown[] }> = []
+  const client = { query: async (sql: string, args: unknown[] = []) => {
+    statements.push({ sql, args })
+    if (sql.startsWith("SELECT current_database()")) return { rows: [{ database: "fc27_test", host: "127.0.0.1" }] }
+    if (sql.includes('FROM "EaMaleClubImportEntry"')) return { rows: [] }
+    if (sql.includes('FROM "League" WHERE id=')) return { rows: [{ id: "league-7", name: "Target League", country: "Não informado" }] }
+    if (sql.includes('FROM "Club" WHERE "externalId"=ANY')) return { rows: [{ externalId: "999", leagueId: "league-7" }] }
+    return { rows: [], rowCount: sql.startsWith("SELECT id") ? 0 : 1 }
+  }, release: () => {} }
+  const pool = { connect: async () => client } as unknown as Pick<Pool, "connect">
+  assert.equal(await stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" }, mapping), "STAGED")
+  assert.equal(statements.filter(item => item.sql.startsWith('INSERT INTO "Club"')).length, 55)
+  assert.ok(statements.filter(item => item.sql.startsWith('INSERT INTO "Club"')).every(item => item.args[4] === "league-7" && item.args[5] === "STAGED"))
+  assert.ok(!statements.some(item => item.sql.includes('FROM "League" WHERE "externalId"=')))
+  await assert.rejects(stageEaMaleClubBatch(pool, plan, 1, { kind: "disposable" }, mapping), /CLUB_BATCH_EMPTY/)
+  await assert.rejects(stageEaMaleClubBatch(pool, plan, 0, { kind: "production", database: "x", databaseOid: "1", clusterId: "1", user: "u" }), /PRIVATE_LEAGUE_MAPPING_REQUIRED/)
+  const tampered = { ...mapping, sha256: "0".repeat(64) }
+  await assert.rejects(stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" }, tampered), /CLUB_LEAGUE_MAPPING_HASH_MISMATCH/)
+})
+
+test("changed EA club anchor aborts mapped staging before inserting a club", async () => {
+  const { plan, mapping } = mappedClubs()
+  const statements: string[] = []
+  const client = { query: async (sql: string) => {
+    statements.push(sql)
+    if (sql.startsWith("SELECT current_database()")) return { rows: [{ database: "fc27_test", host: "127.0.0.1" }] }
+    if (sql.includes('FROM "EaMaleClubImportEntry"')) return { rows: [] }
+    if (sql.includes('FROM "League" WHERE id=')) return { rows: [{ id: "league-7", name: "Target League", country: "Não informado" }] }
+    if (sql.includes('FROM "Club" WHERE "externalId"=ANY')) return { rows: [{ externalId: "999", leagueId: "other-league" }] }
+    return { rows: [], rowCount: 0 }
+  }, release: () => {} }
+  const pool = { connect: async () => client } as unknown as Pick<Pool, "connect">
+  await assert.rejects(stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" }, mapping), /CLUB_LEAGUE_ANCHORS_CHANGED/)
+  assert.equal(statements.at(-1), "ROLLBACK")
+  assert.ok(!statements.some(sql => sql.startsWith('INSERT INTO "Club"')))
+})
