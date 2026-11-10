@@ -1283,6 +1283,8 @@ export default function PlayersSearch({ locale = "pt",
           players.map(
             (player) => (
               <PlayerCard locale={locale}
+                id={player.id}
+                wage={player.wage}
                 key={
                   player.id
                 }
@@ -1316,6 +1318,7 @@ export default function PlayersSearch({ locale = "pt",
                 marketValue={
                   player.marketValue
                 }
+                economicMarketValue={player.economicMarketValue}
               />
             )
           )

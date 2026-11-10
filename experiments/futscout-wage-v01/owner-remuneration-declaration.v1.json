@@ -1,0 +1,49 @@
+{
+  "evidence": {
+    "schemaVersion": "wage-owner-declaration-v1",
+    "id": "footystats-annual-salary-eur-owner-declaration-v1",
+    "classification": "OWNER_DECLARED",
+    "author": {
+      "role": "FUTSCOUT_OWNER",
+      "name": null
+    },
+    "recordedOn": "2026-10-29",
+    "originalDeclarationDate": null,
+    "scope": {
+      "provider": "FootyStats",
+      "field": "detailed.annual_salary_eur",
+      "contractVersion": "futscout-wage-total-remuneration-v1",
+      "historicalApplicability": "NOT_INDEPENDENTLY_VERIFIED"
+    },
+    "statement": {
+      "form": "PARAPHRASE",
+      "language": "pt-BR",
+      "text": "Segundo o proprietário do FutScout, o campo detailed.annual_salary_eur representa remuneração bruta total anual em euros, incluindo salário-base, bônus, benefícios e direitos de imagem.",
+      "source": "Declaração do proprietário fornecida nesta tarefa; este registro preserva somente uma paráfrase específica da definição salarial.",
+      "originalDocumentReference": null,
+      "signature": null
+    },
+    "independentProviderEvidence": {
+      "status": "PENDING_DOCUMENTARY_CONFIRMATION",
+      "reference": null
+    },
+    "limitations": [
+      "Não é uma declaração emitida pelo FootyStats nem comprovação independente da definição do campo.",
+      "Não comprova composição individual, vigência, data efetiva, contexto histórico ou direitos de uso.",
+      "Qualquer futura evidência PROVIDER_DOCUMENTED deve ser registrada separadamente, sem reclassificar esta declaração.",
+      "Mantém a exigência de comprovação independente para elegibilidade salarial; não reclassifica observações históricas."
+    ],
+    "effect": {
+      "trainingAuthorized": false,
+      "publicationAuthorized": false,
+      "salaryPersistenceAuthorized": false,
+      "pipelineBehaviorChanged": false
+    }
+  },
+  "integrity": {
+    "algorithm": "SHA-256",
+    "scope": "evidence",
+    "canonicalization": "engine.ts#hash: recursively sorted object keys; array order preserved; compact JSON encoded as UTF-8; integrity excluded",
+    "sha256": "222bb50675c80c8f92cb0e19dc2c1d4ef7fb68da12e4150657fbc9612ac3ba1d"
+  }
+}

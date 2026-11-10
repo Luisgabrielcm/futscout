@@ -71,17 +71,17 @@ for (const scenario of [
     expectedPotential: "94", expectedMarket: "€145M" },
   { name: "true nulls without overall/form/value fallback", potential: null, form: null, marketValue: null,
     expectedPotential: "—", expectedMarket: "—" },
-  { name: "zero values without mistaking them for null", potential: 0, form: "Normal", marketValue: BigInt(0),
-    expectedPotential: "—", expectedMarket: "€0" },
+  { name: "observed zero is retained by the positive publication policy", potential: 0, form: "Normal", marketValue: BigInt(0),
+    expectedPotential: "—", expectedMarket: "—" },
 ]) {
   test(`catalog query → mapper → callers → PlayerCard preserves ${scenario.name}`, async () => {
     const { service, Search, Home } = contractFixture(catalogPlayer({
       potential: scenario.potential, form: scenario.form, marketValue: BigInt(999),
-      economicCurrents: scenario.marketValue === null ? [] : [{ observation: {
+      economicCurrents: scenario.marketValue === null ? [] : [{ policyVersion: 'existing-policy', observation: {
         observedAt: new Date("2026-10-06T17:07:25Z"), state: {
           provider: "LIVE_FOOTBALL", field: "MARKET_VALUE", context: "REAL_WORLD", presence: "VALUE",
           amount: new Prisma.Decimal(scenario.marketValue.toString()), currency: "EUR",
-          confidence: "HIGH", matchState: "MATCHED", status: "VALID",
+          confidence: "HIGH", matchState: "MATCHED", status: "VALID", contentHash: 'fixture-provider',
         },
       } }],
       currentFutscoutPotential: scenario.potential && scenario.potential > 0 ? { estimate: {
@@ -93,7 +93,7 @@ for (const scenario of [
     assert.equal(players[0].potential, scenario.potential || null)
     assert.equal(players[0].legacyPotential, scenario.potential)
     assert.equal(players[0].form, scenario.form)
-    assert.equal(players[0].marketValue, scenario.marketValue === null ? null : Number(scenario.marketValue))
+    assert.equal(players[0].marketValue, scenario.marketValue === null || scenario.marketValue === BigInt(0) ? null : Number(scenario.marketValue))
     // The client DTO must not retain Prisma's bigint.
     assert.doesNotThrow(() => JSON.stringify(players))
 
@@ -106,6 +106,7 @@ for (const scenario of [
       assert.ok(html.includes(`<span>Salário</span> <strong>—</strong>`))
       assert.ok(html.includes(`<strong class="marketValue">${scenario.expectedMarket}</strong>`))
       assert.doesNotMatch(html, /TENDÊNCIA|NaN|undefined/)
+      assert.doesNotMatch(html, /Dados estatísticos estimados|Estimated statistical data|estimatedValueNote/)
     }
   })
 }

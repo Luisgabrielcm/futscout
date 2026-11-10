@@ -11,26 +11,54 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { formatCurrency } from "../../../utils/formatCurrency"
 import { getOverallDifference } from "../../../utils/getOverallDifference"
 import type { ReactElement } from "react"
+import publicationHolds from '../../../lib/economicData/publicationHolds.json'
 
 const current = (value: number) => [{ observation: { observedAt: new Date("2026-10-06T17:07:25.602Z"), state: {
   field: "MARKET_VALUE", context: "REAL_WORLD", provider: "LIVE_FOOTBALL", presence: "VALUE", amount: new Prisma.Decimal(value),
   currency: "EUR", confidence: "HIGH", matchState: "MATCHED", status: "VALID",
 } } }]
+const identity = { id: 'fixture-player', externalId: '999999' }
 
 test("five canaries project EUR, provenance and actual observation timestamp", () => {
   for (const [name, value] of [["Haaland", 220e6], ["Vini", 130e6], ["Mbappé", 200e6], ["Yamal", 220e6], ["Pedri", 150e6]] as const) {
-    const result = readEconomicMarketValue({ economicCurrents: current(value) })
+    const result = readEconomicMarketValue({ ...identity, economicCurrents: current(value) })
     assert.equal(result.marketValue, value, name); assert.equal(result.marketCurrency, "EUR")
     assert.equal(result.marketValueReadState, "READY"); assert.equal(result.economicMarketValue?.provider, "LIVE_FOOTBALL")
     assert.equal(result.economicMarketValue?.observedAt, "2026-10-06T17:07:25.602Z")
   }
 })
-test("absence never falls back to legacy, zero remains a value, invalid currency fails closed", () => {
+test("absence never falls back to legacy; the positive-value publication policy retains observed zero", () => {
   const legacy = { marketValue: 999999, economicCurrents: [] }
   assert.equal(readEconomicMarketValue(legacy).marketValue, null)
-  assert.equal(readEconomicMarketValue({ economicCurrents: current(0) }).marketValue, 0)
+  assert.equal(readEconomicMarketValue({ ...identity, economicCurrents: current(0) }).marketValue, null)
   const invalid = current(1); invalid[0].observation.state.currency = "USD"
-  assert.equal(readEconomicMarketValue({ economicCurrents: invalid }).marketValue, null)
+  assert.equal(readEconomicMarketValue({ ...identity, economicCurrents: invalid }).marketValue, null)
+})
+
+test('frozen holds override valid currents and legacy amounts without changing raw data', () => {
+  for (const entry of publicationHolds.entries) {
+    const row = { id: entry.playerId, externalId: entry.eaId, economicCurrents: current(100), marketValue: 999 }
+    const before = JSON.stringify(row)
+    const result = readEconomicMarketValue(row)
+    assert.equal(result.marketValue, null)
+    assert.equal(result.marketValueReadState, 'PUBLICATION_HELD')
+    assert.equal(result.economicMarketValue?.method, 'LIVE_FOOTBALL_EXISTING_CURRENT')
+    // Decimal prototype is deliberately preserved by the reader.
+    assert.equal(row.economicCurrents[0].observation.state.amount.toString(), '100')
+    assert.equal(JSON.stringify(row), before)
+    assert.deepEqual(readEconomicMarketValue(row), result)
+    // Either stable identity is sufficient to keep a hold; mismatches never clear it.
+    assert.equal(readEconomicMarketValue({ ...row, id: 'changed-local-id' }).marketValue, null)
+    assert.equal(readEconomicMarketValue({ ...row, externalId: 'different-ea-id' }).marketValue, null)
+  }
+})
+
+test('missing identity, duplicate currents and unapproved providers cannot publish', () => {
+  assert.equal(readEconomicMarketValue({ economicCurrents: current(100) }).marketValue, null)
+  assert.equal(readEconomicMarketValue({ ...identity, economicCurrents: [...current(100), ...current(200)] }).marketValue, null)
+  const unapproved = current(100)
+  unapproved[0].observation.state.provider = 'FUTSCOUT'
+  assert.equal(readEconomicMarketValue({ ...identity, economicCurrents: unapproved }).marketValue, null)
 })
 test("source-currency scope retains monetary units while catalog remains EUR-only", () => {
   for (const currency of ["USD", "GBP", "BRL"]) {

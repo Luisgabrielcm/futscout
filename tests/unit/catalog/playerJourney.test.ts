@@ -210,6 +210,7 @@ for (const locale of ["pt", "en"] as const) {
         approvedCurrentClub: null, eaCatalogClub: null,
       }) },
       "../../../../components/PlayerRealLifeHeader": marker,
+      "../../../../components/PlayerRealMarketValue": marker,
     })
     const realHtml = renderToStaticMarkup(await real.default({ params, searchParams: Promise.resolve({ catalog: realUrl.searchParams.get("catalog")! }) }))
     assert.equal(hrefs(realHtml)[0], back)
@@ -219,7 +220,7 @@ for (const locale of ["pt", "en"] as const) {
   })
 
   test(`${locale}: incomplete profiles also retain the result context and public canonical stays query-free`, async () => {
-    const page = profilePage({ status: "incomplete", name: player.name })
+    const page = profilePage({ status: "incomplete", id: player.id, name: player.name })
     const props = { params: Promise.resolve({ locale, slug: player.slug }), searchParams: Promise.resolve({ catalog: context }) }
     const html = renderToStaticMarkup(await page.default(props))
     assert.equal(hrefs(html)[0], `/${locale}/jogadores?${context}`)

@@ -1,0 +1,132 @@
+{
+  "version": "value-publication-holds-v1",
+  "sourceDecisionHash": "5c1f95ef618e1b24913c1991fd77c1002eb61d8a67d5b53006bfbf0527ec1e69",
+  "entries": [
+    {
+      "playerId": "cmt99pmtf008mugucbstoj43z",
+      "eaId": "199845",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "6716fff643b325e23e3c3d994d9c1a0c92abca2da8e3606599b36f98a3673a99"
+    },
+    {
+      "playerId": "cmt9azsl00026ukuchmdmw0zy",
+      "eaId": "210602",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "f0c1d9398d1b7834313744ec740983d429a4610dbc82edf5b155c4df844c4038"
+    },
+    {
+      "playerId": "cmt9b69zy00ewukuc1m0x3b9q",
+      "eaId": "192366",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "8d95d6433959cb067d8c1cf738622b0518d3174d407fee4da00dad4a37c2480e"
+    },
+    {
+      "playerId": "cmt9b8oos00kgukucd027y0w1",
+      "eaId": "181458",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "4f7685910a146a16f6adf9cb4b2d58e45d496b6c4a5db09f32b300a085f3f0f0"
+    },
+    {
+      "playerId": "cmt9c1z54029qukuc6gfmmnts",
+      "eaId": "199422",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "0b7e9a0e9c6bca00ba8dc8ccdf35fb681e8dc7c8d82077699db2714a1ba66100"
+    },
+    {
+      "playerId": "cmt9cmcfn03hgukuc3g7te19p",
+      "eaId": "158625",
+      "reviewRequired": true,
+      "activityHold": true,
+      "decisionHash": "c5d69c469a4d4265019b52bf33a72cd89d938892fa4acb5193d3293653e2fc7f"
+    },
+    {
+      "playerId": "cmt9d34om04keukucgryrnb9c",
+      "eaId": "162347",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "506f83e5c691d74a510ab33a9cdbfdcb5639d3743f75a481614191470a89723c"
+    },
+    {
+      "playerId": "cmt9g5uaz03fq1suc2hth0953",
+      "eaId": "260162",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "49336c7d703a535ea35eaa2c863f49e3d240e65a167ec1daf5792042ca2f7a51"
+    },
+    {
+      "playerId": "cmta7rdmb01v86wuczlwctem8",
+      "eaId": "191856",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "74ed78bc2e5a5f7d50d3a1a3d1e929335eecbe7fd18645715c619c0a52fb81ed"
+    },
+    {
+      "playerId": "cmtacnggr027m9gucfq2a2ric",
+      "eaId": "150516",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "71efc1b96a0be4d7163f46b6715aedb5d120aef4bff94a4245bf1b4f00585d3f"
+    },
+    {
+      "playerId": "cmtae72ez05qs9gucvwyd67n1",
+      "eaId": "228748",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "497435148c1182f54d3465db08339f2d87bdf905c6f8b5549474cae5333105cb"
+    },
+    {
+      "playerId": "cmtaecnv506499gucw0mtnyrn",
+      "eaId": "238263",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "276c5f8958fed33a97f24d8ae9d87d6ba0cf22203cf57e3c5e6495f9a9030b52"
+    },
+    {
+      "playerId": "cmtaob5rx054ltwucwou5nzkj",
+      "eaId": "259873",
+      "reviewRequired": true,
+      "activityHold": true,
+      "decisionHash": "5df1f7cfd56a7d721fc8338f087eabc18ee48760d593041620c64b2508d38f3f"
+    },
+    {
+      "playerId": "cmtaoxr5106optwucsni2dh8x",
+      "eaId": "276117",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "e8fa4409a222f8486a928d4b7f35275bea34ae0abadd34f8ff49a8ea38c8cc9a"
+    },
+    {
+      "playerId": "cmtbpfrlp00jipkucv92yzpj2",
+      "eaId": "52679",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "6166e2d76bfe041c2ebef26032e390e2017709460aacb24cfd5641880a943da0"
+    },
+    {
+      "playerId": "cmtbptkpf01nypkuc48xpp5oy",
+      "eaId": "77526",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "d6c7902647d9b48fa8b3918d775a5fac9bf286581452af17ceab5ac5da3d1a57"
+    },
+    {
+      "playerId": "cmtbq6jp602o3pkucfm739amw",
+      "eaId": "278247",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "e4fe5f22c9c4479750ea1bef261b56185db36c509b6cbd140f1aa455d0dd5c76"
+    },
+    {
+      "playerId": "cmtbq7p0802s8pkuccz2fo9i3",
+      "eaId": "76886",
+      "reviewRequired": true,
+      "activityHold": false,
+      "decisionHash": "91c660890880c1c61f1953fa941fd041e158c0e859bf11f5119869ac34b06633"
+    }
+  ]
+}

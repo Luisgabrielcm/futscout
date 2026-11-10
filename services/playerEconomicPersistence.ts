@@ -1,17 +1,20 @@
 import type { PrismaClient } from "../app/generated/prisma/client"
-import { economicFingerprint, validInstant, type EconomicStateInput } from "../lib/economicData/value"
+import { economicFingerprint, normalizeEstimateAmount, validInstant, type EconomicStateInput } from "../lib/economicData/value"
 
 export type EconomicAuthorization = Readonly<{ provider: string; context: EconomicStateInput["context"]; field: EconomicStateInput["field"]; evidenceRef: string }>
 export type EconomicWrite = {
   state: EconomicStateInput; observedAt: string; requestId: string
   selectCurrent: boolean; expectedRevision: number | null; selectionReason: string; policyVersion: string
+  expectedEaId?: string
 }
 /** No ambient client, API, logs or retry. Empty authorization list denies every provider. */
-export function createPlayerEconomicWriter(client: Pick<PrismaClient, "$transaction">, grants: readonly EconomicAuthorization[] = []) {
+export function createPlayerEconomicWriter(client: Pick<PrismaClient, "$transaction">, grants: readonly EconomicAuthorization[] = [], options: { idempotentStaging?: boolean } = {}) {
   const authorized = grants.map(grant => ({ ...grant }))
   return async (plan: EconomicWrite) => {
     const state = structuredClone(plan.state)
     const contentHash = economicFingerprint(state)
+    if (state.provider === 'FUTSCOUT_VALUE' && (plan.selectCurrent || !plan.expectedEaId || state.providerPlayerId !== `EA_${plan.expectedEaId}`))
+      throw Error('ECONOMIC_ESTIMATE_PUBLICATION_OR_IDENTITY_REJECTED')
     if (state.confidence !== "HIGH" || state.matchState !== "MATCHED" || state.status === "REJECTED") throw new Error("ECONOMIC_IDENTITY_REJECTED")
     if (!authorized.some(grant => grant.provider === state.provider && grant.context === state.context && grant.field === state.field && /^[a-zA-Z0-9._/-]{1,160}$/.test(grant.evidenceRef))) throw new Error("ECONOMIC_PROVIDER_UNAUTHORIZED")
     if (!validInstant(plan.observedAt) || !/^[a-zA-Z0-9_-]{1,128}$/.test(plan.requestId) ||
@@ -19,6 +22,23 @@ export function createPlayerEconomicWriter(client: Pick<PrismaClient, "$transact
         (plan.expectedRevision !== null && (!Number.isSafeInteger(plan.expectedRevision) || plan.expectedRevision < 1))) throw new Error("ECONOMIC_PLAN_INVALID")
     const command = { ...plan }
     return client.$transaction(async tx => {
+      if (command.expectedEaId) {
+        const player = await tx.player.findUnique({ where: { id: state.playerId }, select: { externalId: true } })
+        if (!player || player.externalId !== command.expectedEaId) throw Error('ECONOMIC_EA_IDENTITY_CONFLICT')
+      }
+      if (options.idempotentStaging) {
+        if (command.selectCurrent) throw Error('ECONOMIC_IDEMPOTENT_MODE_IS_STAGE_ONLY')
+        const existing = await tx.playerEconomicObservation.findUnique({ where: { requestId: command.requestId } })
+        if (existing) {
+          const prior = await tx.playerEconomicState.findUnique({ where: { id: existing.stateId } })
+          if (!prior || prior.contentHash !== contentHash || existing.playerId !== state.playerId || existing.field !== state.field ||
+              existing.observedAt.getTime() !== Date.parse(command.observedAt)) throw Error('ECONOMIC_IDEMPOTENCY_CONFLICT')
+          if (state.provider === 'FUTSCOUT_VALUE' && (prior.amount === null || normalizeEstimateAmount(prior.amount.toString()) !== state.amount))
+            throw Error('ECONOMIC_EXACT_AMOUNT_READ_BACK_CONFLICT')
+          const current = await tx.playerEconomicCurrent.findUnique({ where: { playerId_field: { playerId: state.playerId, field: state.field } } })
+          return { stateId: prior.id, observationId: existing.id, current, retries: 0 as const }
+        }
+      }
       const { providerEffectiveAt, contractUntil, ...scalars } = state
       const key = { playerId: state.playerId, provider: state.provider, providerPlayerId: state.providerPlayerId,
         context: state.context, field: state.field, snapshotVersion: state.snapshotVersion, contentHash }
@@ -26,6 +46,8 @@ export function createPlayerEconomicWriter(client: Pick<PrismaClient, "$transact
       if (!persisted) persisted = await tx.playerEconomicState.create({ data: { ...scalars, contentHash,
         providerEffectiveAt: providerEffectiveAt ? new Date(providerEffectiveAt) : null,
         contractUntil: contractUntil ? new Date(`${contractUntil}T00:00:00Z`) : null } })
+      if (state.provider === 'FUTSCOUT_VALUE' && (persisted.amount === null || normalizeEstimateAmount(persisted.amount.toString()) !== state.amount))
+        throw Error('ECONOMIC_EXACT_AMOUNT_READ_BACK_CONFLICT')
       // Every successful consultation is preserved, including repeated confirmations.
       const observation = await tx.playerEconomicObservation.create({ data: {
         stateId: persisted.id, playerId: state.playerId, field: state.field,

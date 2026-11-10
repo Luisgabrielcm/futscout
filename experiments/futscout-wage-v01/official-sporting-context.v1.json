@@ -1,0 +1,254 @@
+{
+  "evidence": {
+    "schemaVersion": "wage-official-sporting-context-v1",
+    "recordedOn": "2026-10-29",
+    "purpose": "Offline review of sporting context only; not consumed automatically by the Wage pipeline.",
+    "salaryDefinition": {
+      "classification": "OWNER_DECLARED",
+      "reference": "owner-remuneration-declaration.v1.json",
+      "independentProviderConfirmation": "PENDING"
+    },
+    "associationPolicy": "Player IDs reuse locally corroborated personal identities. FootyStats club IDs identify salary-reference scope only; no cross-provider club mapping is asserted.",
+    "records": [
+      {
+        "id": "gyokeres-arsenal-2025-26",
+        "player": {
+          "name": "Viktor Gyökeres",
+          "footyStatsId": 27234,
+          "eaId": "241651",
+          "apiFootballId": 18979,
+          "previousPersonalIdentity": "HIGH"
+        },
+        "salaryReferenceScope": {
+          "season": "2025/2026",
+          "footyStatsClubId": 59
+        },
+        "issuer": "Premier League",
+        "url": "https://www.premierleague.com/en/news/4513421/everton-0-1-arsenal-match-report-20-december-2025",
+        "club": "Arsenal",
+        "competition": "Premier League",
+        "season": "2025/26",
+        "eventDate": "2025-12-20",
+        "publicationDate": "2025-12-20",
+        "dateBasis": "Official match report date and explicit 2025/26 context.",
+        "status": "SPORTING_PARTICIPATION_CORROBORATED",
+        "summary": "The league report identifies Viktor Gyokeres as Arsenal's scorer in the 1-0 away win against Everton.",
+        "excerpt": "courtesy of a Viktor Gyokeres penalty.",
+        "locator": "Opening match summary; displayed date 20 Dec 2025.",
+        "contractEvidence": null
+      },
+      {
+        "id": "kimmich-bayern-2025-26",
+        "player": {
+          "name": "Joshua Kimmich",
+          "footyStatsId": 996,
+          "eaId": "212622",
+          "apiFootballId": 502,
+          "previousPersonalIdentity": "HIGH"
+        },
+        "salaryReferenceScope": {
+          "season": "2025/2026",
+          "footyStatsClubId": 38
+        },
+        "issuer": "Bundesliga / DFL",
+        "url": "https://www.bundesliga.com/en/bundesliga/matchday/2025-2026/8/borussia-moenchengladbach-vs-fc-bayern-muenchen/liveticker",
+        "club": "FC Bayern München",
+        "competition": "Bundesliga",
+        "season": "2025/26",
+        "eventDate": "2025-10-25",
+        "publicationDate": null,
+        "dateBasis": "Match date corroborated by the supplementary official Bayern post-match article; ticker publication date not exposed.",
+        "status": "SPORTING_PARTICIPATION_CORROBORATED",
+        "summary": "The official match ticker records Joshua Kimmich scoring Bayern's opening goal at minute 64 in the 3-0 win at Gladbach.",
+        "excerpt": "Joshua Kimmich",
+        "locator": "Minute 64: GOAL, 0:1; matchday 8, 2025/26.",
+        "supplement": {
+          "issuer": "FC Bayern München",
+          "url": "https://fcbayern.com/en/news/2025/10/reaction-to-gladbach-v-bayern",
+          "publicationDate": "2025-10-25",
+          "displayedPublicationTime": "20:03 (timezone not stated)",
+          "summary": "Dated post-match reaction identifies Kimmich as a scorer in the Saturday victory."
+        },
+        "contractEvidence": null
+      },
+      {
+        "id": "togashi-atlanta-2025",
+        "player": {
+          "name": "Cayman Togashi",
+          "footyStatsId": 38770,
+          "eaId": "232785",
+          "apiFootballId": null,
+          "previousPersonalIdentity": "HIGH"
+        },
+        "salaryReferenceScope": {
+          "season": "2025",
+          "footyStatsClubId": 1016
+        },
+        "issuer": "Major League Soccer",
+        "url": "https://www.mlssoccer.com/players/cayman-togashi/",
+        "club": "Atlanta United",
+        "competition": "MLS",
+        "season": "2025",
+        "eventDate": null,
+        "publicationDate": null,
+        "dateBasis": "Explicit 2025 season summary; no single match date or page publication date supplied.",
+        "status": "SPORTING_PARTICIPATION_CORROBORATED",
+        "summary": "The official profile records seven MLS first-team appearances in 2025, separately from Leagues Cup appearances and Atlanta United 2.",
+        "excerpt": "2025 (Atlanta United): Made seven appearances, adding one assist.",
+        "locator": "Career Summary, paragraph explicitly headed 2025 (Atlanta United).",
+        "contractEvidence": {
+          "scope": "OFFICIAL_REPORTED_SIGNING_TERMS_ONLY",
+          "announcementDate": "2025-01-08",
+          "summary": "The profile reports a free-transfer signing through the 2025 MLS season, with an option for 2026.",
+          "optionExercised": null,
+          "uninterruptedContractProven": false,
+          "salaryAmountProven": false
+        }
+      },
+      {
+        "id": "yoro-manchester-united-2025-26",
+        "player": {
+          "name": "Leny Yoro",
+          "footyStatsId": 766475,
+          "eaId": "269087",
+          "apiFootballId": 342970,
+          "previousPersonalIdentity": "HIGH"
+        },
+        "salaryReferenceScope": {
+          "season": "2025/2026",
+          "footyStatsClubId": 149
+        },
+        "issuer": "Stats Perform / Opta",
+        "url": "https://optaplayerstats.statsperform.com/en_GB/soccer/premier-league-2025-2026/51r6ph2woavlbbpk8f29nynf8/match/tottenham-hotspur-vs-manchester-united/27dsai0y163f2lmufao3yg3ys/match-summary",
+        "club": "Manchester United",
+        "competition": "Premier League",
+        "season": "2025/26",
+        "requestedEventDate": "2025-11-08",
+        "eventDate": "2025-11-08",
+        "publicationDate": null,
+        "dateBasis": "The rendered Opta match header identifies Premier League, 8 November 2025, Tottenham Hotspur 2-2 Manchester United. Publication date is not exposed.",
+        "status": "SPORTING_PARTICIPATION_CORROBORATED",
+        "summary": "The public Opta timeline records Manchester United substituting L. Yoro for H. Maguire at minute 72. The Tottenham official same-day line-up independently lists Yoro among Manchester United substitutes.",
+        "excerpt": "Substitution 72' H. Maguire L. Yoro",
+        "locator": "Rendered match-summary timeline, Manchester United substitution event at minute 72; directional marks and spacing normalized in excerpt.",
+        "additionalCheck": {
+          "url": "https://www.manutd.com/en/news/confirmed-man-utd-team-to-face-tottenham-hotspur-on-8-november",
+          "result": "Related official team-news page also lacked its article body in text retrieval."
+        },
+        "contractEvidence": null,
+        "verificationUpdate": {
+          "checkedOn": "2026-10-29",
+          "reportedParticipation": {
+            "basis": "USER_REPORTED_NOT_INDEPENDENTLY_VERIFIED",
+            "form": "PARAPHRASE",
+            "summary": "The owner reports that the official Tottenham 2-2 Manchester United report records Yoro entering in minute 72 on 8 November 2025.",
+            "eventDate": "2025-11-08",
+            "minute": 72,
+            "independentlyVerified": false
+          },
+          "primarySourceCheck": {
+            "url": "https://www.manutd.com/en/news/match-report-tottenham-hotspur-v-man-utd-8-november-2025",
+            "result": "PUBLIC_PAGE_OPENED_ARTICLE_BODY_UNAVAILABLE",
+            "observation": "Text retrieval exposed navigation and related content but no match-report body or mention of Yoro. A restricted-domain search returned no corroborating indexed text.",
+            "participationVerified": false
+          },
+          "complementarySourceCheck": {
+            "issuer": "Premier League",
+            "url": "https://www.premierleague.com/en/match/2561911/fulham-vs-manchester-united/commentary",
+            "pageTitle": "Fulham vs Manchester United Text Commentary | 2025/2026 | Premier League",
+            "result": "PUBLIC_PAGE_OPENED_COMMENTARY_UNAVAILABLE",
+            "observation": "Neither text retrieval nor the rendered browser accessibility output exposed match commentary or participation by Yoro.",
+            "differentFixture": true,
+            "canVerifyTottenhamMinute72": false,
+            "participationVerified": false,
+            "eventDate": null,
+            "publicationDate": null
+          },
+          "remainingRequirement": "Readable official match text, or a verifiable official excerpt, identifying Yoro and his participation. The Fulham fixture must remain distinct from Tottenham."
+        },
+        "previousPendingAssessment": {
+          "issuer": "Manchester United",
+          "url": "https://www.manutd.com/en/news/match-report-tottenham-hotspur-v-man-utd-8-november-2025",
+          "eventDate": null,
+          "publicationDate": null,
+          "dateBasis": "Requested fixture date appears in URL and visible event tag; player participation and article body were not retrievable.",
+          "status": "PENDING_DOCUMENT_CONTENT",
+          "summary": "The public page opened with the match-report title, but both text retrieval and rendered browser accessibility output lacked the report body and any mention of Yoro.",
+          "excerpt": "Report: Spurs 2 United 2",
+          "locator": "Page title only; insufficient evidence of player participation.",
+          "historyScope": "Previous retrieval limitations, retained after successful verification through different public sources. The earlier verificationUpdate remains a historical record."
+        },
+        "checkedOn": "2026-10-29",
+        "verificationResolution": {
+          "checkedOn": "2026-10-29",
+          "independentlyReproduced": true,
+          "event": {
+            "club": "Manchester United",
+            "competition": "Premier League",
+            "season": "2025/26",
+            "date": "2025-11-08",
+            "result": "Tottenham Hotspur 2-2 Manchester United",
+            "type": "SUBSTITUTION",
+            "minute": 72,
+            "playerOn": "L. Yoro",
+            "playerOff": "H. Maguire"
+          },
+          "identityBasis": "Existing corroborated personal identity (EA 269087, API-Football 342970, FootyStats 766475), matching surname and Manchester United match context. No new external player or club ID mapping.",
+          "retrieval": "Public rendered browser DOM after normal widget loading; match-header date and substitution text directly read from the match-summary timeline. No authenticated or paid endpoint.",
+          "officialLineUp": {
+            "issuer": "Tottenham Hotspur",
+            "url": "https://www.tottenhamhotspur.com/news/983489/confirmed-line-ups-spurs-vs-man-united",
+            "publicationDate": "2025-11-08",
+            "eventDate": "2025-11-08",
+            "checkedOn": "2026-10-29",
+            "excerpt": "Substitutes: Bayindir, Dalot, Mount, Zirkzee, Yoro, Ugarte, Heaven, Sesko, Fletcher.",
+            "locator": "The away side line-up, substitutes list; displayed date 08 Nov 2025.",
+            "supports": "MATCHDAY_SQUAD_MEMBERSHIP",
+            "doesNotProve": "Entry onto the pitch or salary payment."
+          },
+          "scope": "Corroborates sporting participation at this match within 2025/26. Does not prove contractual terms, uninterrupted season membership, salary amount or salary effective date.",
+          "sourceRights": "Public access is not a commercial data license; the Opta page reserves commercial use/distribution rights. Only minimal evidence is retained for this review; no rights status is upgraded.",
+          "supersedesPendingRequirement": true
+        }
+      }
+    ],
+    "limitations": [
+      "Sporting participation corroborates a player-club link at an event or within a named season, not salary payment or validity on that date.",
+      "Event dates, publication dates, collection date, salary effective date and contractual term remain separate.",
+      "No uninterrupted season-long membership, salary amount, effective salary date or economic composition is established by these sporting sources.",
+      "Public excerpts are minimal; summaries are analyst paraphrases. Full pages, API payloads and private evidence are not embedded.",
+      "Hashes authenticate the preserved local record, not the publisher's full page or a digital signature. Public pages may change."
+    ],
+    "eligibility": {
+      "trainingAllowed": false,
+      "publicationAllowed": false,
+      "persistenceAllowed": false,
+      "automaticIdentityLinkAllowed": false,
+      "pipelineChanged": false
+    }
+  },
+  "integrity": {
+    "algorithm": "SHA-256",
+    "canonicalization": "engine.ts#hash (sorted object keys, ordered arrays, compact UTF-8 JSON)",
+    "scope": "evidence; per-record hashes cover each evidence.records entry",
+    "sha256": "89062e6ea1f2e43e7c1bcbebc491a4cccd688b75364dc08482c973054e45a0d8",
+    "records": [
+      {
+        "id": "gyokeres-arsenal-2025-26",
+        "sha256": "c0201099193be01c71c8ec79e3b198b420255e597c00715b9492ccaa22e73699"
+      },
+      {
+        "id": "kimmich-bayern-2025-26",
+        "sha256": "091700651829d2f9bf54b1d3b407944350efc9b2e1f80a0e629477d57154398a"
+      },
+      {
+        "id": "togashi-atlanta-2025",
+        "sha256": "4e5c0ea5f9399067765f21adccfaa52673e151a288d4d485de045cc74739f5b1"
+      },
+      {
+        "id": "yoro-manchester-united-2025-26",
+        "sha256": "ea06007b31d09e639c6cd9086c4e4cced0791db3fa7ad19ccd942a5c8feb47cc"
+      }
+    ]
+  }
+}

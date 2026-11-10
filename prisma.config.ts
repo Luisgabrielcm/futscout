@@ -1,5 +1,9 @@
 import "dotenv/config"
 import { defineConfig } from "prisma/config"
+import { rejectLegacyStaging } from "./experiments/futscout-value-global-v01/staging-isolation"
+
+// Staging uses a separately reviewed configuration; never fall back to .env.
+rejectLegacyStaging()
 
 export default defineConfig({
   schema: "prisma/schema.prisma",

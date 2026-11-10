@@ -25,6 +25,10 @@ import * as realStatistics from "../../lib/realStatistics"
 import * as nationalityDirectory from "../../lib/nationalityDirectory"
 import * as nationalitySearch from "../../lib/nationalitySearch"
 import * as careerPresentation from "../../lib/playerCareerPresentation"
+import * as wagePublication from "../../lib/wagePublication"
+import * as wageClassification from "../../lib/wageClassification"
+import * as researchEconomic from "../../lib/researchEconomic"
+import * as publicEconomicOverlay from "../../lib/publicEconomicOverlay"
 import * as visualAssets from "../../lib/visualAssets"
 import * as assetPipeline from "../../lib/assetPipeline"
 import * as brandSources from "../../lib/brackBrandSource"
@@ -34,12 +38,13 @@ import * as React from "react"
 import * as potentialRead from "../../lib/futscoutPotential/read"
 import * as economicRead from "../../lib/economicData/read"
 import * as economicCatalog from "../../lib/economicData/catalog"
+import * as estimateNotice from "../../lib/economicData/estimateNotice"
 import * as potentialCatalog from "../../lib/futscoutPotential/catalog"
 import { createElement, type ReactNode } from "react"
 
 // Compile TSX in memory using React's automatic runtime, without starting Next.
 // Every runtime dependency must be supplied explicitly: no DB/env/network imports.
-export function loadCatalogModule<T>(path: string, dependencies: Record<string, unknown>): T {
+export function loadCatalogModule<T>(path: string, dependencies: Record<string, unknown>, globals: Record<string, unknown> = {}): T {
   const fileName = resolve(path)
   const { outputText } = ts.transpileModule(readFileSync(fileName, "utf8"), {
     fileName,
@@ -76,6 +81,11 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/nationalityDirectory": nationalityDirectory,
       "lib/nationalitySearch": nationalitySearch,
       "lib/playerCareerPresentation": careerPresentation,
+      "lib/wagePublication": wagePublication,
+      "lib/wageClassification": wageClassification,
+      "lib/researchEconomic": researchEconomic,
+      "lib/publicEconomicOverlay": publicEconomicOverlay,
+      "./wageClassification": wageClassification,
       "lib/visualAssets": visualAssets,
       "lib/assetPipeline": assetPipeline,
       "lib/brackBrandSource": brandSources,
@@ -84,13 +94,20 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/futscoutPotential/read": potentialRead,
       "lib/economicData/read": economicRead,
       "lib/economicData/catalog": economicCatalog,
+      "lib/economicData/estimateNotice": estimateNotice,
       "lib/futscoutPotential/catalog": potentialCatalog,
     }
     const pureName = name.replace(/^(?:\.\.\/)+/, "")
     if (Object.hasOwn(presentation, pureName)) return presentation[pureName]
+    if (name.endsWith("/adminEconomic.server") && !Object.hasOwn(allowed, name)) return {
+      readManualEconomics: async () => new Map(), manualWage: () => undefined,
+    }
+    if (name.endsWith("/researchEconomicRead.server") && !Object.hasOwn(allowed, name)) return {
+      readResearchEconomics: async () => new Map(),
+    }
     // Shared UI runs for real, with a strict finite list, never services.
     const component = name.split("/").at(-1)
-    if (!Object.hasOwn(allowed, name) && component && ["PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "PlayerCurrentStatistics", "PlayerSeasonStatistics", "PlayerExperienceNav", "PlayerRealMarketValue", "LeagueLogo", "ClubLogo", "ClubBadge", "BrandAssetFallback"].includes(component)) {
+    if (!Object.hasOwn(allowed, name) && component && ["EstimatedValueNote", "PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "PlayerCurrentStatistics", "PlayerSeasonStatistics", "PlayerExperienceNav", "LeagueLogo", "ClubLogo", "ClubBadge", "BrandAssetFallback"].includes(component)) {
       return loadCatalogModule(`app/components/${component}.tsx`, { react: React })
     }
     if (name === "next/link" && !Object.hasOwn(allowed, name)) return function TestLink({ children, href, ...props }: { children: ReactNode; href: string; prefetch?: boolean }) {
@@ -98,12 +115,14 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       delete attributes.prefetch
       return createElement("a", { ...attributes, href }, children)
     }
+    if (name === "next/server" && !Object.hasOwn(allowed, name)) return { connection: async () => {} }
     if (name === "next/image" && !Object.hasOwn(allowed, name)) return { __esModule: true,
       default: ({ src, ...props }: { src: string; [key: string]: unknown }) => createElement("img", { ...props, src }) }
     if (!Object.hasOwn(allowed, name)) throw new Error("Unmocked dependency: " + name)
     return allowed[name]
   }
   runInNewContext(outputText, {
+    ...globals,
     module: compiledModule, exports: compiledModule.exports, require: requireFake,
   }, { timeout: 5000 })
   return compiledModule.exports as T

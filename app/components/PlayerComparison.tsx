@@ -1,4 +1,5 @@
 import { t, localizedHref, type Locale } from "../../lib/i18n"
+import EstimatedValueNote from './EstimatedValueNote'
 
 import Link from "next/link"
 import PlayerImage from "./PlayerImage"
@@ -7,10 +8,12 @@ import type { SelectedPlayer } from "../../types/playerSelection"
 import { comparisonAttribute, higherValue } from "../../lib/playerComparison"
 import { formatCurrency } from "../../utils/formatCurrency"
 import ClubBadge from "./ClubBadge"
+import { wagePresentation } from "../../lib/wagePublication"
 
 export default function PlayerComparison({ locale = "pt", players }: { locale?: Locale; players: [SelectedPlayer, SelectedPlayer] }) {
   const [left, right] = players
   const goalkeeper = players.some((player) => player.position === "GOL")
+  const wages = players.map(player => wagePresentation(player.wage, player.id, locale))
   const rows: { label: string; values: [number | null, number | null]; currency?: boolean }[] = [
     { label: t(locale, "Idade"), values: [left.age, right.age] },
     { label: "OVR EA", values: [left.baseOverall, right.baseOverall] },
@@ -40,11 +43,15 @@ export default function PlayerComparison({ locale = "pt", players }: { locale?: 
         return <tr key={label}><th scope="row">{label}</th>
           {values.map((value, index) => <td key={index} className={winner === index ? "comparisonHigher" : undefined}>
             {value === null ? "—" : currency ? formatCurrency(value, locale) : value}
+            {currency && <EstimatedValueNote provider={players[index].economicMarketValue?.provider} value={value} locale={locale} />}
             {winner === index && <span aria-label={t(locale, "Maior valor")}> ↑</span>}
           </td>)}
         </tr>
-      })}</tbody>
+      })}{wages.some(Boolean) && <tr><th scope="row">{locale === "pt" ? "Remuneração semanal" : "Weekly remuneration"}</th>
+        {wages.map((wage, index) => <td key={index}>{wage ? <><span>{wage.title}</span><br /><strong>{wage.value}</strong><br /><small>{wage.label}<br />{wage.detail}</small></> : "—"}</td>)}
+      </tr>}</tbody>
     </table>
+    {wages.some(Boolean) && <p className="comparisonNotice">{wages.find(Boolean)?.comparisonNotice}</p>}
     <div className="comparisonActionGrid">
       {players.map((player) => <section key={player.id} aria-label={t(locale, "actionsFor", { name: player.name })}>
         <h2>{player.name}</h2><PlayerActions locale={locale} slug={player.slug} name={player.name} />

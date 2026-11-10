@@ -1,11 +1,18 @@
 import { Prisma } from "../../app/generated/prisma/client"
+import { marketValueHeldPlayerIds, marketValueHeldEaIds } from './publicationHolds'
+import { approvedEstimateHashes, SUPPLIER_NOTICE_POLICY } from './estimatePublication'
 
 // Mirrors readEconomicMarketValue: EUR, HIGH identity, explicit valid amount.
 export function marketValueWhere(min?: number, max?: number): Prisma.PlayerWhereInput {
-  return { economicCurrents: { some: { field: "MARKET_VALUE", observation: { is: { state: { is: {
+  return { externalId: { not: null }, NOT: { OR: [
+    { id: { in: marketValueHeldPlayerIds } }, { externalId: { in: [...marketValueHeldEaIds, ''] } },
+  ] }, economicCurrents: { some: { field: "MARKET_VALUE", OR: [
+    { observation: { is: { state: { is: { provider: 'LIVE_FOOTBALL' } } } } },
+    { policyVersion: SUPPLIER_NOTICE_POLICY, observation: { is: { state: { is: { provider: 'FUTSCOUT_VALUE', contentHash: { in: approvedEstimateHashes } } } } } },
+  ], observation: { is: { state: { is: {
     field: "MARKET_VALUE", context: "REAL_WORLD", presence: "VALUE", status: "VALID",
     confidence: "HIGH", matchState: "MATCHED", currency: "EUR",
-    amount: { gte: min ?? 0, lte: max ?? Number.MAX_SAFE_INTEGER },
+    amount: { gt: 0, gte: min ?? 0, lte: max ?? Number.MAX_SAFE_INTEGER },
   } } } } } } }
 }
 
@@ -16,7 +23,12 @@ export const marketValueSql = Prisma.sql`(SELECT s.amount FROM "PlayerEconomicCu
   WHERE ec."playerId"=p.id AND ec.field='MARKET_VALUE' AND s.field='MARKET_VALUE'
     AND s.context='REAL_WORLD' AND s.presence='VALUE' AND s.status='VALID'
     AND s.confidence='HIGH' AND s."matchState"='MATCHED' AND s.currency='EUR'
-    AND s.amount BETWEEN 0 AND 9007199254740991)`
+    AND (s.provider='LIVE_FOOTBALL' OR (s.provider='FUTSCOUT_VALUE' AND ec."policyVersion"=${SUPPLIER_NOTICE_POLICY}
+      AND s."contentHash" = ANY(${approvedEstimateHashes}::text[])))
+    AND NULLIF(p."externalId", '') IS NOT NULL
+    AND p.id NOT IN (${Prisma.join(marketValueHeldPlayerIds)})
+    AND p."externalId" NOT IN (${Prisma.join(marketValueHeldEaIds)})
+    AND s.amount > 0 AND s.amount <= 9007199254740991)`
 
 export const economicBargainsSql = Prisma.sql`SELECT p.id FROM "Player" p
   JOIN "PlayerAttributes" a ON a."playerId"=p.id

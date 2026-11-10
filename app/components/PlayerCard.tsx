@@ -1,10 +1,12 @@
 import { t, type Locale } from "../../lib/i18n"
+import EstimatedValueNote from './EstimatedValueNote'
 import { displayPosition } from "../../lib/i18n/presentation"
 import CountryFlag from "./CountryFlag"
 import { displaySalary } from "../../lib/playerCareerPresentation"
 import { visualText } from "../../lib/i18n/visualRevision"
 import type { VerifiedSalary } from "../../types/playerCareer"
 import { playerProfileHref } from "../../lib/connectedNavigation"
+import { wagePresentation, type PublishedWage } from "../../lib/wagePublication"
 
 import Link from "next/link"
 
@@ -19,6 +21,8 @@ import type { AssetReference } from "../../lib/assetPipeline"
 
 type PlayerCardProps = {
   locale?: Locale
+  id?: string
+  wage?: PublishedWage
   name: string
   slug: string
   catalogContext?: string
@@ -46,6 +50,7 @@ type PlayerCardProps = {
   marketValue:
     | number
     | null
+  economicMarketValue?: { provider: string } | null
 
 }
 
@@ -54,6 +59,8 @@ type PlayerCardProps = {
 ======================================== */
 
 export default function PlayerCard({ locale = "pt",
+  id,
+  wage,
   name,
   slug,
   catalogContext,
@@ -77,9 +84,11 @@ export default function PlayerCard({ locale = "pt",
   potential,
 
   marketValue,
+  economicMarketValue,
 }: PlayerCardProps) {
   const positions = [...new Set([position, ...secondaryPositions, ...(secondaryPosition ? [secondaryPosition] : [])])]
   const salaryLabel = displaySalary(salary, locale)
+  const publishedWage = id ? wagePresentation(wage, id, locale) : null
   /* ======================================
      DADOS OPCIONAIS
   ====================================== */
@@ -217,7 +226,7 @@ export default function PlayerCard({ locale = "pt",
             <span
               className="marketLabel"
             >
-              {t(locale, "VALOR ESTIMADO")}</span>
+              {t(locale, "Valor de mercado")}</span>
 
             <strong
               className="marketValue"
@@ -227,11 +236,12 @@ export default function PlayerCard({ locale = "pt",
                 ? formatCurrency(marketValue, locale)
                 : "—"}
             </strong>
+            <EstimatedValueNote provider={economicMarketValue?.provider} value={marketValue} locale={locale} />
           </div>
 
         </div>
-        <p className="cardSalary"><span>{visualText(locale, "salary")}</span> <strong>{salaryLabel ?? "—"}</strong></p>
-        {salaryLabel && <small className="mutedText">{visualText(locale, "observedSalary")} · {visualText(locale, "salarySource")}: {salary?.source}</small>}
+        <p className="cardSalary"><span>{publishedWage?.title ?? visualText(locale, "salary")}</span> <strong>{publishedWage?.value ?? salaryLabel ?? "—"}</strong></p>
+        {publishedWage && <p className="mutedText">{publishedWage.label}<br />{publishedWage.detail}</p>}
       </Link>
     </article>
   )

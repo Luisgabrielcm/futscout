@@ -1,4 +1,5 @@
 import { t, type Locale } from "../../lib/i18n"
+import EstimatedValueNote from './EstimatedValueNote'
 import { displayFoot, displayPosition } from "../../lib/i18n/presentation"
 
 import type {
@@ -22,16 +23,25 @@ import { clubText } from "../../lib/i18n/clubExperience"
 import ClubBadge from "./ClubBadge"
 import LeagueLogo from "./LeagueLogo"
 import { visualText } from "../../lib/i18n/visualRevision"
+import { wagePresentation, type PublishedWage } from "../../lib/wagePublication"
+import { publicClause, publicContractUntil, type PublicEconomicOverlay } from "../../lib/publicEconomicOverlay"
 
 type PlayerHeaderProps = {
   locale?: Locale
   player: Player
   valueContext?: "market" | "career-mode"
+  wage?: PublishedWage
+  fixedSalary?: { title: string; value: string; detail: string; sourceUrl: string }
+  economicOverlay?: PublicEconomicOverlay
 }
 
 export default function PlayerHeader({ locale = "pt",
   player,
+  wage,
+  fixedSalary,
+  economicOverlay,
 }: PlayerHeaderProps) {
+  const publishedWage = wagePresentation(wage, player.id, locale)
   const positions = getPlayerProfilePositions(player)
   const clubHref = entityHref(locale, "clubes", player.club?.slug)
   const leagueHref = entityHref(locale, "ligas", player.leagueSlug)
@@ -245,11 +255,17 @@ export default function PlayerHeader({ locale = "pt",
             <dt>{visualText(locale, "marketValue")}</dt>
             <dd className="playerHeaderMarketValue">{player.marketValue !== null
               ? formatCurrency(player.marketValue, locale)
-              : "—"}</dd>
+              : "—"}<EstimatedValueNote provider={player.economicMarketValue?.provider} value={player.marketValue} locale={locale} /></dd>
           </div>
-          <div><dt>{visualText(locale, "weeklySalary")}</dt><dd>—</dd></div>
-          <div><dt>{visualText(locale, "contractUntil")}</dt><dd>—</dd></div>
-          <div><dt>{visualText(locale, "releaseClause")}</dt><dd>—</dd></div>
+            <div><dt>{publishedWage?.title ?? visualText(locale, "weeklySalary")}</dt><dd>{publishedWage?.value ?? "—"}
+              {publishedWage && <><small className="mutedText" style={{ display: "block" }}>{publishedWage.label}</small><small className="mutedText" style={{ display: "block" }}>{publishedWage.detail}</small></>}
+            </dd></div>
+          {fixedSalary && <div><dt>{fixedSalary.title}</dt><dd>{fixedSalary.value}
+            <small className="mutedText" style={{ display: "block" }}>{fixedSalary.detail}</small>
+            <a href={fixedSalary.sourceUrl} target="_blank" rel="noopener noreferrer">{locale === "pt" ? "Fonte" : "Source"}</a>
+          </dd></div>}
+          <div><dt>{visualText(locale, "contractUntil")}</dt><dd>{publicContractUntil(economicOverlay, locale)}</dd></div>
+          <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{publicClause(economicOverlay, locale)}</dd></div>
         </dl>
       </div>
     </section>

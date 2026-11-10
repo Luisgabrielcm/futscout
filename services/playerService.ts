@@ -25,16 +25,23 @@ import { futscoutPotentialReadSelect, readFutscoutPotential } from "../lib/futsc
 import { potentialWhere, potentialPageSql } from "../lib/futscoutPotential/catalog"
 import { economicMarketValueReadSelect, readEconomicMarketValue } from "../lib/economicData/read"
 import { marketValueWhere, economicBargainsSql } from "../lib/economicData/catalog"
+import { manualWage, readManualEconomics } from "./adminEconomic.server"
+import { readResearchEconomics } from "./researchEconomicRead.server"
+import { researchWage } from "../lib/researchEconomic"
 
-async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapDatabasePlayer>[0][]): Promise<Player[]> {
-  const assets = await getBrandAssetsForEntities({
+async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapDatabasePlayer>[0][], withWage = true): Promise<Player[]> {
+  const [assets, manual, research] = await Promise.all([getBrandAssetsForEntities({
     clubIds: databasePlayers.flatMap(player => player.club?.id ? [player.club.id] : []),
     leagueIds: databasePlayers.flatMap(player => player.club?.league.id ? [player.club.league.id] : []),
-  })
+  }),
+    withWage ? readManualEconomics(databasePlayers.map(player => player.id)) : Promise.resolve(new Map()),
+    withWage ? readResearchEconomics(databasePlayers.map(player => player.id)) : Promise.resolve(new Map())])
   return databasePlayers.map(databasePlayer => {
     const player = { ...mapDatabasePlayer(databasePlayer), ...readFutscoutPotential(databasePlayer), ...readEconomicMarketValue(databasePlayer) }
     if (player.club && databasePlayer.club?.id) player.club.asset = assets.clubs.get(databasePlayer.club.id) ?? null
     if (databasePlayer.club?.league.id) player.leagueAsset = assets.leagues.get(databasePlayer.club.league.id) ?? null
+    const wage = manualWage(player.id, manual.get(player.id)) ?? researchWage(player.id, research.get(player.id))
+    if (wage) player.wage = wage
     return player
   })
 }
@@ -427,7 +434,8 @@ export async function getAllPlayers(): Promise<
       },
     })
 
-  return mapPlayersWithBrandAssets(databasePlayers)
+  // This legacy bulk helper is not a salary export endpoint.
+  return mapPlayersWithBrandAssets(databasePlayers, false)
 }
 
 /* ========================================
@@ -455,7 +463,8 @@ export async function getPlayerBySlug(
 
   const profile = mapDatabasePlayerProfile(databasePlayer)
   if (profile.status === "incomplete") return profile
-  const [player] = await mapPlayersWithBrandAssets([databasePlayer])
+  // The profile route already uses the same gated point reader.
+  const [player] = await mapPlayersWithBrandAssets([databasePlayer], false)
   return { status: "ready", player }
 }
 

@@ -1,0 +1,57 @@
+{
+  "evidence": {
+    "schemaVersion": "wage-owner-temporal-declaration-v1",
+    "id": "footystats-annual-salary-eur-owner-temporal-declaration-v1",
+    "classification": "OWNER_DECLARED",
+    "author": {
+      "role": "FUTSCOUT_OWNER",
+      "name": null
+    },
+    "recordedOn": "2026-10-29",
+    "originalDeclarationDate": null,
+    "scope": {
+      "provider": "FootyStats",
+      "field": "detailed.annual_salary_eur",
+      "seasonField": "season",
+      "contractVersion": "futscout-wage-total-remuneration-v1",
+      "subject": "Declared relationship between an annual remuneration reference and its source season; later null values and unproven continuity."
+    },
+    "statement": {
+      "form": "PARAPHRASE",
+      "language": "pt-BR",
+      "text": "Segundo o proprietário do FutScout, detailed.annual_salary_eur representa a remuneração bruta total anual em euros do jogador correspondente à temporada informada no registro FootyStats. Um contrato pode abranger várias temporadas sem mudança salarial. Um valor null em temporada posterior não invalida automaticamente a última referência positiva e tampouco comprova que essa remuneração continua vigente.",
+      "source": "Declaração temporal do proprietário fornecida nesta tarefa, preservada como paráfrase específica.",
+      "originalDocumentReference": null,
+      "signature": null
+    },
+    "relatedEconomicDeclaration": {
+      "file": "owner-remuneration-declaration.v1.json",
+      "evidenceSha256": "222bb50675c80c8f92cb0e19dc2c1d4ef7fb68da12e4150657fbc9612ac3ba1d",
+      "relationship": "COMPLEMENTS_WITHOUT_REPLACING"
+    },
+    "independentProviderEvidence": {
+      "status": "PENDING_DOCUMENTARY_CONFIRMATION",
+      "reference": null
+    },
+    "limitations": [
+      "A atribuição à temporada é declarada pelo proprietário e não constitui documentação independente emitida pelo fornecedor.",
+      "Temporada esportiva, período contratual, data efetiva da remuneração e data de coleta são conceitos distintos; nenhuma data contratual ou efetiva é inferida.",
+      "Possibilidade de continuidade salarial não comprova continuidade individual, renovação, permanência no clube ou montante vigente.",
+      "Um null posterior permanece null; a referência positiva anterior não é copiada nem convertida em nova observação.",
+      "Qualquer futura evidência PROVIDER_DOCUMENTED deve ser registrada separadamente, preservando a autoria e a classificação desta declaração.",
+      "Mantém a exigência de comprovação independente e dos demais controles para elegibilidade salarial; nenhuma referência é reclassificada."
+    ],
+    "effect": {
+      "trainingAuthorized": false,
+      "publicationAuthorized": false,
+      "salaryPersistenceAuthorized": false,
+      "pipelineBehaviorChanged": false
+    }
+  },
+  "integrity": {
+    "algorithm": "SHA-256",
+    "scope": "evidence",
+    "canonicalization": "engine.ts#hash: recursively sorted object keys; array order preserved; compact JSON encoded as UTF-8; integrity excluded",
+    "sha256": "5d95a2840cfd93ada436bf90a81306c1ff92f39cd74ffe4c4ba37158f2034cb7"
+  }
+}

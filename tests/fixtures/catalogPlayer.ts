@@ -12,7 +12,7 @@ export const catalogAttributes: NonNullable<DatabasePlayer["attributes"]> = {
 
 export function catalogPlayer(overrides: Partial<DatabasePlayer> = {}): DatabasePlayer & { eaImportVisibility: "PUBLIC" } {
   return {
-    id: "fixture-player", slug: "fixture-player", name: "Jogador de teste", eaImportVisibility: "PUBLIC",
+    id: "fixture-player", externalId: "999999", slug: "fixture-player", name: "Jogador de teste", eaImportVisibility: "PUBLIC",
     dateOfBirth: null, nationality: null, position: "MC",
     secondaryPosition: null, secondaryPositions: [],
     preferredFoot: null, height: null, skillMoves: null, weakFootAbility: null,
