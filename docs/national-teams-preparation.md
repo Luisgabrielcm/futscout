@@ -1,0 +1,9 @@
+# Male national teams — prepared, unpublished
+
+The FC 27 bundled database yielded 51 male national teams and 1,326 EA player IDs. The private, hash-checked roster manifest remains under ignored `audit/output/fc27-national-teams-20261110`; it is not part of this commit or a deployment. Of those IDs, 1,073 currently match FutScout players and 253 are among the 7,019 prepared male player candidates.
+
+`NationalTeam` is separate from `Club`. Membership is keyed by EA team and player IDs, never inferred from nationality. Staging and later reconciliation do not change a player's club, economic data, potential, or manual edits. The 127 missing EA clubs and eligible players must be resolved and imported separately before reconciling the 253 memberships by EA ID. A missing club is not proof of free-agent status.
+
+The three initially unresolved country names were mapped explicitly: Northern Ireland to `northern-ireland`, Vietnam to `vietnam`, and Qatar to `qatar`. Their association identities were checked against [FIFA Northern Ireland](https://inside.fifa.com/associations/NIR/organisation), [FIFA Vietnam](https://inside.fifa.com/associations/VIE/organisation), and [AFC Qatar](https://www.the-afc.com/en/west/qatar.html). A country-directory link is rendered only if that directory entry exists; this mapping does not infer a flag or player nationality.
+
+The additive schema is prepared in `prisma/national-teams.candidate.sql`; it has not been applied in Production. `FUTSCOUT_NATIONAL_TEAMS_PUBLIC` defaults to off. Public reads require a roster explicitly marked `PUBLISHED`, rights `APPROVED`, and a non-null effective date. No roster has those approvals. The bundled database's upstream provenance, effective roster version/date, and public reuse rights must each be confirmed before any migration, import, promotion, or enabling of navigation.

@@ -430,6 +430,7 @@ model Player {
   attributes PlayerAttributes?
   goalkeeperAttributes PlayerGoalkeeperAttributes?
   playStyles PlayerPlayStyle[]
+  nationalTeamRosterMemberships NationalTeamRosterPlayer[]
 
   /**
    * VIDA REAL
@@ -480,6 +481,51 @@ model Player {
  * PLAYER ATTRIBUTES
  * ========================================
  */
+
+// Prepared for an additive migration. Country pages currently derive from
+// Player.nationality, so countryKey is a checked link to that directory.
+model NationalTeam {
+  id          String   @id
+  eaTeamId    String   @unique
+  name        String
+  countryKey  String?
+  countryName String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @db.Timestamptz(6)
+  rosters     NationalTeamRoster[]
+}
+
+model NationalTeamRoster {
+  id                 String   @id
+  nationalTeamId     String
+  nationalTeam       NationalTeam @relation(fields: [nationalTeamId], references: [id], onDelete: Restrict)
+  rosterHash         String
+  sourceVersion      String
+  sourceCommit       String
+  sourceBinarySha256 String
+  rosterDate         DateTime? @db.Timestamptz(6)
+  observedAt         DateTime @default(now()) @db.Timestamptz(6)
+  rightsStatus       String   @default("UNVERIFIED")
+  status             String   @default("STAGED")
+  players            NationalTeamRosterPlayer[]
+
+  @@unique([nationalTeamId, sourceBinarySha256, rosterHash])
+  @@index([status, nationalTeamId], map: "national_team_roster_status_idx")
+}
+
+model NationalTeamRosterPlayer {
+  rosterId   String
+  roster     NationalTeamRoster @relation(fields: [rosterId], references: [id], onDelete: Restrict)
+  playerEaId String
+  playerId   String?
+  player     Player? @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  sourceHash String
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([rosterId, playerEaId])
+  @@index([playerId], map: "national_team_roster_player_id_idx")
+  @@index([playerEaId], map: "national_team_roster_player_ea_idx")
+}
 
 // Pending additive migration. Not queried by the current public application.
 // Immutable source observations; legacy PlayerTransfer remains untouched.
