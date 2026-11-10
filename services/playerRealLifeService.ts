@@ -11,6 +11,7 @@ export async function getPlayerRealLifeBySlug(slug: string): Promise<PlayerRealL
     where: { slug },
     select: {
       id: true,
+      eaImportVisibility: true,
       slug: true,
       name: true,
       imageUrl: true,
@@ -52,7 +53,7 @@ export async function getPlayerRealLifeBySlug(slug: string): Promise<PlayerRealL
     },
   })
 
-  if (!player) return null
+  if (!player || player.eaImportVisibility !== "PUBLIC") return null
   const realClub = player.approvedCurrentClub?.approvedClub ?? null
   const assets = await getBrandAssetsForEntities({
     clubIds: [player.club?.id, realClub?.id].filter((id): id is string => Boolean(id)),

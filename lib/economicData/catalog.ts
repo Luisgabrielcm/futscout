@@ -20,5 +20,5 @@ export const marketValueSql = Prisma.sql`(SELECT s.amount FROM "PlayerEconomicCu
 
 export const economicBargainsSql = Prisma.sql`SELECT p.id FROM "Player" p
   JOIN "PlayerAttributes" a ON a."playerId"=p.id
-  WHERE p."officialOverall">=80 AND ${marketValueSql}<=50000000
+  WHERE p."eaImportVisibility"='PUBLIC' AND p."officialOverall">=80 AND ${marketValueSql}<=50000000
   ORDER BY p."officialOverall" DESC,${marketValueSql} ASC,p.name ASC,p.id ASC LIMIT 4`

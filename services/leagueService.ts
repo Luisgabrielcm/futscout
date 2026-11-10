@@ -9,7 +9,7 @@ import { getBrandAssetsForEntities } from "./brandAssetReadService"
 
 const leagueSelect = {
   id: true, name: true, slug: true, country: true,
-  _count: { select: { clubs: true } },
+  _count: { select: { clubs: { where: { eaImportVisibility: "PUBLIC" } } } },
 } satisfies Prisma.LeagueSelect
 
 export async function getLeagueCatalog(input: DirectoryInput = {}) {

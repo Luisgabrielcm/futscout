@@ -13,13 +13,13 @@ import { economicMarketValueReadSelect, readEconomicMarketValue } from "../lib/e
 const clubSelect = {
   id: true, name: true, slug: true, imageUrl: true,
   league: { select: { id: true, name: true, slug: true } },
-  _count: { select: { players: true } },
+  _count: { select: { players: { where: { eaImportVisibility: "PUBLIC" } } } },
 } satisfies Prisma.ClubSelect
 
 export async function getClubs(input: DirectoryInput = {}) {
   const { search, league, page, pageSize, sort } = parseDirectoryParams(input)
   const identitySelect = { id: true, name: true, externalId: true, apiFootballId: true, leagueId: true,
-    _count: { select: { players: true } } } satisfies Prisma.ClubSelect
+    _count: { select: { players: { where: { eaImportVisibility: "PUBLIC" } } } } } satisfies Prisma.ClubSelect
   const [placeholder, target] = await Promise.all([
     prisma.club.findUnique({ where: { slug: BAYER_LEVERKUSEN_LEGACY_ALIAS.slug }, select: identitySelect }),
     prisma.club.findUnique({ where: { apiFootballId: BAYER_LEVERKUSEN_LEGACY_ALIAS.targetApiFootballId }, select: identitySelect }),
@@ -30,6 +30,7 @@ export async function getClubs(input: DirectoryInput = {}) {
   // Exclude only the verified empty legacy row BEFORE count, ordering and pagination.
   // The canonical row owns the roster, rating and registry asset; no database mutation.
   const where: Prisma.ClubWhereInput = {
+    eaImportVisibility: "PUBLIC",
     ...(search ? alias && alias.placeholder.name.toLowerCase().includes(search.toLowerCase())
       ? { OR: [{ name: { contains: search, mode: "insensitive" } }, { id: alias.target.id }] }
       : { name: { contains: search, mode: "insensitive" } } : {}),
@@ -58,7 +59,7 @@ export async function getClubRatings(clubs: { id: string; total: number }[]) {
   if (!clubs.length) return new Map<string, ReturnType<typeof calculateClubRating>>()
   const groups = await prisma.player.groupBy({
     by: ["clubId", "position"],
-    where: { clubId: { in: clubs.map(club => club.id) }, officialOverall: { gte: 0, lte: 99 } },
+    where: { eaImportVisibility: "PUBLIC", clubId: { in: clubs.map(club => club.id) }, officialOverall: { gte: 0, lte: 99 } },
     _sum: { officialOverall: true }, _count: { _all: true },
   })
   return new Map(clubs.map(club => [club.id, calculateClubRating(groups.filter(group => group.clubId === club.id).map(group => ({ position: group.position, totalOverall: group._sum.officialOverall, count: group._count._all })), club.total)]))
@@ -66,7 +67,7 @@ export async function getClubRatings(clubs: { id: string; total: number }[]) {
 
 // Overview loads only one club's compact roster. No stats/PlayStyle/attribute joins.
 export async function getClubRoster(clubId: string) {
-  const rows = await prisma.player.findMany({ where: { clubId }, select: {
+  const rows = await prisma.player.findMany({ where: { eaImportVisibility: "PUBLIC", clubId }, select: {
     id: true, slug: true, name: true, imageUrl: true, position: true, officialOverall: true,
     secondaryPosition: true, secondaryPositions: true, potential: true,
     economicCurrents: economicMarketValueReadSelect,
@@ -83,7 +84,7 @@ export async function getClubRoster(clubId: string) {
 // Request-local memoization shares the detail lookup with generateMetadata.
 export const getClubBySlug = cache(async (slug: string) => {
   const identitySelect = { ...clubSelect, externalId: true, apiFootballId: true, leagueId: true } satisfies Prisma.ClubSelect
-  const requested = await prisma.club.findUnique({ where: { slug }, select: identitySelect })
+  const requested = await prisma.club.findUnique({ where: { slug, eaImportVisibility: "PUBLIC" }, select: identitySelect })
   if (!requested) return null
 
   let club = requested

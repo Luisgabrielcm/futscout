@@ -23,7 +23,7 @@ export function potentialWhere(min?: number, max?: number): Prisma.PlayerWhereIn
 // SQL pagination handles derived potential and the to-many economic current relation.
 // All candidates/filtering/pagination stay in PostgreSQL; only page IDs leave it.
 export function potentialPageSql(params: GetPlayersParams, scope?: { clubId?: string; nationalities?: string[] }, birthDate?: Date) {
-  const conditions = [Prisma.sql`a.id IS NOT NULL`]
+  const conditions = [Prisma.sql`a.id IS NOT NULL`, Prisma.sql`p."eaImportVisibility"='PUBLIC'`]
   if (scope?.clubId) conditions.push(Prisma.sql`p."clubId"=${scope.clubId}`)
   if (scope?.nationalities) conditions.push(scope.nationalities.length
     ? Prisma.sql`p.nationality IN (${Prisma.join(scope.nationalities)})` : Prisma.sql`FALSE`)

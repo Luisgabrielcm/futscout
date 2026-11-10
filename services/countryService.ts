@@ -7,7 +7,7 @@ import { getPlayers, type GetPlayersParams } from "./playerService"
 // A few hundred grouped values, not the 16k player records. Exact persisted
 // variants remain the query scope; never rewrite Player.nationality.
 export const getCountries = cache(async () => {
-  const groups = await prisma.player.groupBy({ by: ["nationality"], _count: { _all: true } })
+  const groups = await prisma.player.groupBy({ by: ["nationality"], where: { eaImportVisibility: "PUBLIC" }, _count: { _all: true } })
   const countries = new Map<string, { slug: string; name: string; nationalities: string[]; total: number }>()
   for (const group of groups) {
     if (!group.nationality?.trim()) continue

@@ -120,6 +120,7 @@ export async function getPlayers(
 
   const where:
     Prisma.PlayerWhereInput = {
+      eaImportVisibility: "PUBLIC",
       ...(scope?.clubId ? { clubId: scope.clubId } : {}),
       ...(scope?.nationalities ? { nationality: { in: scope.nationalities } } : {}),
     }
@@ -345,7 +346,7 @@ export async function getPlayers(
       params.sort.startsWith("potential-") || params.sort.startsWith("value-") ? (async () => {
         const ids = await prisma.$queryRaw<{ id: string }[]>(potentialPageSql(params, scope,
           params.maxAge !== undefined ? getBirthDateForMaxAge(params.maxAge) : undefined))
-        const rows = await prisma.player.findMany({ where: { id: { in: ids.map(row => row.id) } }, include: playerInclude })
+        const rows = await prisma.player.findMany({ where: { eaImportVisibility: "PUBLIC", id: { in: ids.map(row => row.id) } }, include: playerInclude })
         const byId = new Map(rows.map(row => [row.id, row]))
         return ids.map(row => byId.get(row.id)!).filter(Boolean)
       })() : prisma.player.findMany({
@@ -416,6 +417,7 @@ export async function getAllPlayers(): Promise<
 > {
   const databasePlayers =
     await prisma.player.findMany({
+      where: { eaImportVisibility: "PUBLIC" },
       include:
         playerInclude,
 
@@ -446,7 +448,7 @@ export async function getPlayerBySlug(
     })
 
   if (
-    !databasePlayer
+    !databasePlayer || databasePlayer.eaImportVisibility !== "PUBLIC"
   ) {
     return null
   }
@@ -467,6 +469,7 @@ export async function getFeaturedPlayers(): Promise<
   const elite =
     await prisma.player.findMany({
       where: {
+        eaImportVisibility: "PUBLIC",
         attributes: {
           isNot: null,
         },
@@ -493,6 +496,7 @@ export async function getFeaturedPlayers(): Promise<
   const badForm =
     await prisma.player.findMany({
       where: {
+        eaImportVisibility: "PUBLIC",
         officialOverall: {
           gte: 84,
         },
@@ -528,12 +532,12 @@ export async function getFeaturedPlayers(): Promise<
     })
 
   const bargainIds = await prisma.$queryRaw<{ id: string }[]>(economicBargainsSql)
-  const bargainRows = await prisma.player.findMany({ where: { id: { in: bargainIds.map(row => row.id) } }, include: playerInclude })
+  const bargainRows = await prisma.player.findMany({ where: { eaImportVisibility: "PUBLIC", id: { in: bargainIds.map(row => row.id) } }, include: playerInclude })
   const bargainMap = new Map(bargainRows.map(row => [row.id, row]))
   const bargains = bargainIds.map(row => bargainMap.get(row.id)!).filter(Boolean)
 
   const prospectIds = await prisma.$queryRaw<{ id: string }[]>(potentialPageSql({ minPotential: 87, sort: "potential-desc", pageSize: 4 }))
-  const prospectRows = await prisma.player.findMany({ where: { id: { in: prospectIds.map(row => row.id) } }, include: playerInclude })
+  const prospectRows = await prisma.player.findMany({ where: { eaImportVisibility: "PUBLIC", id: { in: prospectIds.map(row => row.id) } }, include: playerInclude })
   const prospectMap = new Map(prospectRows.map(row => [row.id, row]))
   const prospects = prospectIds.map(row => prospectMap.get(row.id)!).filter(Boolean)
 
@@ -569,6 +573,7 @@ export async function getFeaturedPlayers(): Promise<
     const remaining =
       await prisma.player.findMany({
         where: {
+          eaImportVisibility: "PUBLIC",
           id: {
             notIn:
               existingIds,
