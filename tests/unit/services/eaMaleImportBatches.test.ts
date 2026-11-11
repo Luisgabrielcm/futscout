@@ -299,3 +299,92 @@ test("Mexico phase requires the registered EA league ID, country and name", asyn
   await assert.rejects(stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" }, mapping),
     /MEXICO_LEAGUE_CONFLICT/)
 })
+
+test("official stage three accepts only four evidenced clubs and rejects a forged source", async () => {
+  const ids = ["264", "101097", "112116", "112705"]
+  const rows = Array.from({ length: 127 }, (_, index) => ({
+    eaTeamId: ids[index] ?? String(300000 + index), name: `Club ${index}`,
+    leagueId: index === 0 ? "76" : index === 1 || index === 2 ? "1014" : index === 3 ? "1003" : "7",
+    leagueName: index < 4 ? "Continental" : "Other",
+    country: null, missingMalePlayersLinked: 1, identityStatus: "EA_ID_ABSENT",
+  }))
+  const rawJsonl = rows.map(row => JSON.stringify(row)).join("\n") + "\n"
+  const plan = { rawJsonl, sha256: hash(rawJsonl), sourceBinarySha256: "a".repeat(64) }
+  const mapped = rows.map((row, index) => ({
+    eaTeamId: row.eaTeamId, sourceLeagueId: row.leagueId,
+    sourceLeagueName: row.leagueName, sourceCountry: row.country,
+    missingMalePlayersLinked: 1,
+    targetLeagueId: index < 4 ? index === 0 ? "cyprus" : "chile" : null,
+    targetLeagueName: index < 4 ? index === 0 ? "Liga Cyprus" : "Liga Chile" : null,
+    supportingEaClubIds: [],
+    ...(index < 4 ? { officialCountry: index === 0 ? "Cyprus" : "Chile",
+      officialEvidenceUrl: index === 0 ? "https://www.cfa.com.cy/Gr/clubprofile/68153713/41001" :
+        "https://www.campeonatochileno.cl/competition/liga-de-primera/" } : {}),
+    classification: index < 4 ? "LEAGUE_IDENTIFIED_BY_OFFICIAL_2026" : "STAGE3_HELD",
+  }))
+  const rawJson = JSON.stringify({ phase: "OFFICIAL_03", sourcePlanHash: plan.sha256,
+    sourceBinaryHash: plan.sourceBinarySha256, rows: mapped })
+  const mapping = { rawJson, sha256: hash(rawJson) }
+  const inserts: string[] = []
+  const client = { query: async (sql: string, args: unknown[] = []) => {
+    if (sql.startsWith("SELECT current_database()")) return { rows: [{ database: "fc27_test", host: "127.0.0.1" }] }
+    if (sql.includes('FROM "EaMaleClubImportEntry"')) return { rows: [] }
+    if (sql.includes('FROM "League" WHERE id=')) return { rows: [{ id: args[0],
+      name: args[0] === "cyprus" ? "Liga Cyprus" : "Liga Chile", country: "Não informado" }] }
+    if (sql.startsWith('INSERT INTO "Club"')) inserts.push(sql)
+    return { rows: [], rowCount: sql.startsWith('SELECT id FROM "Club"') ? 0 : 1 }
+  }, release: () => {} }
+  const pool = { connect: async () => client } as unknown as Pick<Pool, "connect">
+  assert.equal(await stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" }, mapping), "STAGED")
+  assert.equal(inserts.length, 4)
+  mapped[0].officialEvidenceUrl = "https://example.com/forged"
+  const invalid = JSON.stringify({ phase: "OFFICIAL_03", sourcePlanHash: plan.sha256,
+    sourceBinaryHash: plan.sourceBinarySha256, rows: mapped })
+  await assert.rejects(stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" },
+    { rawJson: invalid, sha256: hash(invalid) }), /CLUB_OFFICIAL_EVIDENCE_INVALID/)
+})
+
+test("Brazil stage three creates only the official domestic league and stages fourteen clubs", async () => {
+  const ids = ["383", "517", "567", "568", "569", "598", "1035", "1041", "1043", "1053",
+    "1598", "1629", "111975", "112472"]
+  const rows = Array.from({ length: 127 }, (_, index) => ({
+    eaTeamId: ids[index] ?? String(400000 + index), name: `Club ${index}`,
+    leagueId: index < 14 ? "1003" : "7", leagueName: index < 14 ? "Libertadores" : "Other",
+    country: null, missingMalePlayersLinked: 1, identityStatus: "EA_ID_ABSENT",
+  }))
+  const rawJsonl = rows.map(row => JSON.stringify(row)).join("\n") + "\n"
+  const plan = { rawJsonl, sha256: hash(rawJsonl), sourceBinarySha256: "a".repeat(64) }
+  const cbf = "https://www.cbf.com.br/futebol-brasileiro/times/campeonato-brasileiro/serie-a/2026"
+  const mapped = rows.map((row, index) => ({
+    eaTeamId: row.eaTeamId, sourceLeagueId: row.leagueId,
+    sourceLeagueName: row.leagueName, sourceCountry: row.country,
+    missingMalePlayersLinked: 1, targetLeagueId: index < 14 ? "brazil-league" : null,
+    targetLeagueName: index < 14 ? "Brasileirão Série A" : null,
+    supportingEaClubIds: [],
+    ...(index < 14 ? { officialCountry: "Brazil", officialEvidenceUrl: cbf } : {}),
+    classification: index < 14 ? "LEAGUE_IDENTIFIED_BY_CBF_2026" : "STAGE3_HELD",
+  }))
+  const rawJson = JSON.stringify({ phase: "BRAZIL_03", sourcePlanHash: plan.sha256,
+    sourceBinaryHash: plan.sourceBinarySha256, rows: mapped })
+  const mapping = { rawJson, sha256: hash(rawJson) }
+  const inserts: string[] = []
+  const client = { query: async (sql: string, args: unknown[] = []) => {
+    if (sql.startsWith("SELECT current_database()")) return { rows: [{ database: "fc27_test", host: "127.0.0.1" }] }
+    if (sql.includes('FROM "EaMaleClubImportEntry"')) return { rows: [] }
+    if (sql.includes('FROM "League" WHERE id=$1 OR slug=')) return { rows: [] }
+    if (sql.includes('FROM "League" WHERE id=')) return { rows: [{ id: args[0],
+      name: "Brasileirão Série A", country: "Brazil" }] }
+    if (sql.startsWith('INSERT INTO "League"') || sql.startsWith('INSERT INTO "Club"')) inserts.push(sql)
+    return { rows: [], rowCount: sql.startsWith('SELECT id FROM "Club"') ? 0 : 1 }
+  }, release: () => {} }
+  const pool = { connect: async () => client } as unknown as Pick<Pool, "connect">
+  assert.equal(await stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" }, mapping), "STAGED")
+  assert.equal(inserts.filter(sql => sql.startsWith('INSERT INTO "League"')).length, 1)
+  assert.equal(inserts.filter(sql => sql.startsWith('INSERT INTO "Club"')).length, 14)
+  mapped[0].officialEvidenceUrl = "https://example.com/forged"
+  const invalid = JSON.stringify({ phase: "BRAZIL_03", sourcePlanHash: plan.sha256,
+    sourceBinaryHash: plan.sourceBinarySha256, rows: mapped })
+  await assert.rejects(stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" },
+    { rawJson: invalid, sha256: hash(invalid) }), /CLUB_OFFICIAL_EVIDENCE_INVALID/)
+  assert.equal(inserts.filter(sql => sql.startsWith('INSERT INTO "Club"')).length, 14)
+})
