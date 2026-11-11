@@ -95,7 +95,11 @@ test("catalog/profile and roster use bounded relation queries without N+1", asyn
     findMany: async (args: { include?: { economicCurrents?: unknown }; select?: { economicCurrents?: unknown } }) => {
       queries++; assert.deepEqual(args.include?.economicCurrents ?? args.select?.economicCurrents, economicMarketValueReadSelect); return rows
     },
-    findUnique: async () => { queries++; return rows[0] },
+    findUnique: async (args: { select?: { eaImportVisibility?: boolean } }) => {
+      queries++
+      if (args.select) { assert.equal(args.select.eaImportVisibility, true); return { eaImportVisibility: "PUBLIC" } }
+      return rows[0]
+    },
   } } }
   const service = loadCatalogModule<typeof import("../../../services/playerService")>("services/playerService.ts", {
     "server-only": {}, "../lib/prisma": infrastructure, "../mappers/mapDatabasePlayer": mapper,
@@ -111,7 +115,7 @@ test("catalog/profile and roster use bounded relation queries without N+1", asyn
     "../lib/directoryCatalogParams": {}, "./clubIdentityAliases": {}, "./brandAssetReadService": {},
   })
   assert.deepEqual((await clubs.getClubRoster("fixture")).map(p => p.marketValue), [220e6, 130e6, 200e6, 220e6, 150e6, null])
-  assert.equal(queries, 3)
+  assert.equal(queries, 4)
 })
 test("existing No jogo header displays canaries, zero and neutral absence", () => {
   const Header = loadCatalogModule<{ default: (props: unknown) => ReactElement }>("app/components/PlayerHeader.tsx", {

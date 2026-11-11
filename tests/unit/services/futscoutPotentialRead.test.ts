@@ -46,8 +46,11 @@ function fixture(size: number) {
     findMany: async (args: { include?: { currentFutscoutPotential?: unknown }; select?: { currentFutscoutPotential?: unknown } }) => {
       lists++; assert.deepEqual(args.include?.currentFutscoutPotential ?? args.select?.currentFutscoutPotential, futscoutPotentialReadSelect); return rows
     },
-    findUnique: async (args: { include: { currentFutscoutPotential: unknown } }) => {
-      profiles++; assert.deepEqual(args.include.currentFutscoutPotential, futscoutPotentialReadSelect); return rows[0]
+    findUnique: async (args: { include?: { currentFutscoutPotential: unknown }; select?: { eaImportVisibility?: boolean } }) => {
+      profiles++
+      if (args.select) { assert.equal(args.select.eaImportVisibility, true); return { eaImportVisibility: "PUBLIC" } }
+      assert.deepEqual(args.include?.currentFutscoutPotential, futscoutPotentialReadSelect)
+      return rows[0]
     },
   } } }
   const service = loadCatalogModule<typeof import("../../../services/playerService")>("services/playerService.ts", {
@@ -74,10 +77,10 @@ test("catalog/search/filter and club scoped read have constant list query count"
     assert.equal(f.counts().lists, 2)
   }
 })
-test("profile exposes same contract in one lookup", async () => {
+test("profile checks visibility before loading the same potential contract", async () => {
   const f = fixture(1)
   const result = await f.service.getPlayerBySlug("fixture")
   assert.equal(result?.status, "ready")
   if (result?.status === "ready") assert.equal(result.player.potential, 91)
-  assert.deepEqual(f.counts(), { lists: 0, profiles: 1 })
+  assert.deepEqual(f.counts(), { lists: 0, profiles: 2 })
 })
