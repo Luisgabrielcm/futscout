@@ -1,0 +1,10 @@
+.git
+node_modules
+.next
+.env*
+!.env.example
+audit/output
+audit/reports
+audit/results
+app/generated/prisma
+*.tsbuildinfo

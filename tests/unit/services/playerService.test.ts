@@ -57,6 +57,6 @@ test("slug lookup distinguishes absent player from incomplete record", async () 
   assert.equal(await serviceFixture().service.getPlayerBySlug("absent"), null)
   assert.deepEqual(
     await serviceFixture(catalogPlayer({ attributes: null })).service.getPlayerBySlug("fixture"),
-    { status: "incomplete", name: "Jogador de teste" },
+    { status: "incomplete", id: "fixture-player", name: "Jogador de teste" },
   )
 })

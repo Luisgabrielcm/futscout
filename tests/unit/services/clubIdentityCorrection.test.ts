@@ -5,7 +5,7 @@ import { planClubCorrection, applyClubCorrection, reconcileClubCorrection, type 
 const old = "2020-01-01T00:00:00.000Z", at = "2021-01-01T00:00:00.000Z"
 const pin = { clubId: "club", eaId: "123", leagueId: "league", oldId: 10, newId: 20, evidenceRef: "exact-provider-evidence" }
 function fixture(): ClubCorrectionSnapshot {
-  return { club: { id: "club", name: "Club", slug: "club", externalId: "123", apiFootballId: 10, leagueId: "league", imageUrl: null, createdAt: old, updatedAt: old },
+  return { club: { id: "club", name: "Club", slug: "club", externalId: "123", eaImportVisibility: "PUBLIC", apiFootballId: 10, leagueId: "league", imageUrl: null, createdAt: old, updatedAt: old },
     identities: [{ id: "identity", entityType: "CLUB", entityId: "club", provider: "api-football", providerEntityId: "10", status: "VERIFIED", evidence: { original: true }, version: 1, verifiedAt: old, createdAt: old, updatedAt: old,
       assets: [{ id: "asset", identityId: "identity", assetType: "CREST", sourceUrl: "https://media.api-sports.io/football/teams/10.png", storageUrl: null, contentHash: "a".repeat(64), version: 1, fetchedAt: old, rightsStatus: "REVIEW_REQUIRED", operationalDecision: "OWNER_AUTHORIZED_REMOTE_USE", displayPolicy: "DISPLAY_ALLOWED", operationalAuthorizedAt: old, operationalDecisionRef: "original", operatorRiskAccepted: true, riskAcceptedAt: old, riskAcceptedBy: "owner", riskReason: "risk", sourceTermsUrl: null, revocable: true, status: "ACTIVE", createdAt: old, updatedAt: old }] }], playerIds: ["p1", "p2"], conflicts: [], protectedHash: "protected" }
 }

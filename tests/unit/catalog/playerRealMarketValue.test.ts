@@ -17,9 +17,10 @@ async function rendered(locale: "pt" | "en", economicCurrents: unknown[], extra:
     "server-only": {}, "../lib/prisma": { prisma: { player: { findUnique: async (args: { select: Record<string, unknown> }) => {
       queries++
       assert.deepEqual(args.select.economicCurrents, economicMarketValueReadSelect)
+      assert.equal(args.select.externalId, true)
       assert.equal(args.select.marketValue, undefined)
       assert.equal(args.select.economicObservations, undefined)
-      return { id: "synthetic-player", slug: "synthetic-player", name: "Synthetic Player", nationality: null,
+      return { id: "synthetic-player", externalId: "999999", slug: "synthetic-player", name: "Synthetic Player", nationality: null, eaImportVisibility: "PUBLIC",
         imageUrl: null, club: null, approvedCurrentClub: null, realLifeStats: [], economicCurrents, ...extra }
     } } } },
     "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
@@ -95,15 +96,15 @@ for (const locale of ["pt", "en"] as const) {
     const selected = current()
     selected.observation.state.provider = "SYNTHETIC_PROVIDER"
     const { section } = await rendered(locale, [selected])
-    assert.match(section, locale === "pt" ? /Natureza da avaliação não informada/ : /Valuation nature not specified/)
+    assert.match(section, locale === "pt" ? /Valor de mercado verificado indisponível/ : /Verified market value unavailable/)
     assert.doesNotMatch(section, /Provider market value estimate|Estimativa de valor de mercado da fonte|FutScout/)
   })
 }
 
-test("an explicitly selected zero retains the existing reader semantics", async () => {
+test("an explicitly selected zero remains unavailable under the positive-value publication policy", async () => {
   const zero = current()
   zero.observation.state.amount = new Prisma.Decimal(0)
   const { section } = await rendered("en", [zero])
-  assert.match(section, /EUR[^\d]*0\.00/)
-  assert.match(section, /Live Football/)
+  assert.match(section, /Verified market value unavailable/)
+  assert.doesNotMatch(section, /EUR|Live Football/)
 })

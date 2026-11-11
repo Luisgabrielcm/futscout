@@ -6,7 +6,7 @@ test("real-life reader selects only approved Current Club V2 and performs no wri
   let query: unknown
   const writes: string[] = []
   const row = {
-    id: "player-rodri", slug: "rodri", name: "Rodri", imageUrl: null, nationality: "Spain",
+    id: "player-rodri", slug: "rodri", name: "Rodri", imageUrl: null, nationality: "Spain", eaImportVisibility: "PUBLIC",
     club: { id: "club-city", slug: "manchester-city", name: "Manchester City", league: { id: "league-pl", slug: "premier-league", name: "Premier League" } },
     approvedCurrentClub: { approvedClub: {
       id: "club-barcelona", slug: "barcelona", name: "Barcelona", imageUrl: null,
@@ -35,7 +35,7 @@ test("real-life reader returns null approved club and null player honestly", asy
     "server-only": {}, "../lib/prisma": { prisma: { player: { findUnique: async () => result } } },
     "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
   })
-  result = { id: "p", slug: "salah", name: "Salah", imageUrl: null, nationality: null, club: null, approvedCurrentClub: null }
+  result = { id: "p", slug: "salah", name: "Salah", imageUrl: null, nationality: null, club: null, approvedCurrentClub: null, eaImportVisibility: "PUBLIC" }
   assert.equal((await service.getPlayerRealLifeBySlug("salah"))?.approvedCurrentClub, null)
   result = null
   assert.equal(await service.getPlayerRealLifeBySlug("missing"), null)

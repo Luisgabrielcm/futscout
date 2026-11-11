@@ -2,6 +2,7 @@ export type PitchPlayer = {
   id: string; slug: string; name: string; imageUrl: string | null
   position: string; secondaryPosition: string | null; secondaryPositions: string[]
   officialOverall: number; potential: number | null; marketValue: number | bigint | null
+  economicMarketValue?: { provider: string } | null
 }
 
 // Attack to goalkeeper. A slot accepts only its exact registered EA position.

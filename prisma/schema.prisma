@@ -7,6 +7,84 @@ datasource db {
   provider = "postgresql"
 }
 
+// Owner-only manual economic overlay. Revisions are immutable in PostgreSQL.
+model AdminEconomicRevision {
+  id String @id
+  playerId String
+  eaId String
+  section String
+  revision Int
+  requestId String @unique
+  action String
+  payload Json
+  contentHash String
+  priorId String?
+  actor String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([playerId, section, revision])
+  @@index([playerId, section, revision(sort: Desc)], map: "admin_economic_revision_history")
+}
+
+model AdminEconomicHead {
+  playerId String
+  section String
+  revisionId String
+  revision Int
+  @@id([playerId, section])
+}
+
+model AdminLoginAttempt {
+  key String @id
+  failures Int @default(0)
+  blockedUntil DateTime? @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @db.Timestamptz(3)
+}
+
+model AdminSession {
+  tokenHash String @id
+  csrfHash String
+  ownerId String
+  expiresAt DateTime @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+
+model AdminTotpStep {
+  step BigInt @id
+  usedAt DateTime @default(now()) @db.Timestamptz(3)
+}
+
+// Source research is separate from owner edits. Only a PUBLISH/ROLLBACK head is public.
+model ResearchEconomicRevision {
+  id String @id
+  playerId String
+  eaId String
+  clubId String
+  field String
+  revision Int
+  requestId String @unique
+  requestHash String
+  action String
+  payload Json?
+  classification String
+  sourceUrl String
+  sourcePublishedOn String?
+  capturedOn String
+  priorId String?
+  contentHash String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@unique([playerId, field, revision])
+  @@index([playerId, field, revision(sort: Desc)])
+}
+
+model ResearchEconomicHead {
+  playerId String
+  field String
+  revisionId String
+  revision Int
+  @@id([playerId, field])
+}
+
 model PlayerEconomicState {
   id String @id @default(cuid())
   playerId String
@@ -16,7 +94,8 @@ model PlayerEconomicState {
   context String
   snapshotVersion String
   presence String
-  amount Decimal? @db.Decimal(20, 2)
+  // Exact frozen estimates: candidate SQL must be approved/applied separately.
+  amount Decimal? @db.Decimal(38, 18)
   currency String?
   period String?
   contractUntil DateTime? @db.Date
@@ -290,6 +369,7 @@ model League {
 model Club {
   id         String  @id @default(cuid())
   externalId String? @unique
+  eaImportVisibility String @default("PUBLIC")
 
   /**
    * ID DO CLUBE NA API-FOOTBALL
@@ -310,6 +390,7 @@ model Club {
   league   League @relation(fields: [leagueId], references: [id], onDelete: Restrict)
 
   players Player[]
+  eaMaleClubImportEntry EaMaleClubImportEntry?
 
   officialLineupSnapshots ClubOfficialLineupSnapshot[]
   currentClubStates      PlayerCurrentClubState[]
@@ -353,6 +434,8 @@ model ClubOfficialLineupSnapshot {
 model Player {
   id         String  @id @default(cuid())
   externalId String? @unique
+  eaImportVisibility String @default("PUBLIC")
+  eaFreeAgentEvidence String @default("UNKNOWN")
 
   /**
    * ID DO JOGADOR NA API-FOOTBALL
@@ -431,6 +514,7 @@ model Player {
   goalkeeperAttributes PlayerGoalkeeperAttributes?
   playStyles PlayerPlayStyle[]
   nationalTeamRosterMemberships NationalTeamRosterPlayer[]
+  eaMaleImportEntry EaMaleImportEntry?
 
   /**
    * VIDA REAL
@@ -474,6 +558,7 @@ model Player {
   @@index([officialOverall])
   @@index([potential])
   @@index([apiFootballId])
+  @@unique([id, externalId], map: "admin_economic_player_identity")
 }
 
 /**
@@ -525,6 +610,76 @@ model NationalTeamRosterPlayer {
   @@id([rosterId, playerEaId])
   @@index([playerId], map: "national_team_roster_player_id_idx")
   @@index([playerEaId], map: "national_team_roster_player_ea_idx")
+}
+
+model EaMaleClubImportEntry {
+  eaTeamId String @id
+  clubId String @unique
+  club Club @relation(fields: [clubId], references: [id], onDelete: Restrict)
+  sourcePlanHash String
+  sourceBinaryHash String
+  leagueExternalId String
+  status String @default("STAGED")
+  createdAt DateTime @default(now())
+  publishedAt DateTime?
+  rolledBackAt DateTime?
+  events EaMaleClubImportEvent[]
+}
+
+model EaMaleClubImportEvent {
+  id String @id @default(uuid()) @db.Uuid
+  eaTeamId String
+  entry EaMaleClubImportEntry @relation(fields: [eaTeamId], references: [eaTeamId], onDelete: Restrict)
+  action String
+  sourcePlanHash String
+  createdAt DateTime @default(now())
+  @@unique([eaTeamId, action])
+}
+
+model EaMaleImportBatch {
+  batchId          String @id
+  batchHash        String
+  selectionHash    String
+  sourceBinaryHash String
+  sourceCommit     String
+  clubStatus       String
+  status           String
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+  rolledBackAt     DateTime? @db.Timestamptz(6)
+  entries          EaMaleImportEntry[]
+  events           EaMaleImportEvent[]
+}
+
+model EaMaleImportEntry {
+  batchId        String
+  batch          EaMaleImportBatch @relation(fields: [batchId], references: [batchId], onDelete: Restrict)
+  externalId     String @id
+  playerId       String @unique
+  player         Player @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  contentHash    String
+  clubExternalId String?
+  clubStatus     String
+  status         String
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  publishedAt    DateTime? @db.Timestamptz(6)
+  rolledBackAt   DateTime? @db.Timestamptz(6)
+  events         EaMaleImportEvent[]
+
+  @@index([batchId], map: "ea_male_import_entry_batch_idx")
+}
+
+model EaMaleImportEvent {
+  eventId     String @id @db.Uuid
+  batchId     String
+  batch       EaMaleImportBatch @relation(fields: [batchId], references: [batchId], onDelete: Restrict)
+  externalId  String
+  entry       EaMaleImportEntry @relation(fields: [externalId], references: [externalId], onDelete: Restrict)
+  action      String
+  contentHash String
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([externalId, action])
+  @@index([batchId], map: "ea_male_import_event_batch_idx")
 }
 
 // Pending additive migration. Not queried by the current public application.

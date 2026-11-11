@@ -10,7 +10,7 @@ import { join } from "node:path"
 const old = "2020-01-01T00:00:00.000Z", at = "2021-01-01T00:00:00.000Z"
 function fixture(): RedStarSnapshot {
   return {
-    club: { id: RED_STAR.clubId, externalId: RED_STAR.eaId, apiFootballId: 4396, name: "Red Star FC", slug: "red-star-fc",
+    club: { id: RED_STAR.clubId, externalId: RED_STAR.eaId, eaImportVisibility: "PUBLIC", apiFootballId: 4396, name: "Red Star FC", slug: "red-star-fc",
       imageUrl: "https://ratings-images-prod.pulse.ea.com/FC25/full/player-shields/en/72139.png?width=250", leagueId: RED_STAR.leagueId, createdAt: old, updatedAt: old },
     identity: { id: RED_STAR.identityId, entityType: "CLUB", entityId: RED_STAR.clubId, provider: "api-football",
       providerEntityId: "4396", status: "VERIFIED", evidence: { source: "guarded-brand-asset-write" }, version: 1,

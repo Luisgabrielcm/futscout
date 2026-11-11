@@ -5,6 +5,7 @@ export type ComparisonAttribute = (typeof COMPARISON_ATTRIBUTES)[number]
 
 export type SelectedPlayer = {
   id: string; slug: string; name: string; position: string
+  wage?: import("../lib/wagePublication").PublishedWage
   club: string | null; age: number | null; image?: string
   clubImageUrl?: string | null; nationality?: string | null
   clubAsset?: AssetReference | null

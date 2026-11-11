@@ -26,6 +26,7 @@ function loadConfiguration(path: string, env: Record<string, string | undefined>
     },
     "dotenv/config": {},
     "prisma/config": { defineConfig: (config: unknown) => config },
+    "./experiments/futscout-value-global-v01/staging-isolation": { rejectLegacyStaging: () => {} },
   }
   runInNewContext(outputText, {
     module: compiledModule, exports: compiledModule.exports, Error,

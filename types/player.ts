@@ -178,6 +178,7 @@ export type PlayerAttributes = {
 
 export type Player = {
   id: string
+  wage?: import("../lib/wagePublication").PublishedWage
 
   slug: string
 

@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { connection } from "next/server"
 import { t } from "../../../../lib/i18n"
 import { playerCatalogContext, playerCatalogReturnHref } from "../../../../lib/connectedNavigation"
 import type { CatalogSearchParams } from "../../../../lib/playerCatalogParams"
@@ -8,6 +9,11 @@ import { playerExperienceText } from "../../../../lib/i18n/playerExperience"
 import { requireLocale } from "../../../../lib/i18n/server"
 import { visualText } from "../../../../lib/i18n/visualRevision"
 import { getPlayerBySlug } from "../../../../services/playerService"
+import { manualWage, readManualEconomics } from "../../../../services/adminEconomic.server"
+import { readResearchEconomics } from "../../../../services/researchEconomicRead.server"
+import { researchFixedSalary, researchWage } from "../../../../lib/researchEconomic"
+import { publicClause, publicContractUntil, publicEconomicOverlay } from "../../../../lib/publicEconomicOverlay"
+import { wagePresentation } from "../../../../lib/wagePublication"
 import PlayerActions from "../../../components/PlayerActions"
 import PlayerAttributes from "../../../components/PlayerAttributes"
 import PlayerGoalkeeperAttributes from "../../../components/PlayerGoalkeeperAttributes"
@@ -22,6 +28,7 @@ import GoalkeeperScoutAnalysis from "../../../components/GoalkeeperScoutAnalysis
 type PlayerPageProps = { params: Promise<{ slug: string; locale?: string }>; searchParams?: Promise<CatalogSearchParams> }
 
 export default async function PlayerPage({ params, searchParams }: PlayerPageProps) {
+  await connection()
   const { slug, locale: routeLocale } = await params
   const locale = requireLocale(routeLocale ?? "pt")
   const profile = await getPlayerBySlug(slug)
@@ -31,6 +38,11 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
   const returnLabel = t(locale, catalogContext ? "Voltar aos resultados" : "Jogadores")
 
   if (profile.status === "incomplete") {
+    const manual = (await readManualEconomics([profile.id])).get(profile.id)
+    const research = (await readResearchEconomics([profile.id])).get(profile.id)
+    const economic = publicEconomicOverlay(manual, research)
+    const wage = wagePresentation(manualWage(profile.id, manual) ?? researchWage(profile.id, research), profile.id, locale)
+    const fixedSalary = !manual?.salary && !researchWage(profile.id, research) ? researchFixedSalary(research, locale) : undefined
     return <main className="playerPage">
       <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}>
         <Link href={returnHref} className="backButton">{returnLabel}</Link>
@@ -41,18 +53,32 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
         <PlayerActions locale={locale} slug={slug} name={profile.name} />
         <PlayerExperienceNav locale={locale} slug={slug} active="ea" catalogContext={catalogContext} />
         <p>{t(locale, "Perfil incompleto: os atributos deste jogador ainda não estão disponíveis. Nenhuma estatística foi estimada para preencher esses dados.")}</p>
+        <dl className="careerFields" aria-label={visualText(locale, "economicData")}>
+          <div><dt>{visualText(locale, "weeklySalary")}</dt><dd>{wage?.value ?? "—"}</dd></div>
+          {fixedSalary && <div><dt>{fixedSalary.title}</dt><dd>{fixedSalary.value}
+            <small className="mutedText" style={{ display: "block" }}>{fixedSalary.detail}</small>
+            <a href={fixedSalary.sourceUrl} target="_blank" rel="noopener noreferrer">{locale === "pt" ? "Fonte" : "Source"}</a>
+          </dd></div>}
+          <div><dt>{visualText(locale, "contractUntil")}</dt><dd>{publicContractUntil(economic, locale)}</dd></div>
+          <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{publicClause(economic, locale)}</dd></div>
+        </dl>
       </div>
     </main>
   }
 
   const player = profile.player
   const isGoalkeeper = player.position === "GOL"
+  const manual = (await readManualEconomics([player.id])).get(player.id)
+  const research = (await readResearchEconomics([player.id])).get(player.id)
+  const wage = manualWage(player.id, manual) ?? researchWage(player.id, research)
+  const economic = publicEconomicOverlay(manual, research)
   return <main className="playerPage">
     <nav className="entityBreadcrumb" aria-label={t(locale, "Catálogo FutScout")}>
       <Link href={returnHref} className="backButton">{returnLabel}</Link>
       <span aria-hidden="true">›</span><span aria-current="page">{player.name}</span>
     </nav>
-    <PlayerHeader locale={locale} player={player} valueContext="career-mode" />
+    <PlayerHeader locale={locale} player={player} valueContext="career-mode" wage={wage}
+      fixedSalary={!manual?.salary && !researchWage(player.id, research) ? researchFixedSalary(research, locale) : undefined} economicOverlay={economic} />
     <PlayerActions locale={locale} slug={player.slug} name={player.name} />
     <PlayerExperienceNav locale={locale} slug={slug} active="ea" catalogContext={catalogContext} />
 

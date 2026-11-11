@@ -31,6 +31,7 @@ export async function getNationalTeams(db: ReadDb = prisma): Promise<NationalTea
     FROM "NationalTeam" t
     JOIN "NationalTeamRoster" r ON r."nationalTeamId" = t.id
     LEFT JOIN "NationalTeamRosterPlayer" m ON m."rosterId" = r.id
+      AND EXISTS (SELECT 1 FROM "Player" p WHERE p.id=m."playerId" AND p."eaImportVisibility"='PUBLIC')
     WHERE r.status = 'PUBLISHED' AND r."rightsStatus" = 'APPROVED'
       AND r."rosterDate" IS NOT NULL
     GROUP BY t."eaTeamId", t.name, t."countryKey", t."countryName", r."rosterDate", r."sourceVersion"
@@ -46,6 +47,7 @@ export async function getNationalTeam(eaTeamId: string, db: ReadDb = prisma): Pr
     FROM "NationalTeam" t
     JOIN "NationalTeamRoster" r ON r."nationalTeamId" = t.id
     LEFT JOIN "NationalTeamRosterPlayer" m ON m."rosterId" = r.id
+      AND EXISTS (SELECT 1 FROM "Player" p WHERE p.id=m."playerId" AND p."eaImportVisibility"='PUBLIC')
     WHERE t."eaTeamId" = ${eaTeamId} AND r.status = 'PUBLISHED'
       AND r."rightsStatus" = 'APPROVED' AND r."rosterDate" IS NOT NULL
     GROUP BY t."eaTeamId", t.name, t."countryKey", t."countryName", r."rosterDate", r."sourceVersion"`
@@ -85,7 +87,7 @@ export async function getNationalTeamPlayers(eaTeamId: string,
     SELECT count(*)::bigint AS total FROM "NationalTeamRosterPlayer" m
     JOIN "NationalTeamRoster" r ON r.id = m."rosterId"
     JOIN "NationalTeam" t ON t.id = r."nationalTeamId"
-    JOIN "Player" p ON p.id = m."playerId" AND p."externalId" = m."playerEaId"
+    JOIN "Player" p ON p.id = m."playerId" AND p."externalId" = m."playerEaId" AND p."eaImportVisibility"='PUBLIC'
     WHERE t."eaTeamId" = ${eaTeamId} AND r.status = 'PUBLISHED'
       AND r."rightsStatus" = 'APPROVED' AND r."rosterDate" IS NOT NULL
       AND position(lower(${search}) in lower(p.name)) > 0`
@@ -96,7 +98,7 @@ export async function getNationalTeamPlayers(eaTeamId: string,
     FROM "NationalTeamRosterPlayer" m
     JOIN "NationalTeamRoster" r ON r.id = m."rosterId"
     JOIN "NationalTeam" t ON t.id = r."nationalTeamId"
-    JOIN "Player" p ON p.id = m."playerId" AND p."externalId" = m."playerEaId"
+    JOIN "Player" p ON p.id = m."playerId" AND p."externalId" = m."playerEaId" AND p."eaImportVisibility"='PUBLIC'
     LEFT JOIN "Club" c ON c.id = p."clubId"
     WHERE t."eaTeamId" = ${eaTeamId} AND r.status = 'PUBLISHED'
       AND r."rightsStatus" = 'APPROVED' AND r."rosterDate" IS NOT NULL

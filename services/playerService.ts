@@ -25,16 +25,23 @@ import { futscoutPotentialReadSelect, readFutscoutPotential } from "../lib/futsc
 import { potentialWhere, potentialPageSql } from "../lib/futscoutPotential/catalog"
 import { economicMarketValueReadSelect, readEconomicMarketValue } from "../lib/economicData/read"
 import { marketValueWhere, economicBargainsSql } from "../lib/economicData/catalog"
+import { manualWage, readManualEconomics } from "./adminEconomic.server"
+import { readResearchEconomics } from "./researchEconomicRead.server"
+import { researchWage } from "../lib/researchEconomic"
 
-async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapDatabasePlayer>[0][]): Promise<Player[]> {
-  const assets = await getBrandAssetsForEntities({
+async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapDatabasePlayer>[0][], withWage = true): Promise<Player[]> {
+  const [assets, manual, research] = await Promise.all([getBrandAssetsForEntities({
     clubIds: databasePlayers.flatMap(player => player.club?.id ? [player.club.id] : []),
     leagueIds: databasePlayers.flatMap(player => player.club?.league.id ? [player.club.league.id] : []),
-  })
+  }),
+    withWage ? readManualEconomics(databasePlayers.map(player => player.id)) : Promise.resolve(new Map()),
+    withWage ? readResearchEconomics(databasePlayers.map(player => player.id)) : Promise.resolve(new Map())])
   return databasePlayers.map(databasePlayer => {
     const player = { ...mapDatabasePlayer(databasePlayer), ...readFutscoutPotential(databasePlayer), ...readEconomicMarketValue(databasePlayer) }
     if (player.club && databasePlayer.club?.id) player.club.asset = assets.clubs.get(databasePlayer.club.id) ?? null
     if (databasePlayer.club?.league.id) player.leagueAsset = assets.leagues.get(databasePlayer.club.league.id) ?? null
+    const wage = manualWage(player.id, manual.get(player.id)) ?? researchWage(player.id, research.get(player.id))
+    if (wage) player.wage = wage
     return player
   })
 }
@@ -120,6 +127,7 @@ export async function getPlayers(
 
   const where:
     Prisma.PlayerWhereInput = {
+      eaImportVisibility: "PUBLIC",
       ...(scope?.clubId ? { clubId: scope.clubId } : {}),
       ...(scope?.nationalities ? { nationality: { in: scope.nationalities } } : {}),
     }
@@ -345,7 +353,7 @@ export async function getPlayers(
       params.sort.startsWith("potential-") || params.sort.startsWith("value-") ? (async () => {
         const ids = await prisma.$queryRaw<{ id: string }[]>(potentialPageSql(params, scope,
           params.maxAge !== undefined ? getBirthDateForMaxAge(params.maxAge) : undefined))
-        const rows = await prisma.player.findMany({ where: { id: { in: ids.map(row => row.id) } }, include: playerInclude })
+        const rows = await prisma.player.findMany({ where: { eaImportVisibility: "PUBLIC", id: { in: ids.map(row => row.id) } }, include: playerInclude })
         const byId = new Map(rows.map(row => [row.id, row]))
         return ids.map(row => byId.get(row.id)!).filter(Boolean)
       })() : prisma.player.findMany({
@@ -394,6 +402,7 @@ export async function getPlayers(
 
 export async function getLeagues() {
   return prisma.league.findMany({
+    where: { clubs: { some: { eaImportVisibility: "PUBLIC" } } },
     select: {
       id: true,
       name: true,
@@ -416,6 +425,7 @@ export async function getAllPlayers(): Promise<
 > {
   const databasePlayers =
     await prisma.player.findMany({
+      where: { eaImportVisibility: "PUBLIC" },
       include:
         playerInclude,
 
@@ -425,7 +435,8 @@ export async function getAllPlayers(): Promise<
       },
     })
 
-  return mapPlayersWithBrandAssets(databasePlayers)
+  // This legacy bulk helper is not a salary export endpoint.
+  return mapPlayersWithBrandAssets(databasePlayers, false)
 }
 
 /* ========================================
@@ -446,14 +457,15 @@ export async function getPlayerBySlug(
     })
 
   if (
-    !databasePlayer
+    !databasePlayer || databasePlayer.eaImportVisibility !== "PUBLIC"
   ) {
     return null
   }
 
   const profile = mapDatabasePlayerProfile(databasePlayer)
   if (profile.status === "incomplete") return profile
-  const [player] = await mapPlayersWithBrandAssets([databasePlayer])
+  // The profile route already uses the same gated point reader.
+  const [player] = await mapPlayersWithBrandAssets([databasePlayer], false)
   return { status: "ready", player }
 }
 
@@ -467,6 +479,7 @@ export async function getFeaturedPlayers(): Promise<
   const elite =
     await prisma.player.findMany({
       where: {
+        eaImportVisibility: "PUBLIC",
         attributes: {
           isNot: null,
         },
@@ -493,6 +506,7 @@ export async function getFeaturedPlayers(): Promise<
   const badForm =
     await prisma.player.findMany({
       where: {
+        eaImportVisibility: "PUBLIC",
         officialOverall: {
           gte: 84,
         },
@@ -528,12 +542,12 @@ export async function getFeaturedPlayers(): Promise<
     })
 
   const bargainIds = await prisma.$queryRaw<{ id: string }[]>(economicBargainsSql)
-  const bargainRows = await prisma.player.findMany({ where: { id: { in: bargainIds.map(row => row.id) } }, include: playerInclude })
+  const bargainRows = await prisma.player.findMany({ where: { eaImportVisibility: "PUBLIC", id: { in: bargainIds.map(row => row.id) } }, include: playerInclude })
   const bargainMap = new Map(bargainRows.map(row => [row.id, row]))
   const bargains = bargainIds.map(row => bargainMap.get(row.id)!).filter(Boolean)
 
   const prospectIds = await prisma.$queryRaw<{ id: string }[]>(potentialPageSql({ minPotential: 87, sort: "potential-desc", pageSize: 4 }))
-  const prospectRows = await prisma.player.findMany({ where: { id: { in: prospectIds.map(row => row.id) } }, include: playerInclude })
+  const prospectRows = await prisma.player.findMany({ where: { eaImportVisibility: "PUBLIC", id: { in: prospectIds.map(row => row.id) } }, include: playerInclude })
   const prospectMap = new Map(prospectRows.map(row => [row.id, row]))
   const prospects = prospectIds.map(row => prospectMap.get(row.id)!).filter(Boolean)
 
@@ -569,6 +583,7 @@ export async function getFeaturedPlayers(): Promise<
     const remaining =
       await prisma.player.findMany({
         where: {
+          eaImportVisibility: "PUBLIC",
           id: {
             notIn:
               existingIds,

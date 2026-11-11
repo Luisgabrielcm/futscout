@@ -58,7 +58,7 @@ test("cards keep only EA OVR, potential, sourced value and explicit salary fallb
   const html = renderToStaticMarkup(createElement(Card, { ...player, club: null, locale: "pt" }))
   assert.match(html, /OVR EA/)
   assert.match(html, /Potencial<\/span><strong>—<\/strong>/)
-  assert.match(html, /VALOR ESTIMADO<\/span><strong class="marketValue">—<\/strong>/)
+  assert.match(html, /Valor de mercado<\/span><strong class="marketValue">—<\/strong>/)
   assert.match(html, /Salário<\/span> <strong>—<\/strong>/)
   assert.doesNotMatch(html, /OVR FUTSCOUT|Forma|TENDÊNCIA/)
 })

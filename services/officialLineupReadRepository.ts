@@ -28,7 +28,7 @@ export function createOfficialLineupReadStore(db: ReadDatabase, now: Date): Line
     },
     async readPlayersByApiIds(ids) {
       const players = await db.player.findMany({ where: { apiFootballId: { in: [...new Set(ids)] } }, select: {
-        id: true, apiFootballId: true, slug: true, name: true, imageUrl: true, position: true,
+        id: true, externalId: true, apiFootballId: true, slug: true, name: true, imageUrl: true, position: true,
         secondaryPosition: true, secondaryPositions: true, officialOverall: true, potential: true,
         economicCurrents: economicMarketValueReadSelect,
         currentFutscoutPotential: futscoutPotentialReadSelect,

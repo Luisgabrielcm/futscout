@@ -1,4 +1,5 @@
 import { t, type Locale } from "../../lib/i18n"
+import EstimatedValueNote from './EstimatedValueNote'
 
 import type { Player } from "../../types/player"
 import { formatCurrency } from "../../utils/formatCurrency"
@@ -24,13 +25,14 @@ export default function PlayerMarket({ locale = "pt",
       <div className="marketValueCard">
         <div>
           <span className="marketValueLabel">
-            {t(locale, "VALOR ESTIMADO")}</span>
+            {t(locale, "Valor de mercado")}</span>
 
           <strong className="playerMarketValue">
             {player.marketValue !== null
               ? formatCurrency(player.marketValue, locale)
               : "—"}
           </strong>
+          <EstimatedValueNote provider={player.economicMarketValue?.provider} value={player.marketValue} locale={locale} />
 
           {!hasMarketValue && (
             <span>

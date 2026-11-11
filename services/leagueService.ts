@@ -9,13 +9,15 @@ import { getBrandAssetsForEntities } from "./brandAssetReadService"
 
 const leagueSelect = {
   id: true, name: true, slug: true, country: true,
-  _count: { select: { clubs: true } },
+  _count: { select: { clubs: { where: { eaImportVisibility: "PUBLIC" } } } },
 } satisfies Prisma.LeagueSelect
 
 export async function getLeagueCatalog(input: DirectoryInput = {}) {
   const { search, page, pageSize } = parseDirectoryParams(input)
-  const where: Prisma.LeagueWhereInput = search
-    ? { name: { contains: search, mode: "insensitive" } } : {}
+  const where: Prisma.LeagueWhereInput = {
+    clubs: { some: { eaImportVisibility: "PUBLIC" } },
+    ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
+  }
   const [total, leagues] = await Promise.all([
     prisma.league.count({ where }),
     prisma.league.findMany({
@@ -29,7 +31,7 @@ export async function getLeagueCatalog(input: DirectoryInput = {}) {
 
 export const getLeagueBySlug = cache(async (slug: string) => {
   const league = await prisma.league.findUnique({ where: { slug }, select: leagueSelect })
-  if (!league) return null
+  if (!league || league._count.clubs === 0) return null
   const assets = await getBrandAssetsForEntities({ leagueIds: [league.id] })
   return { ...league, asset: assets.leagues.get(league.id) ?? null }
 })
