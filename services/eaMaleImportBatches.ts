@@ -282,7 +282,8 @@ type ClubPlanRow = {
 export type EaMaleClubPlan = { rawJsonl: string; sha256: string; sourceBinarySha256: string }
 export type EaMaleClubLeagueMapping = { rawJson: string; sha256: string }
 type ResolvedClubRow = ClubPlanRow & { targetLeagueId?: string; targetLeagueName?: string;
-  supportingEaClubIds?: string[]; officialCountry?: string; officialEvidenceUrl?: string }
+  supportingEaClubIds?: string[]; officialCountry?: string; officialEvidenceUrl?: string;
+  identityEvidenceUrl?: string }
 
 const officialStage3Clubs = new Map([
   ["264", { country: "Cyprus", league: "Liga Cyprus", sourceLeagueId: "76",
@@ -300,6 +301,29 @@ const brazilStage3ClubIds = new Set([
 ])
 const brazilLeague = { name: "Brasileirão Série A", slug: "brasileirao-serie-a",
   country: "Brazil", evidenceUrl: "https://www.cbf.com.br/futebol-brasileiro/times/campeonato-brasileiro/serie-a/2026" }
+const stage4Leagues = [
+  { ids: ["101101", "101103", "101104", "101105", "111722"], country: "Colombia", name: "Liga BetPlay",
+    slug: "liga-betplay", url: "https://dimayor.com.co/liga-betplay-dimayor/" },
+  { ids: ["110967", "114577", "115517"], country: "Bolivia", name: "División Profesional",
+    slug: "division-profesional-bolivia", url: "https://fbf.com.bo/torneos/division-profesional/" },
+  { ids: ["110982", "114578"], country: "Ecuador", name: "LigaPro Serie A",
+    slug: "ligapro-serie-a-ecuador", url: "https://ligapro.ec/" },
+  { ids: ["111012", "112659"], country: "Peru", name: "Liga 1",
+    slug: "liga-1-peru", url: "https://liga1.pe/fixture-y-resultados-del-clausura-liga1-te-apuesto-2026/" },
+  { ids: ["111325", "112112", "113143"], country: "Uruguay", name: "Liga AUF Uruguaya",
+    slug: "liga-auf-uruguaya", url: "https://www.auf.org.uy/liga-auf-uruguaya/" },
+  { ids: ["112853", "115693"], country: "Venezuela", name: "Liga FUTVE",
+    slug: "liga-futve", url: "https://ligafutve.org/table/tabla-acumulada-liga-futve-temporada-2026/" },
+  { ids: ["131826"], country: "Paraguay", name: "Copa de Primera",
+    slug: "copa-de-primera-paraguay", url: "https://www.apf.org.py/noticias/todo-parejo-por-barrio-obrero" },
+  { ids: ["112372"], country: "Bulgaria", name: "First League",
+    slug: "first-league-bulgaria", url: "https://bfunion.bg/%D0%9F%D1%80%D0%BE%D1%84%D0%B5%D1%81%D0%B8%D0%BE%D0%BD%D0%B0%D0%BB%D0%BD%D0%B8-%D1%84%D1%83%D1%82%D0%B1%D0%BE%D0%BB%D0%BD%D0%B8-%D0%BA%D0%BB%D1%83%D0%B1%D0%BE%D0%B2%D0%B5" },
+  { ids: ["112638"], country: "Thailand", name: "Thai League 1",
+    slug: "thai-league-1", url: "https://thaileague.co.th/standings/176" },
+] as const
+const stage4ByClub = new Map<string, (typeof stage4Leagues)[number]>(
+  stage4Leagues.flatMap(league => league.ids.map(id => [id, league] as const)))
+const nacionalIdentityEvidence = "https://www.cmtracker.net/pl/teams/15070300/111325"
 
 function resolvedClubRows(plan: EaMaleClubPlan, mapping: EaMaleClubLeagueMapping | undefined,
   target: EaMaleImportTarget): ResolvedClubRow[] {
@@ -311,16 +335,16 @@ function resolvedClubRows(plan: EaMaleClubPlan, mapping: EaMaleClubLeagueMapping
   if (!/^[a-f0-9]{64}$/.test(mapping.sha256) || sha256(mapping.rawJson) !== mapping.sha256)
     fail("CLUB_LEAGUE_MAPPING_HASH_MISMATCH")
   const data = JSON.parse(mapping.rawJson) as { sourcePlanHash: string; sourceBinaryHash: string;
-    phase?: "DOMESTIC_02" | "MEXICO_02" | "OFFICIAL_03" | "BRAZIL_03";
+    phase?: "DOMESTIC_02" | "MEXICO_02" | "OFFICIAL_03" | "BRAZIL_03" | "DOMESTIC_04";
     rows: Array<{ eaTeamId: string; sourceLeagueId: string; sourceLeagueName: string; sourceCountry: string | null;
       targetLeagueId: string | null; targetLeagueName: string | null; supportingEaClubIds: string[];
       classification: string; missingMalePlayersLinked: number; officialCountry?: string;
-      officialEvidenceUrl?: string }> }
+      officialEvidenceUrl?: string; identityEvidenceUrl?: string }> }
   if (data.sourcePlanHash !== plan.sha256 || data.sourceBinaryHash !== plan.sourceBinarySha256 ||
     data.rows?.length !== rows.length || new Set(data.rows.map(row => row.eaTeamId)).size !== rows.length)
     fail("CLUB_LEAGUE_MAPPING_SOURCE_MISMATCH")
   const phase = data.phase ?? "INITIAL"
-  if (!["INITIAL", "DOMESTIC_02", "MEXICO_02", "OFFICIAL_03", "BRAZIL_03"].includes(phase)) fail("CLUB_LEAGUE_MAPPING_PHASE_INVALID")
+  if (!["INITIAL", "DOMESTIC_02", "MEXICO_02", "OFFICIAL_03", "BRAZIL_03", "DOMESTIC_04"].includes(phase)) fail("CLUB_LEAGUE_MAPPING_PHASE_INVALID")
   const domesticLeagueIds = new Set(["17", "32", "54", "61", "2076"])
   const byId = new Map(data.rows.map(row => [row.eaTeamId, row]))
   const selected: ResolvedClubRow[] = []
@@ -331,6 +355,8 @@ function resolvedClubRows(plan: EaMaleClubPlan, mapping: EaMaleClubLeagueMapping
       resolution.missingMalePlayersLinked !== row.missingMalePlayersLinked) fail("CLUB_LEAGUE_MAPPING_ROW_MISMATCH")
     const expected = phase === "BRAZIL_03" && brazilStage3ClubIds.has(row.eaTeamId)
       ? "LEAGUE_IDENTIFIED_BY_CBF_2026"
+      : phase === "DOMESTIC_04" && stage4ByClub.has(row.eaTeamId)
+      ? "LEAGUE_IDENTIFIED_BY_OFFICIAL_2026"
       : phase === "OFFICIAL_03" && officialStage3Clubs.has(row.eaTeamId)
       ? "LEAGUE_IDENTIFIED_BY_OFFICIAL_2026"
       : phase === "DOMESTIC_02" && domesticLeagueIds.has(String(row.leagueId))
@@ -350,6 +376,24 @@ function resolvedClubRows(plan: EaMaleClubPlan, mapping: EaMaleClubLeagueMapping
         resolution.targetLeagueId !== null || resolution.targetLeagueName !== "Liga MX" ||
         resolution.supportingEaClubIds.length !== 0) fail("CLUB_LEAGUE_MAPPING_EVIDENCE_INVALID")
       selected.push({ ...row, targetLeagueName: "Liga MX" })
+      continue
+    }
+    if (phase === "DOMESTIC_04") {
+      const official = stage4ByClub.get(row.eaTeamId)
+      const id = resolution.targetLeagueId
+      if (!official || !id || !/^[0-9a-f-]{36}$/.test(id) || row.country !== null ||
+        !["EA_ID_ABSENT", "HOMONYM_REVIEW"].includes(row.identityStatus) ||
+        (row.identityStatus === "HOMONYM_REVIEW") !== (row.eaTeamId === "111325") ||
+        resolution.officialCountry !== official.country ||
+        resolution.targetLeagueName !== official.name ||
+        resolution.officialEvidenceUrl !== official.url ||
+        resolution.supportingEaClubIds.length !== 0 ||
+        (row.eaTeamId === "111325" && resolution.identityEvidenceUrl !== nacionalIdentityEvidence) ||
+        (row.eaTeamId !== "111325" && resolution.identityEvidenceUrl != null))
+        fail("CLUB_OFFICIAL_EVIDENCE_INVALID")
+      selected.push({ ...row, targetLeagueId: id, targetLeagueName: official.name,
+        officialCountry: official.country, officialEvidenceUrl: official.url,
+        identityEvidenceUrl: resolution.identityEvidenceUrl })
       continue
     }
     if (phase === "OFFICIAL_03" || phase === "BRAZIL_03") {
@@ -379,7 +423,8 @@ function resolvedClubRows(plan: EaMaleClubPlan, mapping: EaMaleClubLeagueMapping
       targetLeagueName: resolution.targetLeagueName, supportingEaClubIds: resolution.supportingEaClubIds })
   }
   if (selected.length !== (phase === "INITIAL" ? 55 : phase === "DOMESTIC_02" ? 16 :
-    phase === "MEXICO_02" ? 18 : phase === "OFFICIAL_03" ? 4 : 14))
+    phase === "MEXICO_02" ? 18 : phase === "OFFICIAL_03" ? 4 :
+      phase === "DOMESTIC_04" ? 20 : 14))
     fail("CLUB_LEAGUE_MAPPING_SELECTION_CHANGED")
   return selected
 }
@@ -457,6 +502,33 @@ async function ensureBrazilLeague(tx: PoolClient, batch: ResolvedClubRow[]): Pro
     [id, brazilLeague.name, brazilLeague.slug, brazilLeague.country])
 }
 
+async function ensureStage4Leagues(tx: PoolClient, batch: ResolvedClubRow[]): Promise<void> {
+  const byLeague = new Map<string, { id: string; country: string; name: string; slug: string }>()
+  for (const row of batch) {
+    const official = stage4ByClub.get(row.eaTeamId)
+    if (!official) return
+    const id = row.targetLeagueId
+    if (!id || row.officialEvidenceUrl !== official.url || row.targetLeagueName !== official.name ||
+      row.officialCountry !== official.country) fail("STAGE4_LEAGUE_EVIDENCE_INVALID")
+    const prior = byLeague.get(official.slug)
+    if (prior && prior.id !== id) fail("STAGE4_LEAGUE_ID_CONFLICT")
+    byLeague.set(official.slug, { id, name: official.name, slug: official.slug, country: official.country })
+  }
+  if (byLeague.size !== stage4Leagues.length) fail("STAGE4_LEAGUE_SET_INCOMPLETE")
+  for (const league of byLeague.values()) {
+    const found = await tx.query<{ id: string; externalId: string | null; name: string; slug: string; country: string }>(
+      'SELECT id,"externalId",name,slug,country FROM "League" WHERE id=$1 OR slug=$2 OR name=$3 FOR UPDATE',
+      [league.id, league.slug, league.name])
+    if (found.rows.length > 1 || found.rows.length === 1 &&
+      (found.rows[0].id !== league.id || found.rows[0].externalId !== null ||
+        found.rows[0].name !== league.name || found.rows[0].slug !== league.slug ||
+        found.rows[0].country !== league.country)) fail("STAGE4_LEAGUE_CONFLICT")
+    if (!found.rows.length) await tx.query(
+      'INSERT INTO "League" (id,name,slug,country,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,now(),now())',
+      [league.id, league.name, league.slug, league.country])
+  }
+}
+
 /** Inserts at most 100 missing EA clubs, hidden until an independent publication step. */
 export async function stageEaMaleClubBatch(pool: Pick<Pool, "connect">, plan: EaMaleClubPlan,
   batchIndex: number, target: EaMaleImportTarget = { kind: "disposable" },
@@ -474,6 +546,7 @@ export async function stageEaMaleClubBatch(pool: Pick<Pool, "connect">, plan: Ea
     await tx.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`ea-male-clubs:${plan.sha256}:${batchIndex}`])
     await ensureMexicoLeague(tx, batch)
     await ensureBrazilLeague(tx, batch)
+    if (mapping && JSON.parse(mapping.rawJson).phase === "DOMESTIC_04") await ensureStage4Leagues(tx, batch)
     let existing = 0
     for (const row of batch) {
       const receipt = await tx.query<{ clubId: string; sourcePlanHash: string; sourceBinaryHash: string;
