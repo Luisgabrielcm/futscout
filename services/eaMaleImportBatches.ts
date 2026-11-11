@@ -148,8 +148,10 @@ export async function stageEaMaleBatch(pool: Pick<Pool, "connect">, manifest: Ea
       let clubId: string | null = null
       if (row.clubStatus === "KNOWN_CLUB" || row.clubStatus === "CLUB_NOT_REGISTERED") {
         if (!row.club?.eaTeamId) fail("CLUB_ID_MISSING")
-        const found = await tx.query<{ id: string }>('SELECT id FROM "Club" WHERE "externalId" = $1', [row.club.eaTeamId])
-        if (found.rows.length !== 1) fail("CLUB_MAPPING_CHANGED")
+        const found = await tx.query<{ id: string; eaImportVisibility: string }>(
+          'SELECT id,"eaImportVisibility" FROM "Club" WHERE "externalId" = $1', [row.club.eaTeamId])
+        if (found.rows.length !== 1 || !["PUBLIC", "STAGED"].includes(found.rows[0].eaImportVisibility))
+          fail("CLUB_MAPPING_CHANGED")
         clubId = found.rows[0].id
       }
       const playerId = randomUUID()
@@ -291,12 +293,16 @@ function resolvedClubRows(plan: EaMaleClubPlan, mapping: EaMaleClubLeagueMapping
   if (!/^[a-f0-9]{64}$/.test(mapping.sha256) || sha256(mapping.rawJson) !== mapping.sha256)
     fail("CLUB_LEAGUE_MAPPING_HASH_MISMATCH")
   const data = JSON.parse(mapping.rawJson) as { sourcePlanHash: string; sourceBinaryHash: string;
+    phase?: "DOMESTIC_02" | "MEXICO_02";
     rows: Array<{ eaTeamId: string; sourceLeagueId: string; sourceLeagueName: string; sourceCountry: string | null;
       targetLeagueId: string | null; targetLeagueName: string | null; supportingEaClubIds: string[];
       classification: string; missingMalePlayersLinked: number }> }
   if (data.sourcePlanHash !== plan.sha256 || data.sourceBinaryHash !== plan.sourceBinarySha256 ||
     data.rows?.length !== rows.length || new Set(data.rows.map(row => row.eaTeamId)).size !== rows.length)
     fail("CLUB_LEAGUE_MAPPING_SOURCE_MISMATCH")
+  const phase = data.phase ?? "INITIAL"
+  if (!["INITIAL", "DOMESTIC_02", "MEXICO_02"].includes(phase)) fail("CLUB_LEAGUE_MAPPING_PHASE_INVALID")
+  const domesticLeagueIds = new Set(["17", "32", "54", "61", "2076"])
   const byId = new Map(data.rows.map(row => [row.eaTeamId, row]))
   const selected: ResolvedClubRow[] = []
   for (const row of rows) {
@@ -304,9 +310,23 @@ function resolvedClubRows(plan: EaMaleClubPlan, mapping: EaMaleClubLeagueMapping
     if (!resolution || resolution.sourceLeagueId !== String(row.leagueId) ||
       resolution.sourceLeagueName !== row.leagueName || resolution.sourceCountry !== row.country ||
       resolution.missingMalePlayersLinked !== row.missingMalePlayersLinked) fail("CLUB_LEAGUE_MAPPING_ROW_MISMATCH")
-    if (resolution.classification !== "LEAGUE_IDENTIFIED_BY_EA_ANCHOR") {
+    const expected = phase === "DOMESTIC_02" && domesticLeagueIds.has(String(row.leagueId))
+      ? "LEAGUE_IDENTIFIED_BY_EA_ANCHOR"
+      : phase === "MEXICO_02" && String(row.leagueId) === "341"
+        ? "LEAGUE_IDENTIFIED_BY_EA_ID"
+        : phase === "INITIAL" && resolution.classification === "LEAGUE_IDENTIFIED_BY_EA_ANCHOR"
+          ? "LEAGUE_IDENTIFIED_BY_EA_ANCHOR" : null
+    if (resolution.classification !== expected || expected === null) {
+      if (expected !== null) fail("CLUB_LEAGUE_MAPPING_SELECTION_CHANGED")
       if (resolution.targetLeagueId !== null || resolution.targetLeagueName !== null ||
         resolution.supportingEaClubIds.length !== 0) fail("CLUB_LEAGUE_MAPPING_HELD_ROW_INVALID")
+      continue
+    }
+    if (phase === "MEXICO_02") {
+      if (row.identityStatus !== "EA_ID_ABSENT" || row.country !== "Mexico" ||
+        resolution.targetLeagueId !== null || resolution.targetLeagueName !== "Liga MX" ||
+        resolution.supportingEaClubIds.length !== 0) fail("CLUB_LEAGUE_MAPPING_EVIDENCE_INVALID")
+      selected.push({ ...row, targetLeagueName: "Liga MX" })
       continue
     }
     if (row.identityStatus !== "EA_ID_ABSENT" || !resolution.targetLeagueId ||
@@ -317,7 +337,8 @@ function resolvedClubRows(plan: EaMaleClubPlan, mapping: EaMaleClubLeagueMapping
     selected.push({ ...row, targetLeagueId: resolution.targetLeagueId,
       targetLeagueName: resolution.targetLeagueName, supportingEaClubIds: resolution.supportingEaClubIds })
   }
-  if (selected.length !== 55) fail("CLUB_LEAGUE_MAPPING_SELECTION_CHANGED")
+  if (selected.length !== (phase === "INITIAL" ? 55 : phase === "DOMESTIC_02" ? 16 : 18))
+    fail("CLUB_LEAGUE_MAPPING_SELECTION_CHANGED")
   return selected
 }
 
@@ -338,10 +359,12 @@ function clubPlanRows(plan: EaMaleClubPlan): ClubPlanRow[] {
 
 async function requireClubLeague(tx: PoolClient, row: ResolvedClubRow): Promise<string> {
   if (!row.targetLeagueId) {
-    const leagues = await tx.query<{ id: string; country: string }>(
-      'SELECT id,country FROM "League" WHERE "externalId"=$1', [row.leagueId])
+    const leagues = await tx.query<{ id: string; name: string; country: string }>(
+      'SELECT id,name,country FROM "League" WHERE "externalId"=$1', [row.leagueId])
     if (leagues.rows.length !== 1 || row.country &&
-      leagues.rows[0].country.toLowerCase() !== row.country.toLowerCase()) fail("CLUB_LEAGUE_MAPPING_UNVERIFIED")
+      leagues.rows[0].country.toLowerCase() !== row.country.toLowerCase() ||
+      row.targetLeagueName && leagues.rows[0].name !== row.targetLeagueName)
+      fail("CLUB_LEAGUE_MAPPING_UNVERIFIED")
     return leagues.rows[0].id
   }
   const leagues = await tx.query<{ id: string; name: string; country: string }>(
@@ -355,6 +378,21 @@ async function requireClubLeague(tx: PoolClient, row: ResolvedClubRow): Promise<
   if (anchors.rows.length !== row.supportingEaClubIds?.length ||
     anchors.rows.some(anchor => anchor.leagueId !== league.id)) fail("CLUB_LEAGUE_ANCHORS_CHANGED")
   return league.id
+}
+
+async function ensureMexicoLeague(tx: PoolClient, batch: ResolvedClubRow[]): Promise<void> {
+  if (!batch.every(row => row.leagueId === "341" && row.country === "Mexico" &&
+    row.targetLeagueName === "Liga MX")) return
+  const found = await tx.query<{ externalId: string; name: string; slug: string; country: string }>(
+    'SELECT "externalId",name,slug,country FROM "League" WHERE "externalId"=$1 OR slug=$2 OR name=$3 FOR UPDATE',
+    ["341", "liga-mx", "Liga MX"])
+  if (found.rows.length > 1 || found.rows.length === 1 &&
+    (found.rows[0].externalId !== "341" || found.rows[0].name !== "Liga MX" ||
+      found.rows[0].slug !== "liga-mx" || found.rows[0].country !== "Mexico"))
+    fail("MEXICO_LEAGUE_CONFLICT")
+  if (!found.rows.length) await tx.query(
+    'INSERT INTO "League" (id,"externalId",name,slug,country,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,now(),now())',
+    [randomUUID(), "341", "Liga MX", "liga-mx", "Mexico"])
 }
 
 /** Inserts at most 100 missing EA clubs, hidden until an independent publication step. */
@@ -372,6 +410,7 @@ export async function stageEaMaleClubBatch(pool: Pick<Pool, "connect">, plan: Ea
     await tx.query("SET LOCAL statement_timeout = '45s'")
     await tx.query("SET LOCAL lock_timeout = '5s'")
     await tx.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`ea-male-clubs:${plan.sha256}:${batchIndex}`])
+    await ensureMexicoLeague(tx, batch)
     let existing = 0
     for (const row of batch) {
       const receipt = await tx.query<{ clubId: string; sourcePlanHash: string; sourceBinaryHash: string;

@@ -49,7 +49,8 @@ test("creates only a staged player and receipt in one transaction; replay skips 
       if (sql.startsWith("SELECT current_database()")) return { rows: [{ database: "fc27_test", host: "127.0.0.1" }] }
       if (sql.startsWith("SELECT \"batchHash\"")) return { rows: committed ? [{ batchHash: fixture().batches[0].batchHash, status: "STAGED" }] : [] }
       if (sql.startsWith("SELECT count(*)")) return { rows: [{ count: "1" }] }
-      if (sql.startsWith('SELECT id FROM "Club"')) return { rows: [{ id: "club-1" }] }
+      if (sql.startsWith('SELECT id,"eaImportVisibility" FROM "Club"')) return {
+        rows: [{ id: "club-1", eaImportVisibility: "PUBLIC" }] }
       if (sql.startsWith('SELECT id FROM "Player"')) return { rows: [], rowCount: 0 }
       if (sql === "COMMIT") committed = true
       return { rows: [], rowCount: 1 }
@@ -62,6 +63,23 @@ test("creates only a staged player and receipt in one transaction; replay skips 
   const inserts = statements.filter(sql => sql.startsWith("INSERT INTO")).length
   assert.equal(await stageEaMaleBatch(pool, fixture(), "known-001"), "ALREADY_STAGED")
   assert.equal(statements.filter(sql => sql.startsWith("INSERT INTO")).length, inserts)
+})
+
+test("does not stage a player against a rolled-back club", async () => {
+  const statements: string[] = []
+  const client = { query: async (sql: string) => {
+    statements.push(sql)
+    if (sql.startsWith("SELECT current_database()")) return { rows: [{ database: "fc27_test", host: "127.0.0.1" }] }
+    if (sql.startsWith("SELECT \"batchHash\"")) return { rows: [] }
+    if (sql.startsWith('SELECT id FROM "Player"')) return { rows: [], rowCount: 0 }
+    if (sql.startsWith('SELECT id,"eaImportVisibility" FROM "Club"')) return {
+      rows: [{ id: "club-1", eaImportVisibility: "ROLLED_BACK" }] }
+    return { rows: [], rowCount: 1 }
+  }, release: () => {} }
+  const pool = { connect: async () => client } as unknown as Pick<Pool, "connect">
+  await assert.rejects(stageEaMaleBatch(pool, fixture(), "known-001"), /CLUB_MAPPING_CHANGED/)
+  assert.equal(statements.at(-1), "ROLLBACK")
+  assert.ok(!statements.some(sql => sql.startsWith('INSERT INTO "Player"')))
 })
 
 test("abort rolls back when EA identity or club changed", async () => {
@@ -206,4 +224,78 @@ test("changed EA club anchor aborts mapped staging before inserting a club", asy
   await assert.rejects(stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" }, mapping), /CLUB_LEAGUE_ANCHORS_CHANGED/)
   assert.equal(statements.at(-1), "ROLLBACK")
   assert.ok(!statements.some(sql => sql.startsWith('INSERT INTO "Club"')))
+})
+
+test("second domestic phase stages only the 16 clubs with verified EA league anchors", async () => {
+  const rows = Array.from({ length: 127 }, (_, index) => ({ eaTeamId: String(index + 1),
+    name: `Club ${index + 1}`, leagueId: index < 16 ? "17" : "7", leagueName: "Source League",
+    country: "France", missingMalePlayersLinked: 1, identityStatus: "EA_ID_ABSENT" }))
+  const rawJsonl = rows.map(row => JSON.stringify(row)).join("\n") + "\n"
+  const plan = { rawJsonl, sha256: hash(rawJsonl), sourceBinarySha256: "a".repeat(64) }
+  const mapped = rows.map((row, index) => ({ eaTeamId: row.eaTeamId,
+    sourceLeagueId: row.leagueId, sourceLeagueName: row.leagueName, sourceCountry: row.country,
+    missingMalePlayersLinked: 1, targetLeagueId: index < 16 ? "league-17" : null,
+    targetLeagueName: index < 16 ? "Ligue 2 BKT" : null,
+    supportingEaClubIds: index < 16 ? ["999"] : [],
+    classification: index < 16 ? "LEAGUE_IDENTIFIED_BY_EA_ANCHOR" : "HELD" }))
+  const rawJson = JSON.stringify({ phase: "DOMESTIC_02", sourcePlanHash: plan.sha256,
+    sourceBinaryHash: plan.sourceBinarySha256, rows: mapped })
+  const mapping = { rawJson, sha256: hash(rawJson) }
+  const inserts: string[] = []
+  const client = { query: async (sql: string) => {
+    if (sql.startsWith("SELECT current_database()")) return { rows: [{ database: "fc27_test", host: "127.0.0.1" }] }
+    if (sql.includes('FROM "EaMaleClubImportEntry"')) return { rows: [] }
+    if (sql.includes('FROM "League" WHERE id=')) return { rows: [{ id: "league-17", name: "Ligue 2 BKT", country: "Não informado" }] }
+    if (sql.includes('FROM "Club" WHERE "externalId"=ANY')) return { rows: [{ externalId: "999", leagueId: "league-17" }] }
+    if (sql.startsWith('INSERT INTO "Club"')) inserts.push(sql)
+    return { rows: [], rowCount: sql.startsWith('SELECT id FROM "Club"') ? 0 : 1 }
+  }, release: () => {} }
+  const pool = { connect: async () => client } as unknown as Pick<Pool, "connect">
+  assert.equal(await stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" }, mapping), "STAGED")
+  assert.equal(inserts.length, 16)
+  mapped[0].classification = "HELD"
+  const changed = JSON.stringify({ phase: "DOMESTIC_02", sourcePlanHash: plan.sha256,
+    sourceBinaryHash: plan.sourceBinarySha256, rows: mapped })
+  await assert.rejects(stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" },
+    { rawJson: changed, sha256: hash(changed) }), /CLUB_LEAGUE_MAPPING_SELECTION_CHANGED/)
+})
+
+test("Mexico phase requires the registered EA league ID, country and name", async () => {
+  const rows = Array.from({ length: 127 }, (_, index) => ({ eaTeamId: String(index + 1),
+    name: `Club ${index + 1}`, leagueId: index < 18 ? "341" : "7", leagueName: "Source League",
+    country: index < 18 ? "Mexico" : "Other", missingMalePlayersLinked: 1,
+    identityStatus: "EA_ID_ABSENT" }))
+  const rawJsonl = rows.map(row => JSON.stringify(row)).join("\n") + "\n"
+  const plan = { rawJsonl, sha256: hash(rawJsonl), sourceBinarySha256: "a".repeat(64) }
+  const mapped = rows.map((row, index) => ({ eaTeamId: row.eaTeamId,
+    sourceLeagueId: row.leagueId, sourceLeagueName: row.leagueName, sourceCountry: row.country,
+    missingMalePlayersLinked: 1, targetLeagueId: null, targetLeagueName: index < 18 ? "Liga MX" : null,
+    supportingEaClubIds: [], classification: index < 18 ? "LEAGUE_IDENTIFIED_BY_EA_ID" : "HELD" }))
+  const rawJson = JSON.stringify({ phase: "MEXICO_02", sourcePlanHash: plan.sha256,
+    sourceBinaryHash: plan.sourceBinarySha256, rows: mapped })
+  const mapping = { rawJson, sha256: hash(rawJson) }
+  const inserts: string[] = []
+  const leagueInserts: string[] = []
+  let leagueName = "Liga MX"
+  let existingLeague = false
+  const client = { query: async (sql: string) => {
+    if (sql.startsWith("SELECT current_database()")) return { rows: [{ database: "fc27_test", host: "127.0.0.1" }] }
+    if (sql.includes('FROM "EaMaleClubImportEntry"')) return { rows: [] }
+    if (sql.includes('FROM "League" WHERE "externalId"=$1 OR slug=')) return { rows: existingLeague ?
+      [{ externalId: "341", name: leagueName, slug: "liga-mx", country: "Mexico" }] : [] }
+    if (sql.includes('FROM "League" WHERE "externalId"=')) return { rows: [{ id: "league-341", name: leagueName, country: "Mexico" }] }
+    if (sql.startsWith('INSERT INTO "League"')) leagueInserts.push(sql)
+    if (sql.startsWith('INSERT INTO "Club"')) inserts.push(sql)
+    return { rows: [], rowCount: sql.startsWith('SELECT id FROM "Club"') ? 0 : 1 }
+  }, release: () => {} }
+  const pool = { connect: async () => client } as unknown as Pick<Pool, "connect">
+  assert.equal(await stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" }, mapping), "STAGED")
+  assert.equal(inserts.length, 18)
+  assert.equal(leagueInserts.length, 1)
+  existingLeague = true
+  assert.equal(await stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" }, mapping), "STAGED")
+  assert.equal(leagueInserts.length, 1)
+  leagueName = "Wrong League"
+  await assert.rejects(stageEaMaleClubBatch(pool, plan, 0, { kind: "disposable" }, mapping),
+    /MEXICO_LEAGUE_CONFLICT/)
 })
