@@ -402,6 +402,7 @@ export async function getPlayers(
 
 export async function getLeagues() {
   return prisma.league.findMany({
+    where: { clubs: { some: { eaImportVisibility: "PUBLIC" } } },
     select: {
       id: true,
       name: true,

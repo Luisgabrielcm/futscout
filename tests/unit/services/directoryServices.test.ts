@@ -15,7 +15,7 @@ const club = { id: "club-id", name: "Clube Teste", slug: "clube-teste", imageUrl
 const league = { id: "league-id", name: "Liga Teste", slug: "liga-teste", country: "Não informado", _count: { clubs: 25 } }
 const plain = (value: unknown) => JSON.parse(JSON.stringify(value))
 
-function fixture(missing = false) {
+function fixture(missing = false, emptyLeague = false) {
   const clubs: Prisma.ClubFindManyArgs[] = []
   const leagues: Prisma.LeagueFindManyArgs[] = []
   const players: Prisma.PlayerFindManyArgs[] = []
@@ -31,7 +31,8 @@ function fixture(missing = false) {
     league: {
       count: async (args: unknown) => { counts.push(args); return 25 },
       findMany: async (args: Prisma.LeagueFindManyArgs) => { leagues.push(args); return [league] },
-      findUnique: async (args: Prisma.LeagueFindUniqueArgs) => { leagueLookups.push(args); return missing ? null : league },
+      findUnique: async (args: Prisma.LeagueFindUniqueArgs) => { leagueLookups.push(args); return missing ? null :
+        emptyLeague ? { ...league, _count: { clubs: 0 } } : league },
     },
     player: {
       groupBy: async () => [],
@@ -55,7 +56,7 @@ function fixture(missing = false) {
     "../lib/directoryCatalogParams": directory, "./playerService": playerService, "./clubService": clubService,
     "./brandAssetReadService": { getBrandAssetsForEntities: async () => ({ clubs: new Map(), leagues: new Map() }) },
   })
-  return { clubService, leagueService, clubs, leagues, players, clubLookups, leagueLookups, counts }
+  return { clubService, leagueService, playerService, clubs, leagues, players, clubLookups, leagueLookups, counts }
 }
 
 test("clubs pagination uses take 24, skip and stable name/id order", async () => {
@@ -117,6 +118,7 @@ test("league listing is paginated with stable order and club counts, without loa
   assert.equal(f.leagues[0].skip, 24)
   assert.deepEqual(plain(f.leagues[0].orderBy), [{ name: "asc" }, { id: "asc" }])
   assert.deepEqual(plain(f.leagues[0].select?._count), { select: { clubs: { where: { eaImportVisibility: "PUBLIC" } } } })
+  assert.deepEqual(plain(f.leagues[0].where), { clubs: { some: { eaImportVisibility: "PUBLIC" } } })
   assert.equal(f.leagues[0].select?.clubs, undefined)
 })
 
@@ -124,7 +126,7 @@ test("league search is case insensitive and malformed page falls back", async ()
   const f = fixture()
   const result = await f.leagueService.getLeagueCatalog({ search: " Liga ", page: Infinity })
   assert.equal(result.page, 1)
-  assert.deepEqual(plain(f.leagues[0].where), { name: { contains: "Liga", mode: "insensitive" } })
+  assert.deepEqual(plain(f.leagues[0].where), { clubs: { some: { eaImportVisibility: "PUBLIC" } }, name: { contains: "Liga", mode: "insensitive" } })
   assert.deepEqual(plain(f.counts[0]), { where: plain(f.leagues[0].where) })
 })
 
@@ -133,6 +135,15 @@ test("league unique slug lookup returns null for missing league", async () => {
   assert.deepEqual(plain(await f.leagueService.getLeagueBySlug("liga-teste")), plain({ ...league, asset: null }))
   assert.deepEqual(plain(f.leagueLookups[0].where), { slug: "liga-teste" })
   assert.equal(await fixture(true).leagueService.getLeagueBySlug("absent"), null)
+  assert.equal(await fixture(false, true).leagueService.getLeagueBySlug("hidden-empty"), null)
+})
+
+test("league selectors exclude staged clubs and their empty league", async () => {
+  const f = fixture()
+  await f.leagueService.getLeagueCatalog()
+  assert.deepEqual(plain(f.leagues[0].where), { clubs: { some: { eaImportVisibility: "PUBLIC" } } })
+  await f.playerService.getLeagues()
+  assert.deepEqual(plain(f.leagues[1].where), { clubs: { some: { eaImportVisibility: "PUBLIC" } } })
 })
 
 test("league clubs delegate to the same bounded club query with league scope", async () => {
