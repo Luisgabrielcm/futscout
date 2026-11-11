@@ -446,6 +446,12 @@ export async function getAllPlayers(): Promise<
 export async function getPlayerBySlug(
   slug: string
 ): Promise<PlayerProfile | null> {
+  const visibility = await prisma.player.findUnique({
+    where: { slug },
+    select: { eaImportVisibility: true },
+  })
+  if (visibility?.eaImportVisibility !== "PUBLIC") return null
+
   const databasePlayer =
     await prisma.player.findUnique({
       where: {

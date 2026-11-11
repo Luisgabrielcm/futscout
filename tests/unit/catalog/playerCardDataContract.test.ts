@@ -22,6 +22,10 @@ function contractFixture(row: mapper.DatabasePlayer) {
       "server-only": {},
       "../lib/prisma": { prisma: { $queryRaw: async () => [], player: {
         count: async () => 1,
+        findUnique: async (args: Prisma.PlayerFindUniqueArgs) => {
+          assert.equal(args.select?.eaImportVisibility, true)
+          return { eaImportVisibility: "STAGED" }
+        },
         findMany: async (args: Prisma.PlayerFindManyArgs) => {
           // include retains scalar columns. Fail if a future query excludes them.
           for (const field of ["potential", "form", "marketValue"] as const) {
@@ -65,6 +69,11 @@ function contractFixture(row: mapper.DatabasePlayer) {
   )
   return { service, Search, Home }
 }
+
+test("hidden player profile exits before loading its relations", async () => {
+  const { service } = contractFixture(catalogPlayer())
+  assert.equal(await service.getPlayerBySlug("staged-player"), null)
+})
 
 for (const scenario of [
   { name: "valid persisted values", potential: 94, form: "Excelente", marketValue: BigInt(145_000_000),
