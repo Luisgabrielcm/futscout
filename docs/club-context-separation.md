@@ -142,9 +142,54 @@ Testes locais cobrem separação PT/EN, hashes/identidade, datas sem evidência,
 explícita, bloqueio de staging/publicação incorretos e compatibilidade dos leitores.
 As propostas foram preparadas com sucesso a partir dos artefatos anteriores.
 
-Preview local respondeu HTTP 200 nas quatro propostas com conexão sentinela bloqueada.
-A inspeção visual permanece pendente: o navegador integrado sofreu timeouts e reinícios
-mesmo após a rota responder. Não se declara validação visual ou Preview remoto aprovado.
-O PR deve permanecer em rascunho até essa inspeção e a aprovação da política de elenco.
-SQL candidato não foi executado, inclusive em banco local; seus constraints/triggers
-ainda exigem teste de integração em banco isolado antes de virar migration aprovada.
+### SQL_VALIDATED — PostgreSQL descartável
+
+O SQL candidato foi executado em cluster novo PostgreSQL 14.24, localhost:54339,
+com identidade diferente de Production. A aplicação via migrations temporárias Prisma
+criou as três estruturas, índices, FKs, constraints e triggers. Uma segunda execução
+retornou `No pending migrations`; o replay de evidência não duplicou registros.
+A comparação do banco com `prisma/schema.prisma` retornou `No difference detected`.
+
+O teste rejeitou jogador EA inexistente, revisão de outro jogador, mutação de snapshot,
+exclusão de revisão, versão de seleção incorreta, snapshot divergente e clube atribuído
+a NG - FA. Reexecutar o DDL bruto falhou em transação sem alterações parciais: o SQL
+bruto não deve ser vendido como script rerunnable; a idempotência operacional vem do
+histórico/checksum da migration Prisma e das chaves das evidências.
+
+Hashes dos dados das 45 tabelas preexistentes permaneceram iguais antes/depois da
+migration, do replay e dos testes negativos. Incluem Player.potential, estado econômico,
+edições manuais de salário/contrato e seus heads. Todos os valores do ensaio são
+sintéticos, não dados econômicos reais dos quatro jogadores.
+
+A conversão posterior é segura como migration **aditiva revisada**, preservando o SQL
+customizado de constraints/triggers. O ensaio usa uma baseline temporária gerada do
+schema anterior; não substitui o histórico de migrations do projeto. O SQL segue fora
+de `prisma/migrations`, sem execução em Production e sem autorização implícita para isso.
+
+Reprodução: gerar `audit/output/pr24-validation/baseline.sql` com `prisma migrate diff
+--from-empty --to-schema <schema anterior> --script`; iniciar cluster descartável em
+localhost:54339; executar `PR24_DISPOSABLE=1 node --import tsx
+scripts/validateClubContextsDisposable.mts`. O script cria banco novo, nunca reseta
+ou reutiliza banco existente, e recusa o identificador conhecido de Production.
+
+### VISUAL_VALIDATED — Preview local isolado
+
+O Microsoft Edge headless substituiu o navegador integrado. Foram verificados o Preview
+com os quatro jogadores e os oito perfis (EA/Vida real), em 1365px e 390px: 18 capturas,
+HTTP 200, sem overflow horizontal e sem erros JavaScript. As capturas foram inspecionadas.
+NG - FA aparece exclusivamente como vínculo do snapshot, com a data não comprovada e
+o aviso de que não prova ausência de contrato real. Palmeiras/Flamengo ficam separados,
+com fonte e data da revisão da evidência.
+
+Os perfis usam banco descartável com usuário apenas SELECT e transações read-only.
+Tráfego externo foi bloqueado no navegador. Salário/contrato sintéticos continuam visíveis;
+os hashes das 45 tabelas ficaram iguais após todas as navegações. Nenhum dado econômico
+real foi importado para esse Preview. Não se declara Preview remoto publicado.
+
+`scripts/inspectClubContextsPreview.mjs` reproduz a checagem com `PR24_PLAYWRIGHT_MODULE`
+apontando ao módulo Playwright já instalado e servidor local na porta 3134.
+Resultados e capturas ficam em `audit/output/pr24-validation/` (ignorados pelo Git).
+
+Os conjuntos 184/240/27/3.040 não sofreram alterações automáticas. Nenhum deploy,
+migration, importação ou escrita foi feito em Production; o PR não foi integrado.
+Permanece pendente a aprovação da política de referência do elenco para futura ativação.
