@@ -1,0 +1,182 @@
+[
+  {
+    "name": "Gustavo Gómez",
+    "eaPlayerId": "218191",
+    "contexts": {
+      "eaPlayerId": "218191",
+      "game": {
+        "status": "NG_FA",
+        "club": null,
+        "nativeTeamIds": [
+          "111592",
+          "1375"
+        ],
+        "nativeClubTeamIds": [],
+        "snapshot": {
+          "id": "fc27-template-92938136ad6a0e1ba272cecf5df07ddc2a38bbe18913df5c5b253206acb18641",
+          "gameVersion": "FC27",
+          "origin": "THIRD_PARTY_TEMPLATE",
+          "sourceUrl": "https://github.com/ViniMacacari/eafc-db-kit/blob/1464907bf4e726504d8b3ce15ffd0a552990565e/templates/FC%2027/fifa_ng_db.db",
+          "contentHash": "92938136ad6a0e1ba272cecf5df07ddc2a38bbe18913df5c5b253206acb18641",
+          "observedAt": "2026-11-12T14:07:29.926Z",
+          "effectiveAt": null,
+          "effectiveDateEvidence": null,
+          "platform": null,
+          "gameBuild": null,
+          "rosterVersion": null,
+          "approvedForCareer": false
+        },
+        "authenticity": "UNVERIFIED",
+        "evidenceHash": "4dea076384aac1bdbaafa63ce10b0fb93c53fcf54d36abb7de2aa745a20c8600"
+      },
+      "real": {
+        "status": "CLUB",
+        "club": {
+          "name": "Palmeiras",
+          "eaId": "383"
+        },
+        "sourceUrl": "https://palmeiras.com.br/jogador/?jogador=2297",
+        "observedAt": "2026-11-12T14:07:29.926Z",
+        "effectiveAt": null,
+        "evidenceKind": "CACHED_SOURCE_REVIEW",
+        "evidenceHash": "f845433c961882f176d9bb9d41f89e0df6e32795466909d30215f80d280bc76e"
+      }
+    },
+    "contentHash": "edf76c9be349df24cab4d31a0d3ce83ec0c238c7e2acc4cdab42764acf5e7f17"
+  },
+  {
+    "name": "Jorge Carrascal",
+    "eaPlayerId": "225964",
+    "contexts": {
+      "eaPlayerId": "225964",
+      "game": {
+        "status": "NG_FA",
+        "club": null,
+        "nativeTeamIds": [
+          "111592",
+          "111109"
+        ],
+        "nativeClubTeamIds": [],
+        "snapshot": {
+          "id": "fc27-template-92938136ad6a0e1ba272cecf5df07ddc2a38bbe18913df5c5b253206acb18641",
+          "gameVersion": "FC27",
+          "origin": "THIRD_PARTY_TEMPLATE",
+          "sourceUrl": "https://github.com/ViniMacacari/eafc-db-kit/blob/1464907bf4e726504d8b3ce15ffd0a552990565e/templates/FC%2027/fifa_ng_db.db",
+          "contentHash": "92938136ad6a0e1ba272cecf5df07ddc2a38bbe18913df5c5b253206acb18641",
+          "observedAt": "2026-11-12T14:07:29.926Z",
+          "effectiveAt": null,
+          "effectiveDateEvidence": null,
+          "platform": null,
+          "gameBuild": null,
+          "rosterVersion": null,
+          "approvedForCareer": false
+        },
+        "authenticity": "UNVERIFIED",
+        "evidenceHash": "1bf890522c8245303fbd85862a8bd62b61f5ddd465fb5732b9f6844df1b16b0a"
+      },
+      "real": {
+        "status": "CLUB",
+        "club": {
+          "name": "Flamengo",
+          "eaId": "1043"
+        },
+        "sourceUrl": "https://www.flamengo.com.br/noticias/futebol/jorge-carrascal-e-mais-um-reforco-do-mengao",
+        "observedAt": "2026-11-12T14:07:29.926Z",
+        "effectiveAt": null,
+        "evidenceKind": "CACHED_SOURCE_REVIEW",
+        "evidenceHash": "808d5e936cd730911ffd06847c24cdc00146c308d316029cafae59e326bfdb2e"
+      }
+    },
+    "contentHash": "1755c2f83edcc999751b92383710320ed7a01828f6e0b3766580d509eee12b43"
+  },
+  {
+    "name": "Mauricio",
+    "eaPlayerId": "83924",
+    "contexts": {
+      "eaPlayerId": "83924",
+      "game": {
+        "status": "NG_FA",
+        "club": null,
+        "nativeTeamIds": [
+          "111592",
+          "1375"
+        ],
+        "nativeClubTeamIds": [],
+        "snapshot": {
+          "id": "fc27-template-92938136ad6a0e1ba272cecf5df07ddc2a38bbe18913df5c5b253206acb18641",
+          "gameVersion": "FC27",
+          "origin": "THIRD_PARTY_TEMPLATE",
+          "sourceUrl": "https://github.com/ViniMacacari/eafc-db-kit/blob/1464907bf4e726504d8b3ce15ffd0a552990565e/templates/FC%2027/fifa_ng_db.db",
+          "contentHash": "92938136ad6a0e1ba272cecf5df07ddc2a38bbe18913df5c5b253206acb18641",
+          "observedAt": "2026-11-12T14:07:29.926Z",
+          "effectiveAt": null,
+          "effectiveDateEvidence": null,
+          "platform": null,
+          "gameBuild": null,
+          "rosterVersion": null,
+          "approvedForCareer": false
+        },
+        "authenticity": "UNVERIFIED",
+        "evidenceHash": "4dea076384aac1bdbaafa63ce10b0fb93c53fcf54d36abb7de2aa745a20c8600"
+      },
+      "real": {
+        "status": "CLUB",
+        "club": {
+          "name": "Palmeiras",
+          "eaId": "383"
+        },
+        "sourceUrl": "https://palmeiras.com.br/jogador/?jogador=258136",
+        "observedAt": "2026-11-12T14:07:29.926Z",
+        "effectiveAt": null,
+        "evidenceKind": "CACHED_SOURCE_REVIEW",
+        "evidenceHash": "ac2c84a01d162ad4791ad3574631aa13b3fef879eca7e1bba6b944c286787082"
+      }
+    },
+    "contentHash": "398d2cf2fa167a3429ac2681a2cf8bcd656ff0e6de95ffeec35bf9d2ee3f577a"
+  },
+  {
+    "name": "José Manuel López",
+    "eaPlayerId": "261176",
+    "contexts": {
+      "eaPlayerId": "261176",
+      "game": {
+        "status": "NG_FA",
+        "club": null,
+        "nativeTeamIds": [
+          "111592",
+          "1369"
+        ],
+        "nativeClubTeamIds": [],
+        "snapshot": {
+          "id": "fc27-template-92938136ad6a0e1ba272cecf5df07ddc2a38bbe18913df5c5b253206acb18641",
+          "gameVersion": "FC27",
+          "origin": "THIRD_PARTY_TEMPLATE",
+          "sourceUrl": "https://github.com/ViniMacacari/eafc-db-kit/blob/1464907bf4e726504d8b3ce15ffd0a552990565e/templates/FC%2027/fifa_ng_db.db",
+          "contentHash": "92938136ad6a0e1ba272cecf5df07ddc2a38bbe18913df5c5b253206acb18641",
+          "observedAt": "2026-11-12T14:07:29.926Z",
+          "effectiveAt": null,
+          "effectiveDateEvidence": null,
+          "platform": null,
+          "gameBuild": null,
+          "rosterVersion": null,
+          "approvedForCareer": false
+        },
+        "authenticity": "UNVERIFIED",
+        "evidenceHash": "8de9730d4b15866ae5908fa385b11d67d28d5ae7f35e748728ad711c90d8a97a"
+      },
+      "real": {
+        "status": "CLUB",
+        "club": {
+          "name": "Palmeiras",
+          "eaId": "383"
+        },
+        "sourceUrl": "https://palmeiras.com.br/jogador/?jogador=224097",
+        "observedAt": "2026-11-12T14:07:29.926Z",
+        "effectiveAt": null,
+        "evidenceKind": "CACHED_SOURCE_REVIEW",
+        "evidenceHash": "49894e7aaec30f0bcccf5aa90fcb30dccb0be51bf6b1e4e201e06d39f1e51ac4"
+      }
+    },
+    "contentHash": "aefea87610beeb06396b0ddbbd2d4d0ba81459799748fcfa793a805fd7410da4"
+  }
+]

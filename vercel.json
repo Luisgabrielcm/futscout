@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "codex/club-contexts-readers-preview": false,
+      "beta-next": false
+    }
+  }
+}
