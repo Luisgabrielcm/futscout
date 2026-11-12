@@ -3,6 +3,7 @@ import { resolve } from "node:path"
 import { runInNewContext } from "node:vm"
 import ts from "typescript"
 import * as clubContextReadGate from "../../lib/clubContextReadGate"
+import * as clubContextPreviewPolicy from "../../lib/clubContextPreviewPolicy"
 import * as jsxRuntime from "react/jsx-runtime"
 import * as i18n from "../../lib/i18n"
 import * as i18nConfig from "../../lib/i18n/config"
@@ -60,6 +61,7 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
   const allowed: Record<string, unknown> = { "react/jsx-runtime": jsxRuntime, ...dependencies }
   const requireFake = (name: string): unknown => {
     if (name.endsWith("/clubContextReadGate")) return clubContextReadGate
+    if (name.endsWith("/clubContextPreviewPolicy")) return clubContextPreviewPolicy
     // Shared presentation functions run for real. This explicit allowlist has
     // no DB/env loading/network modules; operational dependencies remain fakes.
     const presentation: Record<string, unknown> = {

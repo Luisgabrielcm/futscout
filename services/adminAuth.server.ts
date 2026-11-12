@@ -1,4 +1,5 @@
 import "server-only"
+import { rejectPreviewAlternateDatabase } from "../lib/clubContextPreviewPolicy"
 import { Pool, type PoolClient } from "pg"
 import { ADMIN_CSRF_COOKIE, ADMIN_SESSION_COOKIE, normalizeOwnerLogin, passwordHashFormatValid, randomToken, readCookie, sameOrigin, SESSION_MS, sha256, verifyPassword } from "../lib/adminAuth"
 
@@ -24,6 +25,7 @@ function credentialIdentity(value: string) {
 }
 
 export function adminPool() {
+  rejectPreviewAlternateDatabase(process.env)
   const url = process.env.FUTSCOUT_ADMIN_DATABASE_URL
   if (!url) throw Error("ADMIN_CONNECTION_NOT_CONFIGURED")
   const identity = credentialIdentity(url)
