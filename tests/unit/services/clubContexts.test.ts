@@ -7,6 +7,8 @@ import PlayerClubContexts from "../../../app/components/PlayerClubContexts"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import * as contextLibrary from "../../../lib/clubContexts"
 import * as crypto from "node:crypto"
+import { readFileSync } from "node:fs"
+import { clubContextReadPilot, clubContextReadEaIds, expectedClubContextPilotSelection } from "../../../lib/clubContextReadGate"
 
 function fixture(): ClubContexts {
   return { eaPlayerId: "12345", game: { status: "NG_FA", club: null, nativeTeamIds: ["111592"], nativeClubTeamIds: [],
@@ -66,28 +68,39 @@ test("canonical hashes survive JSONB key reordering", () => {
 test("point reader is disabled by default and reads only an explicitly selected, verified revision", async () => {
   let enabled = "0"
   let reads = 0
-  const contexts = fixture()
+  const contexts = JSON.parse(readFileSync("tests/fixtures/clubContextsPilot.json", "utf8"))[0].contexts as ClubContexts
+  const eaId = contexts.eaPlayerId
+  const approved = expectedClubContextPilotSelection(eaId)!
   let selectedId = contexts.eaPlayerId
+  let selectionVersion = 1
   const payload = JSON.parse(JSON.stringify(contexts))
   const service = loadCatalogModule<typeof import("../../../services/playerClubContexts")>("services/playerClubContexts.ts", {
     "server-only": {}, "node:crypto": crypto, "../lib/clubContexts": contextLibrary,
     "../lib/prisma": { prisma: { playerClubContextSelection: { findUnique: async (args: { where: { eaPlayerId: string } }) => {
-      reads++; assert.equal(args.where.eaPlayerId, "12345")
-      return { revision: { payload: { ...payload, eaPlayerId: selectedId },
+      reads++; assert.equal(args.where.eaPlayerId, eaId)
+      return { revisionId: approved.revisionId, decisionReference: approved.decisionReference, version: selectionVersion,
+        revision: { payload: { ...payload, eaPlayerId: selectedId },
         contentHash: crypto.createHash("sha256").update(canonicalJson(payload)).digest("hex"),
         rosterReferenceId: contexts.game.snapshot.id,
         rosterReference: { contentHash: contexts.game.snapshot.contentHash, metadata: contexts.game.snapshot } } }
     } } } },
-  }, { process: { env: { get CLUB_CONTEXTS_READ_ENABLED() { return enabled } } } })
-  assert.equal(await service.readPlayerClubContexts("12345"), undefined)
+  }, { process: { env: { VERCEL_ENV: "preview", CLUB_CONTEXTS_READ_EA_IDS: clubContextReadEaIds.join(","),
+    CLUB_CONTEXTS_READ_PILOT_HASH: clubContextReadPilot.manifestHash, get CLUB_CONTEXTS_READ_ENABLED() { return enabled } } } })
+  assert.equal(await service.readPlayerClubContexts(eaId), undefined)
   assert.equal(reads, 0)
   enabled = "1"
   assert.equal(await service.readPlayerClubContexts(null), undefined)
-  assert.equal((await service.readPlayerClubContexts("12345"))?.game.status, "NG_FA")
+  assert.equal(await service.readPlayerClubContexts("999999999"), undefined)
+  assert.equal(reads, 0)
+  assert.equal((await service.readPlayerClubContexts(eaId))?.game.status, "NG_FA")
+  selectionVersion = 2
+  await assert.rejects(service.readPlayerClubContexts(eaId), /CLUB_CONTEXT_PILOT_SELECTION_NOT_APPROVED/)
+  selectionVersion = 1
   selectedId = "99999"
-  await assert.rejects(service.readPlayerClubContexts("12345"), /EA_IDENTITY_MISMATCH/)
-  selectedId = "12345"; payload.real.club.name = "Tampered club"
+  await assert.rejects(service.readPlayerClubContexts(eaId), /EA_IDENTITY_MISMATCH/)
+  selectedId = eaId; payload.real.club.name = "Tampered club"
+  await assert.rejects(service.readPlayerClubContexts(eaId), /CLUB_CONTEXT_PILOT_SELECTION_NOT_APPROVED/)
   // Recomputed outer hash still cannot replace snapshot metadata: snapshot hash/metadata are independent.
   payload.game.snapshot.id = "different-reference"
-  await assert.rejects(service.readPlayerClubContexts("12345"), /CLUB_CONTEXT_PROVENANCE_MISMATCH/)
+  await assert.rejects(service.readPlayerClubContexts(eaId), /CLUB_CONTEXT_PROVENANCE_MISMATCH/)
 })

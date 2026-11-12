@@ -1,4 +1,5 @@
 import "server-only"
+import { canReadClubContexts } from "../lib/clubContextReadGate"
 
 import { prisma } from "../lib/prisma"
 import type { PlayerRealLifeProfile } from "../types/playerRealLife"
@@ -56,7 +57,7 @@ export async function getPlayerRealLifeBySlug(slug: string): Promise<PlayerRealL
 
   if (!player || player.eaImportVisibility !== "PUBLIC") return null
   const realClub = player.approvedCurrentClub?.approvedClub ?? null
-  const clubContexts = globalThis.process?.env.CLUB_CONTEXTS_READ_ENABLED === "1" ?
+  const clubContexts = canReadClubContexts(player.externalId, globalThis.process?.env) ?
     await (await import("./playerClubContexts")).readPlayerClubContexts(player.externalId) : undefined
   const assets = await getBrandAssetsForEntities({
     clubIds: [player.club?.id, realClub?.id].filter((id): id is string => Boolean(id)),

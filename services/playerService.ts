@@ -1,4 +1,5 @@
 import "server-only"
+import { canReadClubContexts } from "../lib/clubContextReadGate"
 
 import { prisma } from "../lib/prisma"
 import { parsePlayerCatalogParams } from "../lib/playerCatalogParams"
@@ -472,7 +473,7 @@ export async function getPlayerBySlug(
   if (profile.status === "incomplete") return profile
   // The profile route already uses the same gated point reader.
   const [player] = await mapPlayersWithBrandAssets([databasePlayer], false)
-  if (globalThis.process?.env.CLUB_CONTEXTS_READ_ENABLED !== "1") return { status: "ready", player }
+  if (!canReadClubContexts(databasePlayer.externalId, globalThis.process?.env)) return { status: "ready", player }
   const { readPlayerClubContexts } = await import("./playerClubContexts")
   const clubContexts = await readPlayerClubContexts(databasePlayer.externalId)
   return { status: "ready", player: clubContexts ? { ...player, clubContexts,
