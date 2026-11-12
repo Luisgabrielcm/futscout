@@ -5,6 +5,7 @@ import { Pool } from "pg"
 import { PrismaPg } from "@prisma/adapter-pg"
 import { PrismaClient } from "../app/generated/prisma/client"
 import { readOnlyPgAdapter } from "../lib/readOnlyPgAdapter"
+import { withPrismaReadOnly } from "../lib/prismaReadOnly"
 import { clubContextReadEaIds, clubContextReadPilot } from "../lib/clubContextReadGate"
 
 const folder = "audit/output/club-contexts-readonly-runtime"
@@ -77,7 +78,10 @@ if (process.argv[2] === "--pooled") {
   const writes = ["INSERT INTO \"ReadOnlyProbe\" VALUES (2,'new')", "UPDATE \"ReadOnlyProbe\" SET value='changed' WHERE id=1", "DELETE FROM \"ReadOnlyProbe\" WHERE id=1"]
   try {
     for (const statement of writes) await assert.rejects(db.$executeRawUnsafe(statement), rejection)
-    for (const statement of writes) await assert.rejects(db.$transaction(tx => tx.$executeRawUnsafe(statement)), rejection)
+    for (const statement of writes) await assert.rejects(db.$transaction(async tx => {
+      await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY")
+      return tx.$executeRawUnsafe(statement)
+    }), rejection)
     await assert.rejects(db.player.updateMany({ where: { externalId: "218191" }, data: { name: "MUST_NOT_PERSIST" } }), rejection)
     await assert.rejects(db.$executeRawUnsafe("SET TRANSACTION READ WRITE"), /CONTROL_SQL_DENIED/)
     await assert.rejects(db.$queryRawUnsafe("SELECT 1; COMMIT; DELETE FROM \"ReadOnlyProbe\""), /CONTROL_SQL_DENIED/)
@@ -90,6 +94,12 @@ if (process.argv[2] === "--pooled") {
     }
     const states = await Promise.all(Array.from({ length: 8 }, () => db.$queryRawUnsafe<{ readonly: string }[]>("SELECT current_setting('transaction_read_only') AS readonly")))
     assert.ok(states.every(rows => rows[0].readonly === "on"))
+    const defensiveRead = await withPrismaReadOnly(db, async tx => {
+      const flags = await tx.$queryRawUnsafe<{ readonly: string }[]>("SELECT current_setting('transaction_read_only') AS readonly")
+      assert.equal(flags[0].readonly, "on")
+      return tx.player.count()
+    })
+    assert.equal(defensiveRead, 5)
     await db.$transaction(async tx => {
       const rows = await tx.$queryRawUnsafe<{ readonly: string }[]>("SELECT current_setting('transaction_read_only') AS readonly")
       assert.equal(rows[0].readonly, "on")
@@ -104,7 +114,7 @@ if (process.argv[2] === "--pooled") {
     assert.equal(profiles.length, 4)
     assert.equal(await db.playerClubContextSelection.count(), 4)
     assert.deepEqual(await hashes(), before)
-    await writeFile(`${folder}/local.private.json`, JSON.stringify({ status: "LOCAL_READ_ONLY_RUNTIME_VALIDATED", database, negativeDml: ["INSERT", "UPDATE", "DELETE"], rootAndInteractiveTransactions: true, nativePostgres25006: true, concurrentTransactions: 8, allTableHashesUnchanged: true, productionConnections: 0 }, null, 2))
+    await writeFile(`${folder}/local.private.json`, JSON.stringify({ status: "LOCAL_READ_ONLY_RUNTIME_VALIDATED", database, negativeDml: ["INSERT", "UPDATE", "DELETE"], rootAndInteractiveTransactions: true, defensiveReadOnlyAssertion: true, forcedRollbackHelper: true, nativePostgres25006: true, concurrentTransactions: 8, allTableHashesUnchanged: true, productionConnections: 0 }, null, 2))
     console.log("LOCAL_READ_ONLY_RUNTIME_VALIDATED: DML denied, controls denied, concurrent reads, full profile relations and all hashes unchanged")
   } finally { await db.$disconnect(); await fixture.end() }
 }

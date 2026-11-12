@@ -53,6 +53,21 @@ test("failed read-only setup rolls back and releases without exposing a transact
   assert.deepEqual(f.events, ["1:BEGIN", "1:SET TRANSACTION READ ONLY", "1:ROLLBACK", "1:release-rollback"])
 })
 
+test("HTTP-path read-only assertion is accepted only inside an open protected transaction", async () => {
+  const f = fixture(), db = await readOnlyPgAdapter(f.factory).connect()
+  await assert.rejects(db.executeRaw(sql("SET TRANSACTION READ ONLY")), /CONTROL_SQL_DENIED/)
+  const tx = await db.startTransaction()
+  assert.equal(await tx.executeRaw(sql("SET TRANSACTION READ ONLY")), 0)
+  assert.equal(await tx.executeRaw(sql("  set   transaction read only;  ")), 0)
+  for (const text of ["SET TRANSACTION READ WRITE", "SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY", "SET LOCAL transaction_read_only=off", "SET TRANSACTION READ ONLY; COMMIT", "SET TRANSACTION READ ONLY -- trailing comment"])
+    await assert.rejects(async () => tx.executeRaw(sql(text)), /CONTROL_SQL_DENIED/)
+  await assert.rejects(async () => tx.executeRaw({ sql: "SET TRANSACTION READ ONLY", args: ["unexpected"], argTypes: [] }), /CONTROL_SQL_DENIED/)
+  await assert.rejects(async () => tx.queryRaw(sql("SET TRANSACTION READ ONLY")), /CONTROL_SQL_DENIED/)
+  await tx.rollback()
+  await assert.rejects(async () => tx.executeRaw(sql("SET TRANSACTION READ ONLY")), /TRANSACTION_CLOSED/)
+  assert.deepEqual(f.events, ["1:BEGIN", "1:SET TRANSACTION READ ONLY", "1:SET TRANSACTION READ ONLY", "1:  set   transaction read only;  ", "1:ROLLBACK", "1:release-rollback"])
+})
+
 test("cleanup failure does not hide the original setup error", async () => {
   const f = fixture(true, true), db = await readOnlyPgAdapter(f.factory).connect()
   await assert.rejects(db.queryRaw(sql("SELECT 1")), /SETUP_FAILED/)
