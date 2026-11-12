@@ -1,5 +1,10 @@
 # FC27: clube no jogo e clube real
 
+Preparação posterior ao PR #24: a cópia versionada e transacional do SQL está em
+`prisma/migrations/20261112001000_club_contexts/migration.sql`. Ver aplicação futura e
+rollback em [club-contexts-migration.md](./club-contexts-migration.md). Nenhuma ativação
+ou operação em Production está incluída; o candidato original permanece congelado.
+
 Estado: implementação proposta para `beta-next`; leitura desativada por padrão.
 Nenhuma migration, importação, atualização ou publicação em Production foi executada.
 Os números abaixo reutilizam a revisão de 12/11/2026, sem nova auditoria global.
