@@ -10,6 +10,7 @@ export type EaMaleCandidate = {
   potential: number
   attributes: Record<string, number>
   club: { eaTeamId: string } | null
+  sourceTeamLinks?: { eaTeamId: string; classification?: string }[]
   clubStatus: "KNOWN_CLUB" | "CLUB_NOT_REGISTERED" | "FREE_AGENT_EA" | "SPECIAL_OR_UNKNOWN_TEAM"
   issues: string[]
   contentHash: string
@@ -117,6 +118,15 @@ export async function stageEaMaleBatch(pool: Pick<Pool, "connect">, manifest: Ea
   batchId: string, target: EaMaleImportTarget = { kind: "disposable" }): Promise<"STAGED" | "ALREADY_STAGED"> {
   const byId = validateEaMaleManifest(manifest)
   const batch = manifest.batches.find(item => item.id === batchId) ?? fail("BATCH_NOT_FOUND")
+  const requireNativeClub = () => {
+    for (const id of batch.eaPlayerIds) {
+      const row = byId.get(id)!
+      if (row.clubStatus === "FREE_AGENT_EA") fail("NG_FA_REPRESENTATION_REQUIRES_REVIEW")
+      if (!row.club || row.club.eaTeamId === "111592" ||
+          !row.sourceTeamLinks?.some(link => link.eaTeamId === row.club!.eaTeamId && link.classification === "MALE_CLUB"))
+        fail("GAME_CLUB_NOT_IN_NATIVE_CLUB_LINKS")
+    }
+  }
   const tx: PoolClient = await pool.connect()
   try {
     await tx.query("BEGIN ISOLATION LEVEL SERIALIZABLE")
@@ -134,6 +144,7 @@ export async function stageEaMaleBatch(pool: Pick<Pool, "connect">, manifest: Ea
       await tx.query("COMMIT")
       return "ALREADY_STAGED"
     }
+    requireNativeClub()
     await tx.query(
       'INSERT INTO "EaMaleImportBatch" ("batchId", "batchHash", "selectionHash", "sourceBinaryHash", "sourceCommit", "clubStatus", status) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [batch.id, batch.batchHash, manifest.selectionHash, manifest.source.binarySha256,
@@ -195,6 +206,12 @@ export async function publishEaMaleBatch(pool: Pick<Pool, "connect">, manifest: 
   if (approval.rightsForPublicUse !== "APPROVED" || approval.undatedRosterAcknowledged !== true ||
     approval.selectionHash !== manifest.selectionHash ||
     approval.sourceBinarySha256 !== manifest.source.binarySha256) fail("PUBLICATION_APPROVAL_MISMATCH")
+  for (const id of batch.eaPlayerIds) {
+    const row = byId.get(id)!
+    if (!row.club || row.club.eaTeamId === "111592" ||
+        !row.sourceTeamLinks?.some(link => link.eaTeamId === row.club!.eaTeamId && link.classification === "MALE_CLUB"))
+      fail("GAME_CLUB_NOT_IN_NATIVE_CLUB_LINKS")
+  }
   const tx = await pool.connect()
   try {
     await tx.query("BEGIN ISOLATION LEVEL SERIALIZABLE")
