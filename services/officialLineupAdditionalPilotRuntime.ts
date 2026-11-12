@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient } from "../app/generated/prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
+import { rejectPreviewAlternateDatabase } from "../lib/clubContextPreviewPolicy"
 import { ADDITIONAL_LINEUP_PILOTS, ADDITIONAL_PROTECTED_TABLES, runAdditionalOfficialLineupPilot, type AdditionalPilotKey, type AdditionalPilotAudit } from "./officialLineupAdditionalPilot"
 import { createOfficialLineupFetchGuard } from "./officialLineupFetchGuard"
 import { createOfficialLineupRepository } from "./officialLineupRepository"
@@ -29,6 +30,7 @@ export function auditAdditionalPilot(db: PrismaClient, clubId: string): Promise<
 
 // Imported only AFTER the runner's explicit authorization flag. Never imported by UI.
 export async function executeAdditionalPilot(key: AdditionalPilotKey) {
+  rejectPreviewAlternateDatabase(process.env)
   await import("dotenv/config")
   if (!process.env.DIRECT_URL || !process.env.API_FOOTBALL_KEY) throw new Error("Required pilot configuration unavailable")
   const target = ADDITIONAL_LINEUP_PILOTS[key]

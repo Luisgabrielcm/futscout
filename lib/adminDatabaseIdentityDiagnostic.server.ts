@@ -1,4 +1,5 @@
 import { Pool, type PoolClient } from 'pg'
+import { rejectPreviewAlternateDatabase } from './clubContextPreviewPolicy'
 
 type QueryClient = Pick<PoolClient, 'query'>
 
@@ -141,6 +142,7 @@ export async function runAdminDatabaseIdentityDiagnostic(
     return adminPool().connect()
   } }: DiagnosticDependencies = {},
 ): Promise<IdentityDiagnosticOutcome> {
+  rejectPreviewAlternateDatabase(env)
   if (!env.DATABASE_URL) return { identity: 'INCONCLUSIVE', code: 'CONFIG_RUNTIME_MISSING' }
   if (!env.FUTSCOUT_ADMIN_DATABASE_URL) return { identity: 'INCONCLUSIVE', code: 'CONFIG_ADMIN_MISSING' }
   let runtimePool: ReturnType<NonNullable<DiagnosticDependencies['createRuntimePool']>> | undefined

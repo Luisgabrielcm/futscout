@@ -4,6 +4,8 @@ import { resolve } from "node:path"
 import { test } from "node:test"
 import { runInNewContext } from "node:vm"
 import ts from "typescript"
+import * as previewPolicy from "../../../lib/clubContextPreviewPolicy"
+import * as readOnlyAdapter from "../../../lib/readOnlyPgAdapter"
 
 // Evaluate the real configuration in isolation: no real env, driver, client or network.
 function loadConfiguration(path: string, env: Record<string, string | undefined>, events: unknown[]) {
@@ -14,6 +16,8 @@ function loadConfiguration(path: string, env: Record<string, string | undefined>
   })
   const compiledModule = { exports: {} as Record<string, unknown> }
   const dependencies: Record<string, unknown> = {
+    "./clubContextPreviewPolicy": previewPolicy,
+    "./readOnlyPgAdapter": readOnlyAdapter,
     "@prisma/adapter-pg": {
       PrismaPg: class {
         constructor(public options: { connectionString: string }) { events.push(options.connectionString) }
@@ -52,6 +56,22 @@ test("public Prisma runtime does not require DIRECT_URL", () => {
   const events: unknown[] = []
   loadConfiguration("lib/prisma.ts", { DATABASE_URL: "pooled-runtime-sentinel" }, events)
   assert.deepEqual(events, ["pooled-runtime-sentinel", "client"])
+})
+
+test("protected Preview config uses the real read-only wrapper and a local pooled URL without startup options", () => {
+  const events: unknown[] = []
+  const result = loadConfiguration("lib/prisma.ts", {
+    VERCEL_ENV: "preview", CLUB_CONTEXTS_PREVIEW_READ_ONLY: "1",
+    DATABASE_URL: "postgresql://test:test@pooled.db.prisma.io/postgres?options=-c%20default_transaction_read_only%3Don",
+    DIRECT_URL: "direct-admin-sentinel",
+  }, events)
+  const actual = new URL(events[0] as string)
+  assert.equal(actual.hostname, "pooled.db.prisma.io")
+  assert.equal(actual.searchParams.has("options"), false)
+  assert.equal(actual.searchParams.get("sslmode"), "verify-full")
+  const client = result.prisma as { options: { adapter: { connect: unknown } } }
+  assert.equal(typeof client.options.adapter.connect, "function")
+  assert.equal(events[1], "client")
 })
 
 for (const missing of [undefined, ""]) {
