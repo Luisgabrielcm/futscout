@@ -16,6 +16,7 @@ import {
 
 import PlayerImage from "./PlayerImage"
 import CountryFlag from "./CountryFlag"
+import PlayerClubContexts from "./PlayerClubContexts"
 import { getPlayerProfilePositions } from "../../lib/playerProfilePositions"
 import Link from "next/link"
 import { entityHref, nationalityHref, relatedPlayersHref } from "../../lib/connectedNavigation"
@@ -126,13 +127,15 @@ export default function PlayerHeader({ locale = "pt",
             {player.name}
           </h1>
 
-          <div
+          {player.clubContexts ? <PlayerClubContexts contexts={player.clubContexts} locale={locale} /> : <div
             className="playerHeaderClub"
           >
             <span className="catalogContextLabel">EA FC</span>
             {clubHref ? <Link href={clubHref} className="playerClubLink">{clubIdentity}</Link> : <div className="playerClubLink">{clubIdentity}</div>}
             {player.league && (leagueHref ? <Link className="playerHeaderLeague" href={leagueHref}><LeagueLogo locale={locale} name={player.league} asset={player.leagueAsset} size="small" />{player.league}</Link> : <span className="playerHeaderLeague"><LeagueLogo locale={locale} name={player.league} asset={player.leagueAsset} size="small" />{player.league}</span>)}
           </div>
+
+          }
 
           <div
             className="playerHeaderMeta"

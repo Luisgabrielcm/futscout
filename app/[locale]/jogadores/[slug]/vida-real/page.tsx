@@ -38,7 +38,7 @@ export default async function PlayerRealLifePage({ params, searchParams }: RealL
     <PlayerRealLifeHeader locale={locale} player={player} />
     <PlayerExperienceNav locale={locale} slug={slug} active="real" catalogContext={catalogContext} />
     <PlayerRealMarketValue locale={locale} value={player.realMarketValue} />
-    <PlayerCareer locale={locale} catalogClub={player.eaCatalogClub?.name ?? null} data={career} />
+    {!player.clubContexts && <PlayerCareer locale={locale} catalogClub={player.eaCatalogClub?.name ?? null} data={career} />}
     <PlayerSeasonStatistics locale={locale} rows={player.statistics ?? []} />
     {/* A public transfer projection stays empty until revision resolution is safe. */}
     <PlayerHistory locale={locale} />

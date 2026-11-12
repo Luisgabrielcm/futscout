@@ -49,11 +49,14 @@ export async function registerAdminDatabaseIdentityDiagnostic(
 }
 
 export async function register() {
-  await registerAdminDatabaseIdentityDiagnostic(process.env, async () => {
-    const { runAdminDatabaseIdentityDiagnostic } = await import('./lib/adminDatabaseIdentityDiagnostic.server')
-    return runAdminDatabaseIdentityDiagnostic()
-  }, (line) => console.log(line))
-  if (!shouldRunValueRuntimeRoleDiagnostic()) return
-  const { runValueRuntimeRoleDiagnostic } = await import('./experiments/futscout-value-global-v01/runtime-role-diagnostic')
-  await runValueRuntimeRoleDiagnostic()
+  // Next must see this literal runtime gate to exclude Node-only drivers from Edge bundles.
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    await registerAdminDatabaseIdentityDiagnostic(process.env, async () => {
+      const { runAdminDatabaseIdentityDiagnostic } = await import('./lib/adminDatabaseIdentityDiagnostic.server')
+      return runAdminDatabaseIdentityDiagnostic()
+    }, (line) => console.log(line))
+    if (!shouldRunValueRuntimeRoleDiagnostic()) return
+    const { runValueRuntimeRoleDiagnostic } = await import('./experiments/futscout-value-global-v01/runtime-role-diagnostic')
+    await runValueRuntimeRoleDiagnostic()
+  }
 }

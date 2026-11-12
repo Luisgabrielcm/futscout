@@ -239,6 +239,7 @@ export type Player = {
   ====================================== */
 
   club: PlayerClub | null
+  clubContexts?: import("../lib/clubContexts").ClubContexts
 
   league: string | null
   leagueSlug?: string | null

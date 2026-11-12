@@ -434,6 +434,8 @@ model ClubOfficialLineupSnapshot {
 model Player {
   id         String  @id @default(cuid())
   externalId String? @unique
+  clubContextRevisions PlayerClubContextRevision[]
+  clubContextSelection PlayerClubContextSelection?
   eaImportVisibility String @default("PUBLIC")
   eaFreeAgentEvidence String @default("UNKNOWN")
 
@@ -1580,4 +1582,38 @@ model SyncError {
   @@index([stage])
   @@index([resolved])
   @@index([provider, resolved])
+}
+// Immutable source registration; observation time is never an effective roster date.
+model EaRosterReference {
+  id String @id
+  contentHash String
+  metadata Json
+  createdAt DateTime @default(now())
+  revisions PlayerClubContextRevision[]
+}
+
+// payload follows ClubContexts: separate game and real source/date observations.
+// No mutation of Player.clubId or the existing API-Football approval models.
+model PlayerClubContextRevision {
+  id String @id
+  eaPlayerId String
+  player Player @relation(fields: [eaPlayerId], references: [externalId], onDelete: Restrict, onUpdate: Restrict)
+  rosterReferenceId String
+  rosterReference EaRosterReference @relation(fields: [rosterReferenceId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  payload Json
+  contentHash String
+  createdAt DateTime @default(now())
+  selections PlayerClubContextSelection[]
+  @@unique([eaPlayerId, id])
+  @@unique([eaPlayerId, contentHash])
+}
+
+// Explicit selection. Composite FK prevents selecting another player's revision.
+model PlayerClubContextSelection {
+  eaPlayerId String @id
+  player Player @relation(fields: [eaPlayerId], references: [externalId], onDelete: Restrict, onUpdate: Restrict)
+  revisionId String
+  revision PlayerClubContextRevision @relation(fields: [eaPlayerId, revisionId], references: [eaPlayerId, id], onDelete: Restrict, onUpdate: Restrict)
+  decisionReference String
+  version Int @default(1)
 }

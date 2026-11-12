@@ -472,7 +472,12 @@ export async function getPlayerBySlug(
   if (profile.status === "incomplete") return profile
   // The profile route already uses the same gated point reader.
   const [player] = await mapPlayersWithBrandAssets([databasePlayer], false)
-  return { status: "ready", player }
+  if (globalThis.process?.env.CLUB_CONTEXTS_READ_ENABLED !== "1") return { status: "ready", player }
+  const { readPlayerClubContexts } = await import("./playerClubContexts")
+  const clubContexts = await readPlayerClubContexts(databasePlayer.externalId)
+  return { status: "ready", player: clubContexts ? { ...player, clubContexts,
+    // Legacy league belongs to the legacy club projection, not this selected snapshot.
+    league: null, leagueSlug: null, leagueAsset: null, leagueLogoUrl: null } : player }
 }
 
 /* ========================================

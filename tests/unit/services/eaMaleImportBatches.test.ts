@@ -20,6 +20,7 @@ function fixture(): EaMaleManifest {
     eaPlayerId: "12345", name: "Jogador Exemplo", dateOfBirth: "2000-01-01", primaryPosition: "ATA",
     overall: 70, potential: 75, attributes: Object.fromEntries(fields.map(field => [field, 50])),
     club: { eaTeamId: "456" }, clubStatus: "KNOWN_CLUB" as const, issues: [],
+    sourceTeamLinks: [{ eaTeamId: "456", classification: "MALE_CLUB" }],
   }
   const candidate = { ...content, contentHash: hash(JSON.stringify(content)) }
   return {
@@ -38,6 +39,45 @@ test("accepts intact manifest and refuses tampered attributes or special squads"
   const special = fixture()
   special.batches[0].clubStatus = "SPECIAL_OR_UNKNOWN_TEAM"
   assert.throws(() => validateEaMaleManifest(special), /BATCH_MEMBERSHIP_INVALID/)
+})
+
+test("native EA club evidence blocks real-club substitution and unresolved NG-FA before any insert", async () => {
+  for (const status of ["KNOWN_CLUB", "FREE_AGENT_EA"] as const) {
+    const manifest = fixture()
+    const row = manifest.candidates[0]
+    row.sourceTeamLinks = [{ eaTeamId: "111592", classification: "SPECIAL" }]
+    row.clubStatus = status
+    if (status === "FREE_AGENT_EA") row.club = null
+    const { contentHash: _old, ...content } = row
+    assert.ok(_old)
+    row.contentHash = hash(JSON.stringify(content))
+    manifest.selectionHash = hash(row.contentHash)
+    manifest.batches[0].batchHash = hash(row.contentHash)
+    manifest.batches[0].clubStatus = status
+    const statements: string[] = []
+    const client = { query: async (sql: string) => {
+      statements.push(sql)
+      if (sql.startsWith("SELECT current_database()")) return { rows: [{ database: "fc27_test", host: "127.0.0.1" }] }
+      return { rows: [], rowCount: 0 }
+    }, release: () => {} }
+    await assert.rejects(stageEaMaleBatch({ connect: async () => client } as unknown as Pick<Pool, "connect">,
+      manifest, "known-001"), status === "KNOWN_CLUB" ? /GAME_CLUB_NOT_IN_NATIVE_CLUB_LINKS/ : /NG_FA_REPRESENTATION_REQUIRES_REVIEW/)
+    assert.equal(statements.some(sql => sql.startsWith("INSERT") || sql.startsWith("UPDATE")), false)
+    assert.ok(statements.includes("ROLLBACK"))
+  }
+})
+
+test("publication rejects native EA club mismatch before connecting", async () => {
+  const manifest = fixture()
+  const row = manifest.candidates[0]
+  row.sourceTeamLinks = [{ eaTeamId: "111592", classification: "SPECIAL" }]
+  const { contentHash: _old, ...content } = row
+  assert.ok(_old)
+  row.contentHash = hash(JSON.stringify(content))
+  manifest.selectionHash = hash(row.contentHash); manifest.batches[0].batchHash = hash(row.contentHash)
+  await assert.rejects(publishEaMaleBatch({ connect: async () => { throw new Error("MUST_NOT_CONNECT") } }, manifest,
+    "known-001", { kind: "disposable" }, { rightsForPublicUse: "APPROVED", undatedRosterAcknowledged: true,
+      selectionHash: manifest.selectionHash, sourceBinarySha256: manifest.source.binarySha256 }), /GAME_CLUB_NOT_IN_NATIVE_CLUB_LINKS/)
 })
 
 test("creates only a staged player and receipt in one transaction; replay skips writes", async () => {

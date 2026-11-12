@@ -107,6 +107,8 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
     }
     // Shared UI runs for real, with a strict finite list, never services.
     const component = name.split("/").at(-1)
+    if (component === "PlayerClubContexts" && !Object.hasOwn(allowed, name))
+      return loadCatalogModule("app/components/PlayerClubContexts.tsx", {})
     if (!Object.hasOwn(allowed, name) && component && ["EstimatedValueNote", "PlayerRealMarketValue", "PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "PlayerCurrentStatistics", "PlayerSeasonStatistics", "PlayerExperienceNav", "LeagueLogo", "ClubLogo", "ClubBadge", "BrandAssetFallback"].includes(component)) {
       return loadCatalogModule(`app/components/${component}.tsx`, { react: React })
     }

@@ -87,7 +87,9 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
       <h2 id="ea-title">EA SPORTS FC</h2>
       <PlayerQuickProfile locale={locale} player={player} />
       <dl className="careerFields eaCatalogContext">
-        <div><dt>{visualText(locale, "catalogClub")}</dt><dd>{player.club?.name ?? "—"}</dd></div>
+        <div><dt>{visualText(locale, "catalogClub")}</dt><dd>{player.clubContexts ?
+          player.clubContexts.game.status === "CLUB" ? player.clubContexts.game.club!.name :
+          player.clubContexts.game.status === "NG_FA" ? "NG - FA" : "—" : player.club?.name ?? "—"}</dd></div>
         <div><dt>{visualText(locale, "catalogLeague")}</dt><dd>{player.league ?? "—"}</dd></div>
       </dl>
       {isGoalkeeper
