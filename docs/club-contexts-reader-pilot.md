@@ -52,3 +52,20 @@ revalidação read-only das quatro seleções e flags, revisão/integração do 
 e decisão operacional sobre sua publicação. Este trabalho não faz deploy,
 importação, migration ou escrita em Production. Os grupos 184/240/27/577/3040
 permanecem fora de qualquer ativação automática.
+
+## Bloqueio temporário de deployments automáticos
+
+Autorizado em 12/11/2026 para integrar o PR #27 sem deployment:
+`vercel.json` mantém a regra da branch do PR e acrescenta exclusivamente
+`git.deploymentEnabled["beta-next"] = false`. Não há wildcard nem regra para
+`master` (Production); outras branches conservam o comportamento anterior.
+Isso não ativa leitores nem impede deployments manuais, que continuam proibidos
+nesta operação. O bloqueio de beta-next permanece até autorização específica
+posterior do usuário, mesmo depois do merge.
+
+Para restaurar a configuração anterior, somente após essa autorização: abrir
+um PR separado para beta-next removendo apenas a entrada `"beta-next": false`,
+preservar a regra da branch do piloto e todas as demais configurações, validar
+o CI e integrar. A remoção volta ao comportamento padrão de deploy automático;
+o próprio merge desse PR poderá iniciar um Preview. Não alterar flags de
+leitores ou executar migrations/importações como parte dessa restauração.
