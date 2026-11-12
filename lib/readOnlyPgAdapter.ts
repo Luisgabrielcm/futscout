@@ -2,6 +2,13 @@ import type { IsolationLevel, SqlDriverAdapter, SqlDriverAdapterFactory, SqlQuer
 
 const control = (sql: string): SqlQuery => ({ sql, args: [], argTypes: [] })
 
+// Prisma's HTTP execution path can defensively reaffirm an already read-only tx.
+// Allow only this exact strengthening command, never arbitrary SET or root SQL.
+function readOnlyAssertion(query: SqlQuery): boolean {
+  return query.args.length === 0 && query.argTypes.length === 0 &&
+    /^\s*SET\s+TRANSACTION\s+READ\s+ONLY\s*;?\s*$/i.test(query.sql)
+}
+
 // Reject mutation and transaction/session controls; PostgreSQL is a second guard.
 // Conservative by design: no script/multi-statement API, even via raw Prisma methods.
 function applicationQuery(query: SqlQuery): void {
@@ -30,8 +37,9 @@ export function readOnlyPgAdapter(factory: SqlDriverAdapterFactory): SqlDriverAd
           throw error
         }
         let closed = false
-        const check = (query: SqlQuery) => {
+        const check = (query: SqlQuery, allowReadOnlyAssertion = false) => {
           if (closed) throw Error("PREVIEW_READ_ONLY_TRANSACTION_CLOSED")
+          if (allowReadOnlyAssertion && readOnlyAssertion(query)) return
           applicationQuery(query)
         }
         async function finish(commit: boolean) {
@@ -45,7 +53,7 @@ export function readOnlyPgAdapter(factory: SqlDriverAdapterFactory): SqlDriverAd
           // We own SQL commit/rollback; Prisma calls only these lifecycle hooks.
           options: { usePhantomQuery: true },
           queryRaw: query => { check(query); return tx.queryRaw(query) },
-          executeRaw: query => { check(query); return tx.executeRaw(query) },
+          executeRaw: query => { check(query, true); return tx.executeRaw(query) },
           commit: () => finish(true), rollback: () => finish(false),
         }
       }
