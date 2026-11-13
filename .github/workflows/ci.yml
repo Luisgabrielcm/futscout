@@ -25,6 +25,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
+      - name: Focused CLI inspection regression
+        run: node --test scripts/vercelReadOnlyApi.test.mjs
       # Isolated browser tooling: no app install, database, secrets or app build.
       - run: npm install --prefix "$RUNNER_TEMP/profile-browser" --ignore-scripts --package-lock=false playwright@1.62.1
       - run: node "$RUNNER_TEMP/profile-browser/node_modules/playwright/cli.js" install --with-deps chromium
