@@ -5,6 +5,7 @@ import { resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 import { createHash } from "node:crypto"
 import { Pool } from "pg"
+import { navigateProfile } from "./profileReadiness.mjs"
 
 const folder = resolve("audit/output/pr24-validation")
 const target = JSON.parse(await readFile(resolve(folder, "target.private.json"), "utf8"))
@@ -55,7 +56,7 @@ try {
     for (const row of proposals) {
       for (const real of [false, true]) {
         const path = `/pt/jogadores/fixture-${row.eaPlayerId}${real ? "/vida-real" : ""}`
-        const result = await page.goto(`http://127.0.0.1:3134${path}`, { waitUntil: "networkidle", timeout: 60000 })
+        const result = await navigateProfile(page, `http://127.0.0.1:3134${path}`, { real, timeout: 60000 })
         assert.equal(result.status(), 200, path)
         assert.ok(await page.getByRole("heading", { name: row.name, exact: true }).isVisible())
         const panel = page.locator(real ? ".playerRealLifeHeader .playerClubContexts" : ".playerHeader .playerClubContexts")
