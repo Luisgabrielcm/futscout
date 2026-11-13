@@ -12,6 +12,11 @@ export async function navigateProfile(page, url, { real = false, pilot = true, t
   await header.locator('h1').waitFor({ state: 'visible', timeout: remaining() })
   await header.locator(pilot ? '.playerClubContexts' : real ? '.realClubContext' : '.playerHeaderClub')
     .waitFor({ state: 'visible', timeout: remaining() })
+  // innerText depends on CSS display rules. Visible SSR content can precede CSS,
+  // concatenating inline OVR/potential text and changing an otherwise identical hash.
+  // Wait for required styles only; unrelated fetches may remain active.
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('link[rel~="stylesheet"]'))
+    .every(link => link.sheet !== null), null, { timeout: remaining() })
   const body = await page.locator('main').innerText({ timeout: remaining() })
   assert.doesNotMatch(body, /Application error|Internal Server Error|Perfil incompleto/)
   return response
