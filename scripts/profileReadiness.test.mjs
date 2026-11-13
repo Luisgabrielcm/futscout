@@ -17,7 +17,7 @@ test('real browser: pending resource is not profile readiness; failures stay fai
   })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   const origin = `http://127.0.0.1:${server.address().port}`
-  const browser = await chromium.launch({ channel: 'msedge', headless: true })
+  const browser = await chromium.launch({ ...(process.platform === 'win32' ? { channel: 'msedge' } : {}), headless: true })
   try {
     const page = await browser.newPage()
     await assert.rejects(page.goto(origin, { waitUntil: 'networkidle', timeout: 1500 }), /Timeout/)
