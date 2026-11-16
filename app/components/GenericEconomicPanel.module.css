@@ -1,0 +1,38 @@
+.panel {
+  min-width: 0;
+  margin: 24px 0;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid #334438;
+  border-radius: 18px;
+  background: #0b100e;
+  color: #f5f5f5;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.header h2 { margin: 4px 0 0; font-size: clamp(21px, 2.4vw, 27px); line-height: 1.25; }
+.eyebrow { margin: 0; color: #a7d9b5; font-size: 13px; }
+.badge { padding: 5px 10px; border: 1px solid #796944; border-radius: 8px; color: #ead7aa; font-size: 12px; }
+.notice { color: #c2cbc4; font-size: 14px; margin: 16px 0 20px; max-width: 90ch; }
+.figures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0 0 20px; }
+.figures > div { min-width: 0; background: #131c16; border-radius: 12px; padding: 18px; }
+.figures dt, .hypotheses dt { color: #c2cbc4; font-size: 14px; }
+.figures dd { margin: 8px 0; font-size: clamp(25px, 3vw, 34px); font-weight: 700; color: #ead7aa; }
+.figures dd small { font-size: 13px; color: #c2cbc4; font-weight: 400; white-space: nowrap; }
+.figures p { color: #aebcb2; font-size: 13px; margin: 0; }
+.reference { border-left: 3px solid #9ba596; padding-left: 14px; font-size: 14px; }
+.reference p { color: #b9c5bc; margin: 6px 0; }
+.details { border-top: 1px solid #26382c; margin-top: 18px; padding-top: 14px; font-size: 14px; }
+.details summary { color: #a7d9b5; cursor: pointer; padding: 6px 0; min-height: 36px; }
+.details summary:focus-visible, .details a:focus-visible { outline: 2px solid #d6b56d; outline-offset: 4px; border-radius: 3px; }
+.details p { color: #c2cbc4; }
+.details a { color: #a7d9b5; text-decoration: underline; }
+.hypotheses { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.hypotheses dd { margin: 6px 0; font-size: 20px; }
+.hypotheses small { color: #c2cbc4; }
+.hash { font-family: ui-monospace, monospace; font-size: 12px; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .figures, .hypotheses { grid-template-columns: minmax(0, 1fr); }
+  .header { gap: 12px; }
+  .figures > div { padding: 16px; }
+}

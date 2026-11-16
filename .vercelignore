@@ -8,3 +8,4 @@ audit/reports
 audit/results
 app/generated/prisma
 *.tsbuildinfo
+private/generic-economics
