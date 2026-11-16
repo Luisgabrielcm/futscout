@@ -2,7 +2,7 @@ import "server-only"
 
 import { prisma } from "../lib/prisma"
 import type { PrismaClient } from "../app/generated/prisma/client"
-import { jointReadManifest } from "../lib/jointTransferContexts"
+import { jointReadConfiguration } from "../lib/jointTransferContexts"
 
 type ReadDb = Pick<PrismaClient, "$queryRaw">
 
@@ -26,7 +26,7 @@ function exposedTeam(row: TeamRow): NationalTeamCard {
 
 export async function getNationalTeams(db: ReadDb = prisma): Promise<NationalTeamCard[]> {
   if (!nationalTeamsPublicEnabled()) return []
-  if (jointReadManifest(process.env)) return (await import("./jointNationalTeams.server")).getJointNationalTeams(db, await (await import("./jointTransferRead.server")).readJointTransferSelections())
+  if (jointReadConfiguration(process.env)) return (await import("./jointNationalTeams.server")).getJointNationalTeams(db, await (await import("./jointTransferRead.server")).readJointTransferSelections())
   const rows = await db.$queryRaw<TeamRow[]>`
     SELECT t."eaTeamId", t.name, t."countryKey", t."countryName",
       r."rosterDate", r."sourceVersion", count(m."playerId")::bigint AS "playerCount"
@@ -43,7 +43,7 @@ export async function getNationalTeams(db: ReadDb = prisma): Promise<NationalTea
 
 export async function getNationalTeam(eaTeamId: string, db: ReadDb = prisma): Promise<NationalTeamCard | null> {
   if (!nationalTeamsPublicEnabled() || !/^\d{1,12}$/.test(eaTeamId)) return null
-  if (jointReadManifest(process.env)) return (await getNationalTeams(db)).find(t => t.eaTeamId === eaTeamId) ?? null
+  if (jointReadConfiguration(process.env)) return (await getNationalTeams(db)).find(t => t.eaTeamId === eaTeamId) ?? null
   const rows = await db.$queryRaw<TeamRow[]>`
     SELECT t."eaTeamId", t.name, t."countryKey", t."countryName",
       r."rosterDate", r."sourceVersion", count(m."playerId")::bigint AS "playerCount"
@@ -86,7 +86,7 @@ export async function getNationalTeamPlayers(eaTeamId: string,
   if (!nationalTeamsPublicEnabled() || !/^\d{1,12}$/.test(eaTeamId))
     return { players: [], page, pageSize, total: 0, totalPages: 0 }
   const search = input.search?.trim().slice(0, 100) ?? ""
-  if (jointReadManifest(process.env)) return (await import("./jointNationalTeams.server")).getJointNationalPlayers(db,
+  if (jointReadConfiguration(process.env)) return (await import("./jointNationalTeams.server")).getJointNationalPlayers(db,
     await (await import("./jointTransferRead.server")).readJointTransferSelections(), eaTeamId, { search, page, pageSize }, now)
   const counts = await db.$queryRaw<{ total: bigint }[]>`
     SELECT count(*)::bigint AS total FROM "NationalTeamRosterPlayer" m

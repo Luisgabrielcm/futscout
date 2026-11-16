@@ -1,20 +1,38 @@
 import "server-only"
 import { prisma } from "../lib/prisma"
 import { canonicalJson } from "../lib/clubContexts"
-import { jointHash, jointReadManifest, jointTransferViews, validateJointTransferPayload, type JointTransferPayload } from "../lib/jointTransferContexts"
+import { jointHash, jointReadConfiguration, jointReadManifest, jointTransferViews, validateJointTransferPayload, type JointReadManifest, type JointTransferPayload } from "../lib/jointTransferContexts"
 import type { PrismaClient } from "../app/generated/prisma/client"
 import { selectedGameMembership } from "../lib/realGameProjection"
 
 export type JointSelection = { payload: JointTransferPayload; views: ReturnType<typeof jointTransferViews> }
 export async function readJointTransferSelections(ids?: readonly (string | null)[], db: Pick<PrismaClient, "playerClubContextSelection" | "club"> = prisma,
   env: Readonly<Record<string, string | undefined>> = process.env, asOf = new Date().toISOString().slice(0, 10)): Promise<Map<string, JointSelection>> {
-  const manifest = jointReadManifest(env)
-  if (!manifest) return new Map()
-  const allowed = manifest.entries.filter(e => !ids || ids.includes(e.eaId))
-  if (!allowed.length) return new Map()
+  const config = jointReadConfiguration(env)
+  if (!config) return new Map()
+  const configuredIds = config.source === "DATABASE" ? config.eaIds : config.manifest.entries.map(e => e.eaId)
+  if (ids && !configuredIds.some(id => ids.includes(id))) return new Map()
+  // A root hash authenticates the whole ordered set, even for a single-profile request.
+  const queryIds = config.source === "DATABASE" ? configuredIds : configuredIds.filter(id => !ids || ids.includes(id))
   const rows = await db.playerClubContextSelection.findMany({ where: {
-    eaPlayerId: { in: allowed.map(e => e.eaId) }, player: { eaImportVisibility: "PUBLIC" },
+    eaPlayerId: { in: queryIds }, player: { eaImportVisibility: "PUBLIC" },
   }, include: { revision: { include: { rosterReference: true } } } })
+  let manifest: JointReadManifest
+  if (config.source === "DATABASE") {
+    if (rows.length !== config.eaIds.length || new Set(rows.map(r => r.eaPlayerId)).size !== rows.length ||
+      config.eaIds.some(id => !rows.some(r => r.eaPlayerId === id)) || rows.some(r => r.version !== config.selectionVersion))
+      throw new Error("JOINT_APPROVED_SELECTION_SET_OR_VERSION_CHANGED")
+    const reconstructed: JointReadManifest = { version: 1, decisionReference: rows[0].decisionReference,
+      entries: config.eaIds.map(eaId => {
+        const row = rows.find(r => r.eaPlayerId === eaId)!
+        return { eaId, payloadHash: row.revision.contentHash, snapshotHash: row.revision.rosterReference.contentHash,
+          contexts: ["REAL", "GAME"], gameView: "FUTSCOUT_PROJECTED" }
+      }) }
+    const verified = jointReadManifest({ ...env, JOINT_TRANSFER_READ_MANIFEST: JSON.stringify(reconstructed) })
+    if (!verified || jointHash(verified) !== config.manifestHash) throw new Error("JOINT_APPROVED_MANIFEST_CHANGED")
+    manifest = verified
+  } else manifest = config.manifest
+  const allowed = manifest.entries.filter(e => config.source === "DATABASE" || !ids || ids.includes(e.eaId))
   const result = new Map<string, JointSelection>()
   const clubIds = new Set<string>()
   for (const approved of allowed) {
@@ -48,7 +66,7 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
     }
     result.set(id, { payload, views: selected.views })
   }
-  return result
+  return ids ? new Map([...result].filter(([id]) => ids.includes(id))) : result
 }
 
 /** Only presentation fields are projected. The database Player and economic inputs are never patched. */

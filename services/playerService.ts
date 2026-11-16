@@ -1,6 +1,6 @@
 import "server-only"
 import { canReadClubContexts } from "../lib/clubContextReadGate"
-import { jointReadManifest } from "../lib/jointTransferContexts"
+import { jointReadConfiguration } from "../lib/jointTransferContexts"
 import { selectedGameMembership } from "../lib/realGameProjection"
 import type { JointSelection } from "./jointTransferRead.server"
 
@@ -35,7 +35,7 @@ import { researchWage } from "../lib/researchEconomic"
 
 async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapDatabasePlayer>[0][], withWage = true,
   context: "GAME" | "REAL" = "GAME", existingSelections?: Map<string, JointSelection>): Promise<Player[]> {
-  const joint = existingSelections ?? (jointReadManifest(globalThis.process?.env) ?
+  const joint = existingSelections ?? (jointReadConfiguration(globalThis.process?.env) ?
     await (await import("./jointTransferRead.server")).readJointTransferSelections(databasePlayers.map(p => p.externalId ?? null)) : new Map<string, JointSelection>())
   const [assets, manual, research] = await Promise.all([getBrandAssetsForEntities({
     clubIds: [...databasePlayers.flatMap(player => player.club?.id ? [player.club.id] : []), ...[...joint.values()].flatMap(s => [s.payload.jointTransfer.game.club?.id, s.payload.jointTransfer.real?.club?.id].filter((v): v is string => !!v))],
@@ -135,7 +135,7 @@ export async function getPlayers(
   scope?: { clubId?: string; nationalities?: string[] },
 ): Promise<PlayersPage> {
   const params = parsePlayerCatalogParams(input)
-  const joint = jointReadManifest(globalThis.process?.env) ? await (await import("./jointTransferRead.server")).readJointTransferSelections() : new Map<string, JointSelection>()
+  const joint = jointReadConfiguration(globalThis.process?.env) ? await (await import("./jointTransferRead.server")).readJointTransferSelections() : new Map<string, JointSelection>()
   const { page, pageSize } = params
 
   const skip =

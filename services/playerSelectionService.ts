@@ -9,7 +9,7 @@ import { economicMarketValueReadSelect, readEconomicMarketValue } from "../lib/e
 import { manualWage, readManualEconomics } from "./adminEconomic.server"
 import { readResearchEconomics } from "./researchEconomicRead.server"
 import { researchWage } from "../lib/researchEconomic"
-import { jointReadManifest } from "../lib/jointTransferContexts"
+import { jointReadConfiguration } from "../lib/jointTransferContexts"
 
 export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVORITES_LIMIT = FAVORITES_LIMIT): Promise<SelectedPlayer[]> {
   const slugs = normalizePlayerSlugs(input, limit)
@@ -31,7 +31,7 @@ export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVOR
     readResearchEconomics(rows.map(row => row.id)),
   ])
   const bySlug = new Map(rows.map((row) => [row.slug, row]))
-  const joint = jointReadManifest(globalThis.process?.env) ? await (await import("./jointTransferRead.server")).readJointTransferSelections(rows.map(r => r.externalId)) : new Map()
+  const joint = jointReadConfiguration(globalThis.process?.env) ? await (await import("./jointTransferRead.server")).readJointTransferSelections(rows.map(r => r.externalId)) : new Map()
   return slugs.flatMap((slug) => {
     const row = bySlug.get(slug)
     if (!row) return []

@@ -89,11 +89,12 @@ export type JointTransferViews = { game: LoanPresentation | null; real: LoanPres
 
 export type JointReadManifest = { version: 1; decisionReference: string; entries: { eaId: string; payloadHash: string; snapshotHash: string; contexts: ("REAL" | "GAME")[];
   gameView?: "EA_SNAPSHOT" | "FUTSCOUT_PROJECTED" }[] }
+function jointReadEnvironmentEnabled(env: Readonly<Record<string, string | undefined>>) {
+  return env.JOINT_TRANSFER_READ_ENABLED === "1" && (env.VERCEL_ENV === "preview" && env.CLUB_CONTEXTS_PREVIEW_READ_ONLY === "1" ||
+    env.VERCEL_ENV === "production" && env.JOINT_TRANSFER_READ_PRODUCTION_ENABLED === "1")
+}
 export function jointReadManifest(env: Readonly<Record<string, string | undefined>> = {}): JointReadManifest | null {
-  if (env.JOINT_TRANSFER_READ_ENABLED !== "1") return null
-  if (env.VERCEL_ENV !== "preview" && env.VERCEL_ENV !== "production") return null
-  if (env.VERCEL_ENV === "preview" && env.CLUB_CONTEXTS_PREVIEW_READ_ONLY !== "1") return null
-  if (env.VERCEL_ENV === "production" && env.JOINT_TRANSFER_READ_PRODUCTION_ENABLED !== "1") return null
+  if (!jointReadEnvironmentEnabled(env)) return null
   try {
     const value = JSON.parse(env.JOINT_TRANSFER_READ_MANIFEST ?? "null") as JointReadManifest
     if (!value || jointHash(value) !== env.JOINT_TRANSFER_READ_MANIFEST_SHA256 || value.version !== 1 || !value.decisionReference?.trim() ||
@@ -104,6 +105,28 @@ export function jointReadManifest(env: Readonly<Record<string, string | undefine
       (e.contexts.length !== 2 || !e.contexts.includes("REAL") || !e.contexts.includes("GAME") || env.JOINT_REAL_GAME_PROJECTION_READ_ENABLED !== "1" || env.JOINT_REAL_GAME_POLICY_SHA256 !== realGamePolicyHash))) return null
     return value
   } catch { return null }
+}
+
+export type JointReadConfiguration = { source: "INLINE"; manifest: JointReadManifest } | {
+  source: "DATABASE"; eaIds: string[]; selectionVersion: number; manifestHash: string
+}
+
+/** The database transport carries no payloads. Its externally pinned manifest must be verified by the reader. */
+export function jointReadConfiguration(env: Readonly<Record<string, string | undefined>> = {}): JointReadConfiguration | null {
+  if (!jointReadEnvironmentEnabled(env)) return null
+  if (env.JOINT_TRANSFER_READ_MANIFEST_SOURCE === undefined) {
+    if (env.JOINT_TRANSFER_READ_EA_IDS !== undefined || env.JOINT_TRANSFER_READ_SELECTION_VERSION !== undefined) return null
+    const manifest = jointReadManifest(env)
+    return manifest ? { source: "INLINE", manifest } : null
+  }
+  if (env.JOINT_TRANSFER_READ_MANIFEST_SOURCE !== "DATABASE" || env.JOINT_TRANSFER_READ_MANIFEST !== undefined ||
+    env.JOINT_REAL_GAME_PROJECTION_READ_ENABLED !== "1" || env.JOINT_REAL_GAME_POLICY_SHA256 !== realGamePolicyHash ||
+    !sha.test(env.JOINT_TRANSFER_READ_MANIFEST_SHA256 ?? "")) return null
+  const rawIds = env.JOINT_TRANSFER_READ_EA_IDS ?? "", rawVersion = env.JOINT_TRANSFER_READ_SELECTION_VERSION ?? ""
+  const eaIds = rawIds.split(","), selectionVersion = Number(rawVersion)
+  if (rawIds.length > 200 || !eaIds.length || eaIds.length > 10 || new Set(eaIds).size !== eaIds.length ||
+    eaIds.some(id => !/^[1-9]\d{0,11}$/.test(id)) || !/^[1-9]\d{0,9}$/.test(rawVersion) || !Number.isSafeInteger(selectionVersion)) return null
+  return { source: "DATABASE", eaIds, selectionVersion, manifestHash: env.JOINT_TRANSFER_READ_MANIFEST_SHA256! }
 }
 
 /** Merge only explicitly supplied contexts. A REAL change never rewrites GAME or principal contracts. */
