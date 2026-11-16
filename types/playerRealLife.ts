@@ -17,6 +17,7 @@ export type RealLifeClub = {
 
 export type PlayerRealLifeProfile = {
   clubContexts?: import("../lib/clubContexts").ClubContexts
+  transferContexts?: import("../lib/jointTransferContexts").JointTransferViews
   realMarketValue?: ReturnType<typeof import("../lib/economicData/read").readEconomicMarketValue>
   statistics?: RealStatisticView[]
   id: string

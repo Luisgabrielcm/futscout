@@ -20,6 +20,8 @@ import ClubBadge from "./ClubBadge"
 import type { AssetReference } from "../../lib/assetPipeline"
 
 type PlayerCardProps = {
+  transferContexts?: import("../../lib/jointTransferContexts").JointTransferViews
+  transferContext?: "GAME" | "REAL"
   locale?: Locale
   id?: string
   wage?: PublishedWage
@@ -59,6 +61,7 @@ type PlayerCardProps = {
 ======================================== */
 
 export default function PlayerCard({ locale = "pt",
+  transferContexts, transferContext = "GAME",
   id,
   wage,
   name,
@@ -99,8 +102,9 @@ export default function PlayerCard({ locale = "pt",
       : t(locale, "Idade não informada")
 
   const playerClub =
-    club ??
+    (transferContext === "REAL" ? transferContexts?.real?.clubLabel : transferContexts?.game?.clubLabel) ?? club ??
     t(locale, "Sem clube")
+  const loan = transferContext === "REAL" ? transferContexts?.real : transferContexts?.game
 
   const playerPotential =
     potential !== null
@@ -202,6 +206,11 @@ export default function PlayerCard({ locale = "pt",
         <div
           className="playerDetails"
         >
+          {loan?.displayContext === "FUTSCOUT_PROJECTED" && <p className="mutedText">{locale === "en" ? "Roster updated by FutScout · not an official EA update" : "Elenco atualizado pelo FutScout · não é atualização oficial da EA"}</p>}
+          {transferContext === "GAME" && transferContexts?.projectedRealLoanRoute && <p className="mutedText">{locale === "en" ? "Documented real loan:" : "Empréstimo real documentado:"} {transferContexts.projectedRealLoanRoute.parentClub.name} → {transferContexts.projectedRealLoanRoute.playingClub.name}</p>}
+          {loan?.loanBadge && <p className="playerLoanBadge" style={{ overflowWrap: "anywhere", maxWidth: "100%" }}>{locale === "en" ? "On loan from" : "Emprestado pelo"} {loan.parentClub!.name}
+            {loan.loanStatus === "ACTIVE_IN_SNAPSHOT" && <small style={{ display: "block" }}>{locale === "en" ? "Consulted snapshot · roster date unconfirmed" : "Snapshot consultado · data do elenco não comprovada"}</small>}</p>}
+          {!!loan?.nationalTeams.length && <p className="mutedText">{locale === "en" ? "National team in squad:" : "Seleção no squad:"} {loan.nationalTeams.map(t => t.name).join(", ")}</p>}
           <div>
             <span>
               {t(locale, "Potencial")}</span>

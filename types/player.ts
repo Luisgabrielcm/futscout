@@ -240,6 +240,8 @@ export type Player = {
 
   club: PlayerClub | null
   clubContexts?: import("../lib/clubContexts").ClubContexts
+  transferContexts?: import("../lib/jointTransferContexts").JointTransferViews
+  transferContext?: "GAME" | "REAL"
 
   league: string | null
   leagueSlug?: string | null

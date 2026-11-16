@@ -39,6 +39,11 @@ export type GetPlayersParams = Partial<Record<NumericFilter, number>> & {
   page?: number
   pageSize?: number
   sort?: PlayerSort
+  membershipContext?: "GAME" | "REAL"
+  currentClub?: string
+  parentClub?: string
+  clubState?: "CLUB" | "FREE_AGENT" | "UNKNOWN" | "NOT_IN_SQUAD"
+  nationalTeam?: string
 }
 
 type CatalogInput = Partial<Record<keyof GetPlayersParams, unknown>>
@@ -78,6 +83,10 @@ export function parsePlayerCatalogParams(input: CatalogInput = {}) {
     search: textValue(input.search),
     position: POSITIONS.find((item) => item === position),
     league: textValue(input.league),
+    membershipContext: textValue(input.membershipContext) === "REAL" ? "REAL" as const : textValue(input.membershipContext) === "GAME" ? "GAME" as const : undefined,
+    currentClub: textValue(input.currentClub), parentClub: textValue(input.parentClub),
+    clubState: (["CLUB", "FREE_AGENT", "UNKNOWN", "NOT_IN_SQUAD"] as const).find(s => s === textValue(input.clubState)),
+    nationalTeam: /^\d{1,12}$/.test(textValue(input.nationalTeam) ?? "") ? textValue(input.nationalTeam) : undefined,
     playStyle: styles.find(style => style.key === textValue(input.playStyle))?.key,
     playStyleLevel: styles.some(style => style.key === textValue(input.playStyle)) && textValue(input.playStyleLevel) === "plus" ? "plus" as const : undefined,
     page: integerValue(input.page, 1, 100_000) ?? 1,

@@ -4,6 +4,8 @@ export const COMPARISON_ATTRIBUTES = ["pace", "shooting", "passing", "dribbling"
 export type ComparisonAttribute = (typeof COMPARISON_ATTRIBUTES)[number]
 
 export type SelectedPlayer = {
+  transferContexts?: import("../lib/jointTransferContexts").JointTransferViews
+  transferContext?: "GAME" | "REAL"
   id: string; slug: string; name: string; position: string
   wage?: import("../lib/wagePublication").PublishedWage
   club: string | null; age: number | null; image?: string

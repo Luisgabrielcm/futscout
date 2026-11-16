@@ -36,6 +36,7 @@ type LeagueOption = {
 ======================================== */
 
 type PlayersSearchProps = {
+  jointFilters?: Pick<import("../../lib/playerCatalogParams").GetPlayersParams, "membershipContext" | "currentClub" | "parentClub" | "clubState" | "nationalTeam">
   catalogContext?: string
   locale?: Locale
   players: Player[]
@@ -92,6 +93,7 @@ type FilterOverrides = {
 ======================================== */
 
 export default function PlayersSearch({ locale = "pt",
+  jointFilters = {},
   catalogContext,
   players,
   leagues,
@@ -266,6 +268,7 @@ export default function PlayersSearch({ locale = "pt",
   ) {
     const values = {
       playStyle: initialPlayStyle,
+      ...jointFilters,
       playStyleLevel: initialPlayStyleLevel,
       search:
         overrides.search ??
@@ -1283,6 +1286,7 @@ export default function PlayersSearch({ locale = "pt",
           players.map(
             (player) => (
               <PlayerCard locale={locale}
+                transferContexts={player.transferContexts} transferContext={player.transferContext}
                 id={player.id}
                 wage={player.wage}
                 key={

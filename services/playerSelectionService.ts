@@ -9,6 +9,7 @@ import { economicMarketValueReadSelect, readEconomicMarketValue } from "../lib/e
 import { manualWage, readManualEconomics } from "./adminEconomic.server"
 import { readResearchEconomics } from "./researchEconomicRead.server"
 import { researchWage } from "../lib/researchEconomic"
+import { jointReadManifest } from "../lib/jointTransferContexts"
 
 export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVORITES_LIMIT = FAVORITES_LIMIT): Promise<SelectedPlayer[]> {
   const slugs = normalizePlayerSlugs(input, limit)
@@ -30,6 +31,7 @@ export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVOR
     readResearchEconomics(rows.map(row => row.id)),
   ])
   const bySlug = new Map(rows.map((row) => [row.slug, row]))
+  const joint = jointReadManifest(globalThis.process?.env) ? await (await import("./jointTransferRead.server")).readJointTransferSelections(rows.map(r => r.externalId)) : new Map()
   return slugs.flatMap((slug) => {
     const row = bySlug.get(slug)
     if (!row) return []
@@ -38,8 +40,10 @@ export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVOR
       ...((manualWage(row.id, manual.get(row.id)) ?? researchWage(row.id, research.get(row.id)))
         ? { wage: manualWage(row.id, manual.get(row.id)) ?? researchWage(row.id, research.get(row.id)) } : {}),
       club: row.club?.name ?? null, age: calculateAge(row.dateOfBirth),
+      ...(joint.get(row.externalId ?? "")?.views.game ? { transferContexts: joint.get(row.externalId ?? "")!.views, transferContext: "GAME" as const,
+        club: joint.get(row.externalId ?? "")!.views.game!.clubLabel, clubAsset: null } : {}),
       nationality: row.nationality,
-      clubAsset: row.club?.id ? assets.clubs.get(row.club.id) ?? null : null,
+      clubAsset: joint.get(row.externalId ?? "")?.views.game ? null : row.club?.id ? assets.clubs.get(row.club.id) ?? null : null,
       secondaryPosition: row.secondaryPosition, secondaryPositions: row.secondaryPositions,
       image: row.imageUrl ?? undefined, baseOverall: row.officialOverall,
       dynamicOverall: row.dynamicOverall, ...readFutscoutPotential(row),

@@ -18,6 +18,7 @@ import PlayerImage from "./PlayerImage"
 import CountryFlag from "./CountryFlag"
 import PlayerClubContexts from "./PlayerClubContexts"
 import { getPlayerProfilePositions } from "../../lib/playerProfilePositions"
+import PlayerLoanContext, { LoanContextStyles } from "./PlayerLoanContext"
 import Link from "next/link"
 import { entityHref, nationalityHref, relatedPlayersHref } from "../../lib/connectedNavigation"
 import { clubText } from "../../lib/i18n/clubExperience"
@@ -127,7 +128,12 @@ export default function PlayerHeader({ locale = "pt",
             {player.name}
           </h1>
 
-          {player.clubContexts ? <PlayerClubContexts contexts={player.clubContexts} locale={locale} /> : <div
+          {player.transferContexts?.game ? <><LoanContextStyles /><PlayerLoanContext value={player.transferContexts.game} playerName={player.name} locale={locale} showPlayerName={false} />
+            {player.transferContexts.projectedRealLoanRoute && <p>{locale === "en" ? "Documented real loan; no official EA loan is inferred:" : "Empréstimo real documentado; não representa empréstimo oficial no snapshot EA:"} {player.transferContexts.projectedRealLoanRoute.parentClub.name} → {player.transferContexts.projectedRealLoanRoute.playingClub.name}</p>}
+            {player.transferContexts.snapshotGame && <details className="originalEaSnapshot"><summary>{locale === "en" ? "Original EA snapshot — historical reference" : "Snapshot EA original — referência histórica"}</summary>
+              <PlayerLoanContext value={player.transferContexts.snapshotGame} playerName={player.name} locale={locale} showPlayerName={false} />
+            </details>}
+          </> : player.clubContexts ? <PlayerClubContexts contexts={player.clubContexts} locale={locale} /> : <div
             className="playerHeaderClub"
           >
             <span className="catalogContextLabel">EA FC</span>
