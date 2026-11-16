@@ -39,7 +39,7 @@ export default async function NationalTeamPage({ params, searchParams }: Props) 
       <div><h1>{team.name}</h1>
         {countryPage && <Link href={localizedHref(locale, `/selecoes/${countryPage.slug}`)}>{team.countryName}</Link>}
         {!countryPage && team.countryName && <span>{team.countryName}</span>}
-        <p>{locale === "pt" ? "Elenco da base EA em" : "EA database squad dated"} {team.rosterDate.toLocaleDateString(locale === "pt" ? "pt-BR" : "en-GB", { timeZone: "UTC" })}.
+        <p>{locale === "pt" ? "Elenco da base EA em" : "EA database squad dated"} {team.rosterDate ? team.rosterDate.toLocaleDateString(locale === "pt" ? "pt-BR" : "en-GB", { timeZone: "UTC" }) : locale === "pt" ? "versões selecionadas; data única não comprovada" : "selected versions; no single proven date"}.
           {" "}{locale === "pt" ? "Não é confirmação de convocação atual." : "Not a confirmation of a current call-up."}</p>
         <span className="countryTotal"><strong>{team.playerCount}</strong> {locale === "pt" ? "jogadores vinculados" : "linked players"}</span>
       </div>
@@ -55,6 +55,8 @@ export default async function NationalTeamPage({ params, searchParams }: Props) 
         <h2>{player.name}</h2>
         <p>{player.position} · OVR {player.officialOverall} · {player.age ?? "—"} {locale === "pt" ? "anos" : "years"}</p>
         <span>{player.clubName ?? (locale === "pt" ? "Clube não informado" : "Club unavailable")}</span>
+        {player.loanParentName && <small>{locale === "pt" ? "Emprestado pelo" : "On loan from"} {player.loanParentName}</small>}
+        {player.snapshotLabel && <small>{locale === "pt" ? "Snapshot consultado" : "Consulted snapshot"}</small>}
       </Link>)}</div>
     {roster.totalPages > 1 && <nav className="directoryPagination" aria-label={locale === "pt" ? "Páginas" : "Pages"}>
       {roster.page > 1 && <Link href={pageHref(roster.page - 1)}>{locale === "pt" ? "Anterior" : "Previous"}</Link>}

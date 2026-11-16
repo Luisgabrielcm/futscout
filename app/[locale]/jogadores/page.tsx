@@ -8,6 +8,7 @@ import { parsePlayerCatalogParams, playerCatalogQuery } from "../../../lib/playe
 import type { CatalogSearchParams } from "../../../lib/playerCatalogParams"
 import PlayersSearch from "../../components/PlayersSearch"
 import CatalogPagination from "../../components/CatalogPagination"
+import JointTransferFilters from "../../components/JointTransferFilters"
 
 type PlayersPageProps = { params?: Promise<{ locale: string }>; searchParams: Promise<CatalogSearchParams> }
 
@@ -52,7 +53,9 @@ async function PlayersResults({ searchParams, locale = "pt" }: PlayersPageProps 
         <strong>{result.total.toLocaleString(localeTags[locale])}</strong>{" "}
         {result.total === 1 ? t(locale, "jogador encontrado") : t(locale, "jogadores encontrados")}
       </div>
+      {result.jointFilterClubs && <JointTransferFilters locale={locale} params={params} clubs={result.jointFilterClubs} nations={result.jointFilterNations ?? []} />}
       <PlayersSearch locale={locale}
+        jointFilters={{ membershipContext: params.membershipContext, currentClub: params.currentClub, parentClub: params.parentClub, clubState: params.clubState, nationalTeam: params.nationalTeam }}
         catalogContext={query}
         key={query}
         players={result.players}

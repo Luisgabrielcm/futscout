@@ -22,18 +22,19 @@ export function potentialWhere(min?: number, max?: number): Prisma.PlayerWhereIn
 
 // SQL pagination handles derived potential and the to-many economic current relation.
 // All candidates/filtering/pagination stay in PostgreSQL; only page IDs leave it.
-export function potentialPageSql(params: GetPlayersParams, scope?: { clubId?: string; nationalities?: string[] }, birthDate?: Date) {
+export function potentialPageSql(params: GetPlayersParams, scope?: { clubId?: string; nationalities?: string[] }, birthDate?: Date, jointFilter?: Prisma.Sql) {
   const conditions = [Prisma.sql`a.id IS NOT NULL`, Prisma.sql`p."eaImportVisibility"='PUBLIC'`]
-  if (scope?.clubId) conditions.push(Prisma.sql`p."clubId"=${scope.clubId}`)
+  if (scope?.clubId && !jointFilter) conditions.push(Prisma.sql`p."clubId"=${scope.clubId}`)
   if (scope?.nationalities) conditions.push(scope.nationalities.length
     ? Prisma.sql`p.nationality IN (${Prisma.join(scope.nationalities)})` : Prisma.sql`FALSE`)
-  if (params.search) {
+  if (params.search && !jointFilter) {
     // Match the existing Prisma contains/ILIKE semantics, including %/_ patterns.
     const pattern = `%${params.search}%`
     conditions.push(Prisma.sql`(p.name ILIKE ${pattern} OR p.nationality ILIKE ${pattern} OR c.name ILIKE ${pattern})`)
   }
   if (params.position) conditions.push(Prisma.sql`(p.position=${params.position} OR p."secondaryPosition"=${params.position} OR ${params.position}=ANY(p."secondaryPositions"))`)
-  if (params.league) conditions.push(Prisma.sql`l.slug=${params.league}`)
+  if (params.league && !jointFilter) conditions.push(Prisma.sql`l.slug=${params.league}`)
+  if (jointFilter) conditions.push(jointFilter)
   if (birthDate) conditions.push(Prisma.sql`p."dateOfBirth">=${birthDate}`)
   if (params.minOverall !== undefined) conditions.push(Prisma.sql`p."officialOverall">=${params.minOverall}`)
   if (params.minValue !== undefined) conditions.push(Prisma.sql`${marketValueSql}>=${params.minValue}`)

@@ -7,6 +7,7 @@ import CountryFlag from "./CountryFlag"
 import LeagueLogo from "./LeagueLogo"
 import PlayerImage from "./PlayerImage"
 import PlayerClubContexts from "./PlayerClubContexts"
+import PlayerLoanContext, { LoanContextStyles } from "./PlayerLoanContext"
 
 export default function PlayerRealLifeHeader({ locale, player }: {
   locale: Locale
@@ -22,7 +23,7 @@ export default function PlayerRealLifeHeader({ locale, player }: {
         <CountryFlag locale={locale} country={player.nationality} />
       </div>
     </div>
-    {player.clubContexts ? <PlayerClubContexts contexts={player.clubContexts} locale={locale} /> : <section className="realClubContext" aria-labelledby="real-club-title">
+    {player.transferContexts?.real ? <><LoanContextStyles /><PlayerLoanContext value={player.transferContexts.real} playerName={player.name} locale={locale} showPlayerName={false} /></> : player.clubContexts ? <PlayerClubContexts contexts={player.clubContexts} locale={locale} /> : <section className="realClubContext" aria-labelledby="real-club-title">
       <span className="sectionEyebrow">{playerExperienceText(locale, "approvedClub")}</span>
       {club ? <>
         <Link href={localizedHref(locale, `/clubes/${encodeURIComponent(club.slug)}`)} className="realClubIdentity">

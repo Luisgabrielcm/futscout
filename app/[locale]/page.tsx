@@ -100,6 +100,7 @@ export default async function Home({ params }: { params?: Promise<{ locale: stri
             {players.map(
               (player) => (
                 <PlayerCard locale={locale}
+                  transferContexts={player.transferContexts} transferContext={player.transferContext}
                   id={player.id}
                   wage={player.wage}
                   key={player.id}

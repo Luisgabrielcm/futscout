@@ -1,5 +1,6 @@
 import "server-only"
 import { canReadClubContexts } from "../lib/clubContextReadGate"
+import { jointReadManifest } from "../lib/jointTransferContexts"
 
 import { prisma } from "../lib/prisma"
 import type { PlayerRealLifeProfile } from "../types/playerRealLife"
@@ -57,6 +58,7 @@ export async function getPlayerRealLifeBySlug(slug: string): Promise<PlayerRealL
 
   if (!player || player.eaImportVisibility !== "PUBLIC") return null
   const realClub = player.approvedCurrentClub?.approvedClub ?? null
+  const joint = jointReadManifest(globalThis.process?.env) ? (await (await import("./jointTransferRead.server")).readJointTransferSelections([player.externalId])).get(player.externalId ?? "") : undefined
   const clubContexts = canReadClubContexts(player.externalId, globalThis.process?.env) ?
     await (await import("./playerClubContexts")).readPlayerClubContexts(player.externalId) : undefined
   const assets = await getBrandAssetsForEntities({
@@ -65,6 +67,7 @@ export async function getPlayerRealLifeBySlug(slug: string): Promise<PlayerRealL
   })
 
   return {
+    ...(joint ? { transferContexts: joint.views } : {}),
     ...(clubContexts ? { clubContexts } : {}),
     id: player.id,
     slug: player.slug,

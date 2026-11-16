@@ -3,6 +3,8 @@ import { resolve } from "node:path"
 import { runInNewContext } from "node:vm"
 import ts from "typescript"
 import * as clubContextReadGate from "../../lib/clubContextReadGate"
+import * as jointTransferContexts from "../../lib/jointTransferContexts"
+import * as realGameProjection from "../../lib/realGameProjection"
 import * as clubContextPreviewPolicy from "../../lib/clubContextPreviewPolicy"
 import * as jsxRuntime from "react/jsx-runtime"
 import * as i18n from "../../lib/i18n"
@@ -61,6 +63,8 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
   const allowed: Record<string, unknown> = { "react/jsx-runtime": jsxRuntime, ...dependencies }
   const requireFake = (name: string): unknown => {
     if (name.endsWith("/clubContextReadGate")) return clubContextReadGate
+    if (name.endsWith("/jointTransferContexts") && !Object.hasOwn(allowed, name)) return jointTransferContexts
+    if (name.endsWith("/realGameProjection") && !Object.hasOwn(allowed, name)) return realGameProjection
     if (name.endsWith("/clubContextPreviewPolicy")) return clubContextPreviewPolicy
     // Shared presentation functions run for real. This explicit allowlist has
     // no DB/env loading/network modules; operational dependencies remain fakes.
@@ -113,6 +117,10 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
     const component = name.split("/").at(-1)
     if (component === "PlayerClubContexts" && !Object.hasOwn(allowed, name))
       return loadCatalogModule("app/components/PlayerClubContexts.tsx", {})
+    if (component === "PlayerLoanContext" && !Object.hasOwn(allowed, name))
+      return loadCatalogModule("app/components/PlayerLoanContext.tsx", {})
+    if (component === "JointTransferFilters" && !Object.hasOwn(allowed, name))
+      return loadCatalogModule("app/components/JointTransferFilters.tsx", {})
     if (!Object.hasOwn(allowed, name) && component && ["EstimatedValueNote", "PlayerRealMarketValue", "PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "PlayerCurrentStatistics", "PlayerSeasonStatistics", "PlayerExperienceNav", "LeagueLogo", "ClubLogo", "ClubBadge", "BrandAssetFallback"].includes(component)) {
       return loadCatalogModule(`app/components/${component}.tsx`, { react: React })
     }
@@ -128,6 +136,8 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
     return allowed[name]
   }
   runInNewContext(outputText, {
+    structuredClone,
+    URLSearchParams,
     ...globals,
     module: compiledModule, exports: compiledModule.exports, require: requireFake,
   }, { timeout: 5000 })
