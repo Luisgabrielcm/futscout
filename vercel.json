@@ -2,6 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": {
+      "codex/generic-economic-repository-reconcile": false,
+      "codex/generic-economics-publication": false,
       "codex/club-contexts-readers-preview": false,
       "beta-next": false
     }

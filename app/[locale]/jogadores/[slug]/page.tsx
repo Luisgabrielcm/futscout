@@ -36,6 +36,8 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
   const catalogContext = playerCatalogContext((await searchParams)?.catalog)
   const returnHref = playerCatalogReturnHref(locale, catalogContext)
   const returnLabel = t(locale, catalogContext ? "Voltar aos resultados" : "Jogadores")
+  const GenericEconomicSection = globalThis.process?.env.GENERIC_ECONOMICS_READ_ENABLED === "1"
+    ? (await import("../../../components/GenericEconomicSection")).default : undefined
 
   if (profile.status === "incomplete") {
     const manual = (await readManualEconomics([profile.id])).get(profile.id)
@@ -62,6 +64,7 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
           <div><dt>{visualText(locale, "contractUntil")}</dt><dd>{publicContractUntil(economic, locale)}</dd></div>
           <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{publicClause(economic, locale)}</dd></div>
         </dl>
+        {GenericEconomicSection && <GenericEconomicSection playerId={profile.id} locale={locale} />}
       </div>
     </main>
   }
@@ -81,6 +84,7 @@ export default async function PlayerPage({ params, searchParams }: PlayerPagePro
       fixedSalary={!manual?.salary && !researchWage(player.id, research) ? researchFixedSalary(research, locale) : undefined} economicOverlay={economic} />
     <PlayerActions locale={locale} slug={player.slug} name={player.name} />
     <PlayerExperienceNav locale={locale} slug={slug} active="ea" catalogContext={catalogContext} />
+    {GenericEconomicSection && <GenericEconomicSection playerId={player.id} locale={locale} />}
 
     <section id="ea-sports-fc" className="profileSection" data-domain="ea" aria-labelledby="ea-title">
       <span className="sectionEyebrow">{playerExperienceText(locale, "eaContext")}</span>
