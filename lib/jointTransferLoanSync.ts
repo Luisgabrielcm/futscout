@@ -21,7 +21,7 @@ export type LoanObservation = Readonly<{
   identityConfirmed: boolean; chronologyConfirmed: boolean; movementTypeConfirmed: boolean
   evidence: LoanEvidence
 }>
-export type MovementKind = "PERMANENT_TRANSFER" | "LOAN_START" | "LOAN_RETURN_CONFIRMED" | "LOAN_RECALL_CONFIRMED" | "LOAN_TO_PERMANENT"
+export type MovementKind = "PERMANENT_TRANSFER" | "LOAN_START" | "LOAN_RETURN_CONFIRMED" | "LOAN_RECALL_CONFIRMED" | "LOAN_TO_PERMANENT" | "CURRENT_CLUB_CONFIRMED"
 const hash = (v: unknown) => createHash("sha256").update(canonicalJson(v)).digest("hex")
 const date = (value: string | null) => value === null || /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value
@@ -106,7 +106,7 @@ export function inspectLoanBatch(rows: readonly LoanObservation[], asOf: string)
 
 export function classifyMovement(kind: MovementKind, evidenceConfirmed: boolean) {
   if (!evidenceConfirmed) throw new Error("MOVEMENT_EVIDENCE_REQUIRED")
-  if (!["PERMANENT_TRANSFER", "LOAN_START", "LOAN_RETURN_CONFIRMED", "LOAN_RECALL_CONFIRMED", "LOAN_TO_PERMANENT"].includes(kind)) throw new Error("MOVEMENT_KIND_INVALID")
+  if (!["PERMANENT_TRANSFER", "LOAN_START", "LOAN_RETURN_CONFIRMED", "LOAN_RECALL_CONFIRMED", "LOAN_TO_PERMANENT", "CURRENT_CLUB_CONFIRMED"].includes(kind)) throw new Error("MOVEMENT_KIND_INVALID")
   return { kind, changesMainContractOwner: kind === "PERMANENT_TRANSFER" || kind === "LOAN_TO_PERMANENT",
     autoReturnOnEndDate: false, autoPurchaseOnOptionOrObligation: false }
 }
