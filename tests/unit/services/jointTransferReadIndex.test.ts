@@ -2,7 +2,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { performance } from "node:perf_hooks"
 import { canonicalJson } from "../../../lib/clubContexts"
-import { jointHash, jointReadConfiguration, verifyJointReadIndex, extendJointReadIndex, type JointReadIndex } from "../../../lib/jointTransferContexts"
+import { jointHash, jointReadConfiguration, verifyJointReadIndex, extendJointReadIndex, jointReadIndexLimit, type JointReadIndex } from "../../../lib/jointTransferContexts"
 import { assessRealGameProjection, realGamePolicyHash } from "../../../lib/realGameProjection"
 import { projectionFixture } from "../../fixtures/realGameProjection"
 import { city, benfica } from "../../fixtures/jointTransfer"
@@ -66,7 +66,7 @@ test("bounded index configuration remains default-off and rejects ambiguous tran
     { JOINT_REAL_GAME_POLICY_SHA256: "f".repeat(64) }, { JOINT_TRANSFER_READ_MANIFEST: "{}" }, { JOINT_TRANSFER_READ_SELECTION_VERSION: "1" },
     { JOINT_TRANSFER_READ_EA_IDS: "800001,800001" }, { JOINT_TRANSFER_READ_EA_IDS: "800001, 800002" },
     { JOINT_TRANSFER_READ_EA_IDS: "0" }, { JOINT_TRANSFER_READ_EA_IDS: "1".repeat(6656) },
-    { JOINT_TRANSFER_READ_EA_IDS: Array.from({ length: 513 }, (_, i) => String(800001 + i)).join(",") },
+    { JOINT_TRANSFER_READ_EA_IDS: Array.from({ length: jointReadIndexLimit + 1 }, (_, i) => String(800001 + i)).join(",") },
   ]) assert.equal(jointReadConfiguration({ ...f.env, ...patch }), null)
   assert(jointReadConfiguration({ ...f.env, VERCEL_ENV: "production", JOINT_TRANSFER_READ_PRODUCTION_ENABLED: "1" }))
   verifyJointReadIndex({ ...f.index, entries: f.index.entries.map((e, i) => ({ ...e, selectionVersion: i + 1 })) },
@@ -179,4 +179,24 @@ test("a different database client cannot reuse another client's cached approvals
   const other = { playerClubContextSelection: { findMany: async () => { otherQueries.push("headers"); return [] } }, club: f.db.club }
   await assert.rejects(f.reader.readJointTransferSelections(["800001"], other as unknown as typeof f.db, f.env, date), /INDEX_SELECTIONS_CHANGED/)
   assert.deepEqual(otherQueries, ["headers"])
+})
+
+test("the next bounded cohort preserves all 361 published pins and remains bulk at the 1000-entry boundary", async () => {
+  const f = fixture(jointReadIndexLimit)
+  const prior = { ...f.index, entries: f.index.entries.slice(0, 361) }
+  const combined = extendJointReadIndex(prior, jointHash(prior), f.index.entries.slice(361))
+  assert.deepEqual(combined.entries.slice(0, 361), prior.entries)
+  assert(jointReadConfiguration(f.env))
+  verifyJointReadIndex(combined, combined.entries.map(e => e.eaId), jointHash(combined))
+  const all = await f.reader.readJointTransferSelections(undefined, f.db, f.env, date)
+  assert.equal(all.size, 1000)
+  assert.deepEqual(f.queries.map(q => q.kind), ["headers", "payloads", "clubs"])
+  f.queries.length = 0
+  const warm = await f.reader.readJointTransferSelections(undefined, f.db, f.env, date)
+  assert.equal(warm.size, 1000)
+  assert.deepEqual(f.queries.map(q => q.kind), ["headers", "clubs"])
+  f.rows[0].version++
+  await assert.rejects(f.reader.readJointTransferSelections(["800999"], f.db, f.env, date), /INDEX_CHANGED/)
+  assert.equal(jointReadConfiguration({ ...f.env, JOINT_TRANSFER_READ_EA_IDS:
+    Array.from({ length: 1001 }, (_, i) => String(800001 + i)).join(",") }), null)
 })
