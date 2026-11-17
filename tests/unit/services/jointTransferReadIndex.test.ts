@@ -181,22 +181,37 @@ test("a different database client cannot reuse another client's cached approvals
   assert.deepEqual(otherQueries, ["headers"])
 })
 
-test("the next bounded cohort preserves all 361 published pins and remains bulk at the 1000-entry boundary", async () => {
+test("the next bounded cohort preserves all 939 published pins and remains bulk at the index boundary", async () => {
   const f = fixture(jointReadIndexLimit)
-  const prior = { ...f.index, entries: f.index.entries.slice(0, 361) }
-  const combined = extendJointReadIndex(prior, jointHash(prior), f.index.entries.slice(361))
-  assert.deepEqual(combined.entries.slice(0, 361), prior.entries)
+  const prior = { ...f.index, entries: f.index.entries.slice(0, 939) }
+  const combined = extendJointReadIndex(prior, jointHash(prior), f.index.entries.slice(939))
+  assert.deepEqual(combined.entries.slice(0, 939), prior.entries)
   assert(jointReadConfiguration(f.env))
   verifyJointReadIndex(combined, combined.entries.map(e => e.eaId), jointHash(combined))
   const all = await f.reader.readJointTransferSelections(undefined, f.db, f.env, date)
-  assert.equal(all.size, 1000)
+  assert.equal(all.size, jointReadIndexLimit)
   assert.deepEqual(f.queries.map(q => q.kind), ["headers", "payloads", "clubs"])
   f.queries.length = 0
   const warm = await f.reader.readJointTransferSelections(undefined, f.db, f.env, date)
-  assert.equal(warm.size, 1000)
+  assert.equal(warm.size, jointReadIndexLimit)
   assert.deepEqual(f.queries.map(q => q.kind), ["headers", "clubs"])
   f.rows[0].version++
   await assert.rejects(f.reader.readJointTransferSelections(["800999"], f.db, f.env, date), /INDEX_CHANGED/)
   assert.equal(jointReadConfiguration({ ...f.env, JOINT_TRANSFER_READ_EA_IDS:
-    Array.from({ length: 1001 }, (_, i) => String(800001 + i)).join(",") }), null)
+    Array.from({ length: jointReadIndexLimit + 1 }, (_, i) => String(800001 + i)).join(",") }), null)
+})
+
+test("939 protected plus 620 researched pairs stay default-off and read in three bulk queries", async () => {
+  const f = fixture(1559), prior = { ...f.index, entries: f.index.entries.slice(0, 939) }
+  const original = jointHash(f.rows)
+  const combined = extendJointReadIndex(prior, jointHash(prior), f.index.entries.slice(939))
+  assert.deepEqual(combined.entries.slice(0, 939), prior.entries)
+  const disabled = await f.reader.readJointTransferSelections(undefined, f.db, {}, date)
+  assert.equal(disabled.size, 0); assert.equal(f.queries.length, 0)
+  const all = await f.reader.readJointTransferSelections(undefined, f.db, f.env, date)
+  assert.equal(all.size, 1559)
+  assert.deepEqual(f.queries.map(q => q.kind), ["headers", "payloads", "clubs"])
+  assert.equal(f.queries[0].ids.length, 1559)
+  assert.equal(jointHash(f.rows), original)
+  verifyJointReadIndex(prior, prior.entries.map(e => e.eaId), jointHash(prior))
 })
