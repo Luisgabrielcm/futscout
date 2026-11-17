@@ -40,14 +40,68 @@ complete pairs in one serializable transaction. A bounded operator timeout must 
 chosen for the approved transaction size. On a real concurrent edit, requeue only
 that player and refreeze the remaining batch before writing it.
 
-Publication and reader activation are separate gates. The currently integrated
-database-manifest transport accepts ten IDs total, not ten per cohort; its immutable
-selection root must include the complete authorized reader set. Thus the cohort
-lists in these plans are validation groups, not an instruction to replace the ten
-published readers. Public activation of a larger union needs a reviewed manifest
-transport extension or an independently measured inline manifest. No such extension,
-deployment or Production activation is performed by this preparer. Readers remain
-off by default and `git.deploymentEnabled.beta-next` stays false.
+Publication and reader activation are separate gates. The existing `DATABASE`
+transport retains its ten-ID limit and original manifest hash format. The opt-in
+`DATABASE_INDEX` transport supports up to 512 IDs, including the union of the ten
+published loans and the 351 additions. Its version-2 root pins each ordered EA ID,
+selection version, revision ID, decision, payload hash and original snapshot ID/hash,
+as well as the approved eligibility policy. Different batch decisions can coexist.
+`extendJointReadIndex` preserves every protected prior entry and rejects replacement.
+The cohort lists are validation groups, not permission to remove published readers.
+Readers remain off by default and `git.deploymentEnabled.beta-next` stays false.
+
+For `DATABASE_INDEX`, supply only the ordered `JOINT_TRANSFER_READ_EA_IDS`, the
+privately approved index root in `JOINT_TRANSFER_READ_MANIFEST_SHA256`, existing
+reader/policy gates, and `JOINT_TRANSFER_READ_MANIFEST_SOURCE=DATABASE_INDEX`.
+Omit both the inline manifest and the legacy common selection-version variable;
+versions are pinned per entry in the index. Never change shared variables to prepare
+this configuration. Existing inline and ten-ID database deployments are unaffected.
+
+The new reader authenticates the complete index in one metadata-only bulk call.
+It then fetches only requested payloads in one bulk call, and clubs in another.
+Every consumed payload, snapshot metadata and club identity is verified against the
+index, including selection changes between calls. Immutable revision/reference
+constraints remain required. Unrequested payload JSON is not downloaded or rendered;
+its selection and declared hashes remain pinned. Full catalog/filter/national-team
+reads use the same bounded bulk operations. There is no per-player query, persistent
+cache, provider call, transaction/session override or schema change. Local tests
+measure bounded query counts/bytes and CPU; actual pooled latency remains a protected
+Preview gate before public activation.
+
+## Four frozen batches and isolated validation
+
+The private 100/100/100/51 batches retain their original payloads and hashes. They
+contain 24 documented current loans and 327 current-club confirmations, not 327
+newly proved permanent transfers. Keep the pending queue, identity conflict and
+four earlier independent club-context readers outside these additions. Private
+revisions, protected indices, receipts, scoped dependency lists and per-batch
+rollback plans stay in ignored storage.
+
+Reconcile only the required isolated staging players/clubs/leagues against the
+frozen package. Preserve existing staging records and the published-ten comparison
+controls; do not assume the earlier ten-player seed contains all 351 dependencies.
+Loading additional staging records and creating a protected deployment require
+their operational authorization. Use the existing staging project and pooled
+READ ONLY runtime, with preparation credentials kept out of runtime. Do not copy
+unrelated records or private source packages into the deployment build.
+
+After authorized isolated preparation, verify the entire 361-entry index and each
+batch, then test a current loan and a roster-only confirmation, followed by
+100/200/300/351 additions while retaining the ten controls. Require paired REAL/GAME,
+origin/destination and documented dates, unchanged native snapshot/nationals,
+financial presentation, profiles/cards/search/current-parent filters/market and
+HTTP 200 essential elements. Measure pooled query count and latency before public
+approval. Require authentication before functional tests; keep public flags off.
+
+Future Production publication revalidates only fresh target baselines, backup,
+rights/chronology and hashes. Bind actual versions and full previous joint history,
+use the existing atomic writer for each approved frozen batch, and save actual
+receipts before proceeding. Operator transaction timeouts and consumption must be
+bounded for the approved batch size; do not silently inherit a five-second timeout
+for hundreds of remote operations. Build/promote no candidate without separate
+authorization. Rollback uses actual receipts and CAS, preserving evidence and
+economics. Remove only an identified temporary Preview and revoke its exclusive
+credential after confirming that nothing authorized still depends on it.
 
 For recurring preparation, group jobs by exact official URL, club and source version.
 Reuse local source hashes/cache/checkpoints; use conditional HTTP requests when a

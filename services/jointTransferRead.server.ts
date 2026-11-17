@@ -1,24 +1,54 @@
 import "server-only"
 import { prisma } from "../lib/prisma"
 import { canonicalJson } from "../lib/clubContexts"
-import { jointHash, jointReadConfiguration, jointReadManifest, jointTransferViews, validateJointTransferPayload, type JointReadManifest, type JointTransferPayload } from "../lib/jointTransferContexts"
+import { jointHash, jointReadConfiguration, jointReadManifest, jointTransferViews, validateJointTransferPayload, verifyJointReadIndex,
+  type JointReadIndexEntry, type JointReadManifest, type JointTransferPayload } from "../lib/jointTransferContexts"
 import type { PrismaClient } from "../app/generated/prisma/client"
-import { selectedGameMembership } from "../lib/realGameProjection"
+import { realGamePolicyHash, selectedGameMembership } from "../lib/realGameProjection"
 
 export type JointSelection = { payload: JointTransferPayload; views: ReturnType<typeof jointTransferViews> }
 export async function readJointTransferSelections(ids?: readonly (string | null)[], db: Pick<PrismaClient, "playerClubContextSelection" | "club"> = prisma,
   env: Readonly<Record<string, string | undefined>> = process.env, asOf = new Date().toISOString().slice(0, 10)): Promise<Map<string, JointSelection>> {
   const config = jointReadConfiguration(env)
   if (!config) return new Map()
-  const configuredIds = config.source === "DATABASE" ? config.eaIds : config.manifest.entries.map(e => e.eaId)
-  if (ids && !configuredIds.some(id => ids.includes(id))) return new Map()
+  const configuredIds = config.source === "INLINE" ? config.manifest.entries.map(e => e.eaId) : config.eaIds
+  const requested = ids ? new Set(ids) : null
+  if (requested && !configuredIds.some(id => requested.has(id))) return new Map()
+  let indexEntries: Map<string, JointReadIndexEntry> | null = null
+  if (config.source === "DATABASE_INDEX") {
+    // One bounded metadata query authenticates the entire selection set. No JSON payload column is loaded here.
+    const headers = await db.playerClubContextSelection.findMany({ where: {
+      eaPlayerId: { in: configuredIds }, player: { eaImportVisibility: "PUBLIC" },
+    }, select: { eaPlayerId: true, revisionId: true, version: true, decisionReference: true,
+      revision: { select: { eaPlayerId: true, contentHash: true, rosterReferenceId: true,
+        rosterReference: { select: { id: true, contentHash: true } } } } } })
+    const byId = new Map(headers.map(r => [r.eaPlayerId, r]))
+    if (headers.length !== configuredIds.length || byId.size !== headers.length || headers.some(r =>
+      r.revision.eaPlayerId !== r.eaPlayerId || r.revision.rosterReferenceId !== r.revision.rosterReference.id)) throw new Error("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED")
+    const entries = configuredIds.map(eaId => {
+      const r = byId.get(eaId)
+      if (!r) throw new Error("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED")
+      return { eaId, selectionVersion: r.version, revisionId: r.revisionId, decisionReference: r.decisionReference,
+        payloadHash: r.revision.contentHash, snapshotId: r.revision.rosterReferenceId, snapshotHash: r.revision.rosterReference.contentHash }
+    })
+    verifyJointReadIndex({ version: 2, policyHash: realGamePolicyHash, entries }, configuredIds, config.manifestHash)
+    indexEntries = new Map(entries.map(e => [e.eaId, e]))
+  }
   // A root hash authenticates the whole ordered set, even for a single-profile request.
-  const queryIds = config.source === "DATABASE" ? configuredIds : configuredIds.filter(id => !ids || ids.includes(id))
+  const queryIds = config.source === "DATABASE" ? configuredIds : configuredIds.filter(id => !requested || requested.has(id))
   const rows = await db.playerClubContextSelection.findMany({ where: {
     eaPlayerId: { in: queryIds }, player: { eaImportVisibility: "PUBLIC" },
   }, include: { revision: { include: { rosterReference: true } } } })
   let manifest: JointReadManifest
-  if (config.source === "DATABASE") {
+  const rowsById = new Map(rows.map(r => [r.eaPlayerId, r]))
+  if (config.source === "DATABASE_INDEX") {
+    if (rows.length !== queryIds.length || rowsById.size !== rows.length || queryIds.some(id => !rowsById.has(id))) throw new Error("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED")
+    manifest = { version: 1, decisionReference: "per-entry-index", entries: queryIds.map(eaId => {
+      const entry = indexEntries!.get(eaId)!, row = rowsById.get(eaId)!
+      if (row.version !== entry.selectionVersion || row.revisionId !== entry.revisionId) throw new Error("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED")
+      return { eaId, payloadHash: entry.payloadHash, snapshotHash: entry.snapshotHash, contexts: ["REAL", "GAME"], gameView: "FUTSCOUT_PROJECTED" }
+    }) }
+  } else if (config.source === "DATABASE") {
     if (rows.length !== config.eaIds.length || new Set(rows.map(r => r.eaPlayerId)).size !== rows.length ||
       config.eaIds.some(id => !rows.some(r => r.eaPlayerId === id)) || rows.some(r => r.version !== config.selectionVersion))
       throw new Error("JOINT_APPROVED_SELECTION_SET_OR_VERSION_CHANGED")
@@ -36,11 +66,11 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
   const result = new Map<string, JointSelection>()
   const clubIds = new Set<string>()
   for (const approved of allowed) {
-    const selected = rows.find(r => r.eaPlayerId === approved.eaId)
+    const selected = rowsById.get(approved.eaId)
     if (!selected) throw new Error("JOINT_APPROVED_SELECTION_MISSING")
     const revision = selected.revision, payload = revision.payload as unknown as JointTransferPayload
     validateJointTransferPayload(payload, approved.eaId)
-    if (selected.decisionReference !== manifest.decisionReference || revision.eaPlayerId !== approved.eaId || revision.contentHash !== approved.payloadHash ||
+    if (selected.decisionReference !== (indexEntries?.get(approved.eaId)?.decisionReference ?? manifest.decisionReference) || revision.eaPlayerId !== approved.eaId || revision.contentHash !== approved.payloadHash ||
       jointHash(payload) !== approved.payloadHash || payload.game.snapshot.contentHash !== approved.snapshotHash ||
       revision.rosterReferenceId !== payload.game.snapshot.id || revision.rosterReference.contentHash !== approved.snapshotHash ||
       canonicalJson(revision.rosterReference.metadata) !== canonicalJson(payload.game.snapshot)) throw new Error("JOINT_APPROVED_PROVENANCE_CHANGED")
@@ -54,13 +84,14 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
   }
   const clubs = await db.club.findMany({ where: { id: { in: [...clubIds] }, eaImportVisibility: "PUBLIC" },
     select: { id: true, externalId: true, name: true, slug: true, league: { select: { id: true, name: true, slug: true } } } })
+  const clubsById = new Map(clubs.map(c => [c.id, c]))
   // Metadata enrichment is a join by validated identity, not a change to the immutable source payload/hash.
   for (const [id, selected] of result) {
     const payload = structuredClone(selected.payload)
     for (const m of [payload.jointTransfer.game, payload.jointTransfer.real, payload.jointTransfer.futscoutProjection?.membership]) if (m) for (const key of ["club", "parentClub"] as const) {
       const c = m[key]
       if (!c) continue
-      const live = clubs.find(r => r.id === c.id)
+      const live = clubsById.get(c.id)
       if (!live || live.externalId !== c.eaId) throw new Error("JOINT_READ_CLUB_IDENTITY_CHANGED")
       m[key] = { ...c, slug: live.slug, league: live.league }
     }

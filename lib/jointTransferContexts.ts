@@ -109,6 +109,37 @@ export function jointReadManifest(env: Readonly<Record<string, string | undefine
 
 export type JointReadConfiguration = { source: "INLINE"; manifest: JointReadManifest } | {
   source: "DATABASE"; eaIds: string[]; selectionVersion: number; manifestHash: string
+} | {
+  source: "DATABASE_INDEX"; eaIds: string[]; manifestHash: string
+}
+
+export const jointReadIndexLimit = 512
+export type JointReadIndexEntry = { eaId: string; selectionVersion: number; revisionId: string; decisionReference: string;
+  payloadHash: string; snapshotId: string; snapshotHash: string }
+export type JointReadIndex = { version: 2; policyHash: string; entries: JointReadIndexEntry[] }
+
+/** Only immutable revision/reference metadata is indexed. Each consumed payload is verified separately. */
+export function verifyJointReadIndex(index: JointReadIndex, eaIds: readonly string[], expectedHash: string): void {
+  if (index.version !== 2 || index.policyHash !== realGamePolicyHash || !sha.test(expectedHash) || jointHash(index) !== expectedHash ||
+    !index.entries.length || index.entries.length > jointReadIndexLimit || index.entries.length !== eaIds.length ||
+    new Set(index.entries.map(e => e.eaId)).size !== index.entries.length || index.entries.some((e, i) => e.eaId !== eaIds[i] ||
+      !/^[1-9]\d{0,11}$/.test(e.eaId) || !Number.isSafeInteger(e.selectionVersion) || e.selectionVersion < 1 ||
+      !e.revisionId?.trim() || !e.decisionReference?.trim() || !e.snapshotId?.trim() || !sha.test(e.payloadHash) || !sha.test(e.snapshotHash)))
+    throw new Error("JOINT_APPROVED_INDEX_CHANGED")
+}
+
+/** Operator preparation cannot replace or omit a protected existing selection when extending its index. */
+export function extendJointReadIndex(previous: JointReadIndex, expectedPreviousHash: string, additions: readonly JointReadIndexEntry[]): JointReadIndex {
+  verifyJointReadIndex(previous, previous.entries.map(e => e.eaId), expectedPreviousHash)
+  const entries = new Map(previous.entries.map(e => [e.eaId, e]))
+  for (const row of additions) {
+    const old = entries.get(row.eaId)
+    if (old && canonicalJson(old) !== canonicalJson(row)) throw new Error("JOINT_PROTECTED_SELECTION_CHANGED")
+    entries.set(row.eaId, structuredClone(row))
+  }
+  const index = { version: 2 as const, policyHash: previous.policyHash, entries: [...entries.values()] }
+  verifyJointReadIndex(index, index.entries.map(e => e.eaId), jointHash(index))
+  return index
 }
 
 /** The database transport carries no payloads. Its externally pinned manifest must be verified by the reader. */
@@ -119,11 +150,16 @@ export function jointReadConfiguration(env: Readonly<Record<string, string | und
     const manifest = jointReadManifest(env)
     return manifest ? { source: "INLINE", manifest } : null
   }
-  if (env.JOINT_TRANSFER_READ_MANIFEST_SOURCE !== "DATABASE" || env.JOINT_TRANSFER_READ_MANIFEST !== undefined ||
+  if (!["DATABASE", "DATABASE_INDEX"].includes(env.JOINT_TRANSFER_READ_MANIFEST_SOURCE) || env.JOINT_TRANSFER_READ_MANIFEST !== undefined ||
     env.JOINT_REAL_GAME_PROJECTION_READ_ENABLED !== "1" || env.JOINT_REAL_GAME_POLICY_SHA256 !== realGamePolicyHash ||
     !sha.test(env.JOINT_TRANSFER_READ_MANIFEST_SHA256 ?? "")) return null
   const rawIds = env.JOINT_TRANSFER_READ_EA_IDS ?? "", rawVersion = env.JOINT_TRANSFER_READ_SELECTION_VERSION ?? ""
   const eaIds = rawIds.split(","), selectionVersion = Number(rawVersion)
+  if (env.JOINT_TRANSFER_READ_MANIFEST_SOURCE === "DATABASE_INDEX") {
+    if (env.JOINT_TRANSFER_READ_SELECTION_VERSION !== undefined || rawIds.length > jointReadIndexLimit * 13 - 1 ||
+      !eaIds.length || eaIds.length > jointReadIndexLimit || new Set(eaIds).size !== eaIds.length || eaIds.some(id => !/^[1-9]\d{0,11}$/.test(id))) return null
+    return { source: "DATABASE_INDEX", eaIds, manifestHash: env.JOINT_TRANSFER_READ_MANIFEST_SHA256! }
+  }
   if (rawIds.length > 200 || !eaIds.length || eaIds.length > 10 || new Set(eaIds).size !== eaIds.length ||
     eaIds.some(id => !/^[1-9]\d{0,11}$/.test(id)) || !/^[1-9]\d{0,9}$/.test(rawVersion) || !Number.isSafeInteger(selectionVersion)) return null
   return { source: "DATABASE", eaIds, selectionVersion, manifestHash: env.JOINT_TRANSFER_READ_MANIFEST_SHA256! }
