@@ -7,6 +7,9 @@ import type { PrismaClient } from "../app/generated/prisma/client"
 import { realGamePolicyHash, selectedGameMembership } from "../lib/realGameProjection"
 
 export type JointSelection = { payload: JointTransferPayload; views: ReturnType<typeof jointTransferViews> }
+// Process-local, bounded and partitioned by database client, approved root and UTC day.
+// Only immutable bodies/views are cached; mutable selection pins and club identities are always read again.
+const indexBodies = new WeakMap<object, Map<string, Map<string, JointSelection>>>()
 export async function readJointTransferSelections(ids?: readonly (string | null)[], db: Pick<PrismaClient, "playerClubContextSelection" | "club"> = prisma,
   env: Readonly<Record<string, string | undefined>> = process.env, asOf = new Date().toISOString().slice(0, 10)): Promise<Map<string, JointSelection>> {
   const config = jointReadConfiguration(env)
@@ -15,6 +18,8 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
   const requested = ids ? new Set(ids) : null
   if (requested && !configuredIds.some(id => requested.has(id))) return new Map()
   let indexEntries: Map<string, JointReadIndexEntry> | null = null
+  const cacheKey = config.source === "DATABASE_INDEX" ? `${config.manifestHash}:${asOf}` : null
+  let cached: Map<string, JointSelection> | undefined
   if (config.source === "DATABASE_INDEX") {
     // One bounded metadata query authenticates the entire selection set. No JSON payload column is loaded here.
     const headers = await db.playerClubContextSelection.findMany({ where: {
@@ -33,19 +38,21 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
     })
     verifyJointReadIndex({ version: 2, policyHash: realGamePolicyHash, entries }, configuredIds, config.manifestHash)
     indexEntries = new Map(entries.map(e => [e.eaId, e]))
+    cached = indexBodies.get(db)?.get(cacheKey!)
   }
   // A root hash authenticates the whole ordered set, even for a single-profile request.
   const queryIds = config.source === "DATABASE" ? configuredIds : configuredIds.filter(id => !requested || requested.has(id))
-  const rows = await db.playerClubContextSelection.findMany({ where: {
-    eaPlayerId: { in: queryIds }, player: { eaImportVisibility: "PUBLIC" },
-  }, include: { revision: { include: { rosterReference: true } } } })
+  const missingIds = cacheKey ? queryIds.filter(id => !cached?.has(id)) : queryIds
+  const rows = missingIds.length ? await db.playerClubContextSelection.findMany({ where: {
+    eaPlayerId: { in: missingIds }, player: { eaImportVisibility: "PUBLIC" },
+  }, include: { revision: { include: { rosterReference: true } } } }) : []
   let manifest: JointReadManifest
   const rowsById = new Map(rows.map(r => [r.eaPlayerId, r]))
   if (config.source === "DATABASE_INDEX") {
-    if (rows.length !== queryIds.length || rowsById.size !== rows.length || queryIds.some(id => !rowsById.has(id))) throw new Error("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED")
+    if (rows.length !== missingIds.length || rowsById.size !== rows.length || missingIds.some(id => !rowsById.has(id))) throw new Error("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED")
     manifest = { version: 1, decisionReference: "per-entry-index", entries: queryIds.map(eaId => {
-      const entry = indexEntries!.get(eaId)!, row = rowsById.get(eaId)!
-      if (row.version !== entry.selectionVersion || row.revisionId !== entry.revisionId) throw new Error("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED")
+      const entry = indexEntries!.get(eaId)!, row = rowsById.get(eaId)
+      if (row && (row.version !== entry.selectionVersion || row.revisionId !== entry.revisionId)) throw new Error("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED")
       return { eaId, payloadHash: entry.payloadHash, snapshotHash: entry.snapshotHash, contexts: ["REAL", "GAME"], gameView: "FUTSCOUT_PROJECTED" }
     }) }
   } else if (config.source === "DATABASE") {
@@ -64,8 +71,11 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
   } else manifest = config.manifest
   const allowed = manifest.entries.filter(e => config.source === "DATABASE" || !ids || ids.includes(e.eaId))
   const result = new Map<string, JointSelection>()
+  const verifiedBodies = new Map<string, JointSelection>()
   const clubIds = new Set<string>()
   for (const approved of allowed) {
+    const hit = cached?.get(approved.eaId)
+    if (hit) { result.set(approved.eaId, structuredClone(hit)); continue }
     const selected = rowsById.get(approved.eaId)
     if (!selected) throw new Error("JOINT_APPROVED_SELECTION_MISSING")
     const revision = selected.revision, payload = revision.payload as unknown as JointTransferPayload
@@ -80,8 +90,9 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
     if (approved.gameView === "FUTSCOUT_PROJECTED" && (!views.game || !views.real)) throw new Error("READY_JOINT_PROJECTION_REQUIRED")
     if (approved.contexts.includes("REAL") && !views.real) throw new Error("JOINT_APPROVED_REAL_CONTEXT_MISSING")
     result.set(approved.eaId, { payload, views: { ...views, game: approved.contexts.includes("GAME") ? views.game : null, real: approved.contexts.includes("REAL") ? views.real : null } })
-    for (const m of [payload.jointTransfer.game, payload.jointTransfer.real, payload.jointTransfer.futscoutProjection?.membership]) for (const c of [m?.club, m?.parentClub]) if (c) clubIds.add(c.id)
+    if (cacheKey) verifiedBodies.set(approved.eaId, structuredClone(result.get(approved.eaId)!))
   }
+  for (const { payload } of result.values()) for (const m of [payload.jointTransfer.game, payload.jointTransfer.real, payload.jointTransfer.futscoutProjection?.membership]) for (const c of [m?.club, m?.parentClub]) if (c) clubIds.add(c.id)
   const clubs = await db.club.findMany({ where: { id: { in: [...clubIds] }, eaImportVisibility: "PUBLIC" },
     select: { id: true, externalId: true, name: true, slug: true, league: { select: { id: true, name: true, slug: true } } } })
   const clubsById = new Map(clubs.map(c => [c.id, c]))
@@ -96,6 +107,14 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
       m[key] = { ...c, slug: live.slug, league: live.league }
     }
     result.set(id, { payload, views: selected.views })
+  }
+  if (cacheKey && verifiedBodies.size) {
+    const versions = indexBodies.get(db) ?? new Map<string, Map<string, JointSelection>>()
+    const bodies = versions.get(cacheKey) ?? new Map<string, JointSelection>()
+    for (const [id, selection] of verifiedBodies) bodies.set(id, selection)
+    versions.delete(cacheKey); versions.set(cacheKey, bodies)
+    while (versions.size > 2) versions.delete(versions.keys().next().value!)
+    indexBodies.set(db, versions)
   }
   return ids ? new Map([...result].filter(([id]) => ids.includes(id))) : result
 }

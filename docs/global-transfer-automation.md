@@ -63,7 +63,13 @@ Every consumed payload, snapshot metadata and club identity is verified against 
 index, including selection changes between calls. Immutable revision/reference
 constraints remain required. Unrequested payload JSON is not downloaded or rendered;
 its selection and declared hashes remain pinned. Full catalog/filter/national-team
-reads use the same bounded bulk operations. There is no per-player query, persistent
+reads use the same bounded bulk operations. Verified immutable bodies/views have a
+process-local cache partitioned by database client, approved root and UTC day, with
+at most two roots of up to 512 entries per client. No failed read populates it.
+Warm calls still authenticate the entire mutable selection index and live clubs;
+they skip payload transfer/validation already proved for those immutable bodies.
+Returned data are cloned to prevent callers mutating cached approvals. A new UTC
+day revalidates loan chronology. There is no per-player query, persistent
 cache, provider call, transaction/session override or schema change. Local tests
 measure bounded query counts/bytes and CPU; actual pooled latency remains a protected
 Preview gate before public activation.

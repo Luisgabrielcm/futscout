@@ -46,7 +46,7 @@ function fixture(count = 361) {
     "server-only": {}, "../lib/prisma": { prisma: db }, "../lib/clubContexts": { canonicalJson },
   })
   return { rows, index, env, queries, clubRows, reader, setAfterHeaders: (fn: () => void) => { afterHeaders = fn },
-    db: db as unknown as Parameters<typeof reader.readJointTransferSelections>[1] }
+    db: db as unknown as NonNullable<Parameters<typeof reader.readJointTransferSelections>[1]> }
 }
 
 test("351 additions retain the ten protected entries, mixed decisions and immutable root", () => {
@@ -141,4 +141,42 @@ test("selected payload/snapshot tampering and changes between metadata and paylo
   }
   const f = fixture(2); f.clubRows.length = 0
   await assert.rejects(f.reader.readJointTransferSelections(["800001"], f.db, f.env, date), /READ_CLUB_IDENTITY/)
+})
+
+test("warm index reads reuse immutable bodies but recheck all versions and club identity", async () => {
+  const f = fixture(), first = await f.reader.readJointTransferSelections(undefined, f.db, f.env, date)
+  f.queries.length = 0
+  first.get("800001")!.payload.real!.observedAt = "caller mutation"
+  first.get("800001")!.views.real!.clubLabel = "caller mutation"
+  const warm = await f.reader.readJointTransferSelections(undefined, f.db, f.env, date)
+  assert.deepEqual(f.queries.map(q => q.kind), ["headers", "clubs"])
+  assert.notEqual(warm.get("800001")!.payload.real!.observedAt, "caller mutation")
+  assert.notEqual(warm.get("800001")!.views.real!.clubLabel, "caller mutation")
+  f.rows[0].version++
+  await assert.rejects(f.reader.readJointTransferSelections(["800002"], f.db, f.env, date), /INDEX_CHANGED/)
+  f.rows[0].version--; f.clubRows[0].externalId = "changed"
+  await assert.rejects(f.reader.readJointTransferSelections(["800002"], f.db, f.env, date), /READ_CLUB_IDENTITY/)
+})
+
+test("UTC-day changes revalidate bodies and failed reads never populate the cache", async () => {
+  const f = fixture(2)
+  await f.reader.readJointTransferSelections(["800001"], f.db, f.env, date)
+  f.queries.length = 0
+  await f.reader.readJointTransferSelections(["800001"], f.db, f.env, "2026-11-18")
+  assert.deepEqual(f.queries.map(q => q.kind), ["headers", "payloads", "clubs"])
+  const g = fixture(2), original = g.rows[0].revision.payload.real!.observedAt
+  g.rows[0].revision.payload.real!.observedAt = "tampered"
+  await assert.rejects(g.reader.readJointTransferSelections(["800001"], g.db, g.env, date))
+  g.rows[0].revision.payload.real!.observedAt = original; g.queries.length = 0
+  await g.reader.readJointTransferSelections(["800001"], g.db, g.env, date)
+  assert.equal(g.queries[1].kind, "payloads")
+})
+
+test("a different database client cannot reuse another client's cached approvals", async () => {
+  const f = fixture(2)
+  await f.reader.readJointTransferSelections(undefined, f.db, f.env, date)
+  const otherQueries: string[] = []
+  const other = { playerClubContextSelection: { findMany: async () => { otherQueries.push("headers"); return [] } }, club: f.db.club }
+  await assert.rejects(f.reader.readJointTransferSelections(["800001"], other as unknown as typeof f.db, f.env, date), /INDEX_SELECTIONS_CHANGED/)
+  assert.deepEqual(otherQueries, ["headers"])
 })
