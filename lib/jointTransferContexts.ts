@@ -113,7 +113,7 @@ export type JointReadConfiguration = { source: "INLINE"; manifest: JointReadMani
   source: "DATABASE_INDEX"; eaIds: string[]; manifestHash: string
 }
 
-export const jointReadIndexLimit = 512
+export const jointReadIndexLimit = 1000
 export type JointReadIndexEntry = { eaId: string; selectionVersion: number; revisionId: string; decisionReference: string;
   payloadHash: string; snapshotId: string; snapshotHash: string }
 export type JointReadIndex = { version: 2; policyHash: string; entries: JointReadIndexEntry[] }

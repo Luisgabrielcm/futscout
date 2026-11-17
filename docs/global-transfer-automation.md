@@ -42,7 +42,7 @@ that player and refreeze the remaining batch before writing it.
 
 Publication and reader activation are separate gates. The existing `DATABASE`
 transport retains its ten-ID limit and original manifest hash format. The opt-in
-`DATABASE_INDEX` transport supports up to 512 IDs, including the union of the ten
+`DATABASE_INDEX` transport supports up to 1000 IDs, including the union of the ten
 published loans and the 351 additions. Its version-2 root pins each ordered EA ID,
 selection version, revision ID, decision, payload hash and original snapshot ID/hash,
 as well as the approved eligibility policy. Different batch decisions can coexist.
@@ -65,7 +65,7 @@ constraints remain required. Unrequested payload JSON is not downloaded or rende
 its selection and declared hashes remain pinned. Full catalog/filter/national-team
 reads use the same bounded bulk operations. Verified immutable bodies/views have a
 process-local cache partitioned by database client, approved root and UTC day, with
-at most two roots of up to 512 entries per client. No failed read populates it.
+at most two roots of up to 1000 entries per client. No failed read populates it.
 Warm calls still authenticate the entire mutable selection index and live clubs;
 they skip payload transfer/validation already proved for those immutable bodies.
 Returned data are cloned to prevent callers mutating cached approvals. A new UTC
