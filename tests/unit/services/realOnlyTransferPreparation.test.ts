@@ -64,6 +64,39 @@ test("permanent deals reject a remaining active loan and source tampering", () =
   const d = candidate(); d.patch.movement.sourceUrl += "/unproven"; assert.equal(plan([d]).eligible, 0)
   const e = candidate(); e.expectedBaseHash = "f".repeat(64); assert.equal(plan([e]).eligible, 0)
 })
+test("explicit REAL membership can be prepared without fabricating a transfer or changing GAME", () => {
+  const c = candidate("800003", false)
+  c.patch.movement.kind = "CURRENT_CLUB_CONFIRMED"; c.patch.movement.route = undefined
+  c.proof.currentClubOnlyConfirmed = true; c.proof.movementTypeConfirmed = false
+  const r = plan([c]); assert.equal(r.eligible, 1); assert.equal(r.clubConfirmations, 1)
+  assert.equal(r.transfers, 0); assert.equal(r.loans, 0)
+  const u = r.batches[0].updates[0]
+  assert.equal(u.category, "REAL_ONLY_CLUB_CONFIRMATION")
+  assert.equal(preservedGameHash(u.payload), preservedGameHash(c.base))
+  assert.equal(u.payload.jointTransfer.movements.at(-1)!.route, undefined)
+  assert.equal(u.payload.jointTransfer.movements.at(-1)!.effectiveAt, null)
+  const item = { payload: u.payload, expectedGameBaselineHash: u.expectedGameBaselineHash, expectedSelection: null,
+    expectedLegacyClubId: city.id, expectedPlayerUpdatedAt: "2026-11-16T00:00:00.000Z" }
+  assert(prepareJointTransferCommit([item], r.batches[0].decisionReference))
+  assert.deepEqual(plan([c]), prepareRealOnlyTransferBatch({ candidates: [c], excludedEaIds: [], asOf, checkpoint: r.checkpoint }))
+})
+test("membership requires its own explicit proof and cannot smuggle dates, routes or an active loan", () => {
+  for (const mutate of [
+    (c: RealOnlyTransferCandidate) => { c.proof.currentClubOnlyConfirmed = false },
+    (c: RealOnlyTransferCandidate) => { c.proof.movementTypeConfirmed = true },
+    (c: RealOnlyTransferCandidate) => { c.patch.movement.route = { fromState: "CLUB", fromClub: city, toClub: benfica } },
+    (c: RealOnlyTransferCandidate) => { c.patch.movement.effectiveAt = "2026-01-01" },
+    (c: RealOnlyTransferCandidate) => { c.patch.real.membership.parentClub = city },
+    (c: RealOnlyTransferCandidate) => { c.proof.currentPlayingConfirmed = false },
+    (c: RealOnlyTransferCandidate) => { c.proof.sourceFileVerified = false },
+    (c: RealOnlyTransferCandidate) => { c.proof.conflicts = ["LOAN_ROLE_UNRESOLVED"] },
+  ]) {
+    const c = candidate("800003", false)
+    c.patch.movement.kind = "CURRENT_CLUB_CONFIRMED"; c.patch.movement.route = undefined
+    c.proof.currentClubOnlyConfirmed = true; c.proof.movementTypeConfirmed = false
+    mutate(c); assert.equal(plan([c]).eligible, 0)
+  }
+})
 test("source scope is authenticated by the existing root and malformed REAL-only decisions fail closed", () => {
   const d = realOnlyTransferDecision("a".repeat(64)); assert(isRealOnlyTransferDecision(d))
   assert.deepEqual(transferDecisionReadScope(d), { contexts: ["REAL"], gameView: "EA_SNAPSHOT" })
