@@ -1,7 +1,36 @@
 import { createHash } from "node:crypto"
 import { canonicalJson } from "./clubContexts"
 import { projectLoanMembership, loanEffectiveState, type LoanPresentation } from "./jointTransferLoanSync"
-import type { BoundMembership, JointMovement, JointTransferPayload } from "./jointTransferContexts"
+import type { BoundClub, BoundMembership, JointMovement, JointTransferPayload } from "./jointTransferContexts"
+
+// Identity-specific brand aliases, not licensing evidence or fuzzy name matching.
+const clubBrands: Readonly<Record<string, { real: string; game: string }>> = Object.freeze({
+  "115845": { real: "Atalanta", game: "Bergamo Calcio" },
+  "131681": { real: "AC Milan", game: "Milano FC" },
+  "131682": { real: "Inter", game: "Lombardia FC" },
+})
+export function clubBindingNameMatches(eaId: string | null, observed: string, registered: string, context: "REAL" | "GAME" | "PROJECTION") {
+  if (observed === registered) return true
+  const brand = eaId ? clubBrands[eaId] : undefined
+  return context !== "GAME" && !!brand && observed === brand.real && registered === brand.game
+}
+export function projectedGameClub<T extends { eaId: string | null; name: string }>(club: T | null): T | null {
+  const brand = club?.eaId ? clubBrands[club.eaId] : undefined
+  return club && brand && club.name === brand.real ? { ...club, name: brand.game } : club
+}
+/** Presentation only: never mutate the signed REAL/projection payload or EA snapshot. */
+export function projectedGameClubView(view: LoanPresentation | null, bindings: readonly (BoundClub | null)[]): LoanPresentation | null {
+  if (!view || view.displayContext !== "FUTSCOUT_PROJECTED") return view
+  const display = <T extends { id: string; name: string }>(club: T | null): T | null => {
+    const bound = club && bindings.find(c => c?.id === club.id && c.name === club.name)
+    return club && bound ? { ...club, name: projectedGameClub(bound)!.name } : club
+  }
+  const playingClub = display(view.playingClub), parentClub = display(view.parentClub)
+  return { ...view, playingClub, parentClub, clubLabel: playingClub?.name ?? view.clubLabel,
+    mainContractClub: display(view.mainContractClub),
+    loanBadge: view.loanBadge && parentClub ? `Emprestado pelo ${parentClub.name}` : view.loanBadge,
+    loanParties: view.loanParties ? { playingClub: display(view.loanParties.playingClub)!, parentClub: display(view.loanParties.parentClub)! } : null }
+}
 
 /** Rules expressly approved by the owner on 2026-11-16. This is not an EA roster policy. */
 export const realGamePolicy = Object.freeze({

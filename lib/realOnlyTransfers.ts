@@ -9,11 +9,17 @@ export function validateRealOnlyMovement(p: JointTransferPayload, asOf: string) 
   validateJointTransferPayload(p)
   if (!p.real || !p.jointTransfer.real || p.jointTransfer.futscoutProjection) throw new Error("REAL_ONLY_INDEPENDENT_CONTEXT_REQUIRED")
   const m = p.jointTransfer.movements.at(-1), real = p.jointTransfer.real
-  if (!m || m.context !== "REAL" || !m.evidenceConfirmed || !["PERMANENT_TRANSFER", "LOAN_TO_PERMANENT", "LOAN_START"].includes(m.kind))
+  if (!m || m.context !== "REAL" || !m.evidenceConfirmed || !["PERMANENT_TRANSFER", "LOAN_TO_PERMANENT", "LOAN_START", "CURRENT_CLUB_CONFIRMED"].includes(m.kind))
     throw new Error("REAL_ONLY_EXPLICIT_MOVEMENT_REQUIRED")
-  if (m.evidenceHash !== p.real.evidenceHash || m.sourceUrl !== p.real.sourceUrl || !m.route || m.route.toClub.id !== real.club?.id)
+  if (m.evidenceHash !== p.real.evidenceHash || m.sourceUrl !== p.real.sourceUrl)
     throw new Error("REAL_ONLY_MOVEMENT_BINDING_REQUIRED")
   if (m.effectiveAt && m.effectiveAt > asOf) throw new Error("REAL_ONLY_FUTURE_MOVEMENT")
+  if (m.kind === "CURRENT_CLUB_CONFIRMED") {
+    if (real.state !== "CLUB" || !real.club || real.loan || real.parentClub || m.route || m.effectiveAt !== null)
+      throw new Error("REAL_ONLY_MEMBERSHIP_CANNOT_ASSERT_MOVEMENT")
+    return "REAL_ONLY_CLUB_CONFIRMATION" as const
+  }
+  if (!m.route || m.route.toClub.id !== real.club?.id) throw new Error("REAL_ONLY_MOVEMENT_BINDING_REQUIRED")
   if (m.kind === "LOAN_START") {
     if (!real.loan || loanEffectiveState(real.loan, asOf) !== "ACTIVE" || m.route.fromClub?.id !== real.parentClub?.id || m.route.fromState !== "CLUB" ||
       real.loan.evidence.contentHash !== m.evidenceHash || real.loan.evidence.url !== m.sourceUrl)

@@ -9,6 +9,7 @@ import { city, benfica } from "../../fixtures/jointTransfer"
 import { realOnlyTransferDecision } from "../../../lib/transferReadScope"
 import { encodeJointReadIds } from "../../../lib/jointReadIds"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
+import { jointCatalogFilter } from "../../../lib/jointTransferCatalog"
 
 const date = "2026-11-17"
 function fixture(count = 361) {
@@ -78,6 +79,33 @@ test("an index cannot label a projected GAME revision as REAL-only", async () =>
   row.decisionReference = realOnlyTransferDecision("a".repeat(64)); f.index.entries[0].decisionReference = row.decisionReference
   f.env.JOINT_TRANSFER_READ_MANIFEST_SHA256 = jointHash(f.index)
   await assert.rejects(f.reader.readJointTransferSelections(undefined, f.db, f.env, date), /PAIRED_READERS|REAL_ONLY_READ_SCOPE/)
+})
+
+test("projected GAME uses its brand while REAL, signed payload, snapshot and warm cache retain their own names", async () => {
+  const f = fixture(1), row = f.rows[0], p = row.revision.payload
+  const real = { ...benfica, eaId: "131681", name: "AC Milan" }
+  p.real!.club = { eaId: real.eaId, name: real.name }
+  p.jointTransfer.real!.club = real; p.jointTransfer.real!.loan = { ...p.jointTransfer.real!.loan!, playingClub: real }
+  const projection = p.jointTransfer.futscoutProjection!
+  p.jointTransfer.futscoutProjection = assessRealGameProjection(p, projection.eligibility, projection.movement, date)
+  row.revision.contentHash = jointHash(p); f.index.entries[0].payloadHash = row.revision.contentHash
+  f.env.JOINT_TRANSFER_READ_MANIFEST_SHA256 = jointHash(f.index)
+  Object.assign(f.clubRows[1], { name: "Milano FC", eaId: "131681", externalId: "131681" })
+  const before = jointHash(p), player = { club: { name: "legacy" }, salary: 123, contract: "unchanged" }
+  const gameSearch = jointCatalogFilter([p], { search: "Milano", membershipContext: "GAME" }, undefined, new Set([p.eaPlayerId]))
+  const realSearch = jointCatalogFilter([p], { search: "AC Milan", membershipContext: "REAL" })
+  assert.match(JSON.stringify(gameSearch.where), new RegExp(p.eaPlayerId)); assert.match(JSON.stringify(realSearch.where), new RegExp(p.eaPlayerId))
+  for (let i = 0; i < 2; i++) {
+    const result = (await f.reader.readJointTransferSelections(undefined, f.db, f.env, date)).get(row.eaPlayerId)!
+    assert.equal(result.views.game?.clubLabel, "Milano FC")
+    assert.equal(result.views.real?.clubLabel, "AC Milan")
+    assert.equal(result.views.snapshotGame?.clubLabel, city.name)
+    assert.equal(result.payload.jointTransfer.futscoutProjection!.membership!.club!.name, "AC Milan")
+    const game = f.reader.applyJointPlayerPresentation(player, result, "GAME")
+    assert.equal(game.club?.name, "Milano FC"); assert.equal(game.salary, 123); assert.equal(game.contract, "unchanged")
+    assert.equal(f.reader.applyJointPlayerPresentation(player, result, "REAL").club?.name, "AC Milan")
+  }
+  assert.equal(jointHash(p), before)
 })
 
 test("351 additions retain the ten protected entries, mixed decisions and immutable root", () => {

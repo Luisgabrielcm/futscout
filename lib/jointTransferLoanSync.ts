@@ -33,7 +33,7 @@ export function validateLoanObservation(row: LoanObservation): void {
       row.parentClub.id === row.playingClub.id) throw new Error("LOAN_IDENTITY_OR_CLUB_INVALID")
   if (!date(row.startsAt) || !date(row.endsAt) || !date(row.evidence.evidenceDate) ||
       row.startsAt && row.endsAt && row.startsAt > row.endsAt ||
-      row.endSeason !== null && (!/^\d{4}\/\d{2}$/.test(row.endSeason) ||
+      row.endSeason !== null && !/^(?:19|20)\d{2}$/.test(row.endSeason) && (!/^\d{4}\/\d{2}$/.test(row.endSeason) ||
         Number(row.endSeason.slice(5)) !== (Number(row.endSeason.slice(0, 4)) + 1) % 100)) throw new Error("LOAN_DATES_INVALID")
   if (!https(row.evidence.url) || !/^[a-f0-9]{64}$/.test(row.evidence.contentHash) ||
       Number.isNaN(Date.parse(row.evidence.consultedAt))) throw new Error("LOAN_EVIDENCE_INVALID")
@@ -63,6 +63,8 @@ export function loanEffectiveState(row: LoanObservation, asOf: string) {
     return "PENDING_VERIFICATION" as const
   if (row.context === "REAL" && row.state === "ACTIVE" && row.startsAt && row.startsAt > asOf)
     return "PENDING_VERIFICATION" as const
+  if (row.context === "REAL" && row.state === "ACTIVE" && row.endSeason && /^(?:19|20)\d{2}$/.test(row.endSeason) &&
+      Number(asOf.slice(0, 4)) > Number(row.endSeason)) return "PENDING_VERIFICATION" as const
   return row.state
 }
 
