@@ -215,3 +215,23 @@ test("939 protected plus 620 researched pairs stay default-off and read in three
   assert.equal(jointHash(f.rows), original)
   verifyJointReadIndex(prior, prior.entries.map(e => e.eaId), jointHash(prior))
 })
+
+
+test("1414 additions preserve 1559 pins and load all 2973 pairs with bulk queries", async () => {
+  const f = fixture(2973), prior = { ...f.index, entries: f.index.entries.slice(0, 1559) }
+  const before = jointHash(f.rows)
+  const combined = extendJointReadIndex(prior, jointHash(prior), f.index.entries.slice(1559))
+  assert.deepEqual(combined.entries.slice(0, 1559), prior.entries)
+  assert.equal((await f.reader.readJointTransferSelections(undefined, f.db, {}, date)).size, 0)
+  assert.equal(f.queries.length, 0)
+  const all = await f.reader.readJointTransferSelections(undefined, f.db, f.env, date)
+  assert.equal(all.size, 2973)
+  assert.deepEqual(f.queries.map(q => q.kind), ["headers", "payloads", "clubs"])
+  assert.equal(f.queries[0].ids.length, 2973)
+  f.queries.length = 0
+  await f.reader.readJointTransferSelections(undefined, f.db, f.env, date)
+  assert.deepEqual(f.queries.map(q => q.kind), ["headers", "clubs"])
+  assert.equal(jointHash(f.rows), before)
+  f.rows[0].version++
+  await assert.rejects(f.reader.readJointTransferSelections(["802973"], f.db, f.env, date), /INDEX_CHANGED/)
+})
