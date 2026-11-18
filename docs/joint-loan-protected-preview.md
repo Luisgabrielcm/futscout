@@ -1,5 +1,17 @@
 # Protected Preview of joint loans
 
+## Independent REAL updates in expanded cohorts
+
+New cohorts can select a verified REAL transfer or loan while leaving GAME on its existing presentation. The original ten paired candidates described below retain their paired requirement. A REAL-only selection uses the authenticated `real-only-transfer:v1:` decision scope, an explicit movement and route, and the hash of its captured GAME baseline. It cannot replace an existing paired projection or infer a GAME club from a real destination.
+
+The database index can mix paired and REAL-only selections. Its root still authenticates every ordered EA ID, revision, version, decision and snapshot; REAL-only entries contribute no GAME override to profiles, cards, catalog filters or national teams. Immutable GAME evidence remains stored separately. Reader requests keep the existing bulk metadata/payload/club query pattern and READ ONLY adapter.
+
+The bounded index supports up to 8,192 identities. The EA-ID transport also accepts versioned DEFLATE and delta-DEFLATE encodings without changing the decoded order or authenticated pins. Decoding rejects duplicate/invalid IDs, unsupported versions, overflow and oversized output. Existing plain-ID configurations remain compatible. Compression does not certify the total deployment environment budget; the platform must validate the actual candidate configuration.
+
+Readers remain disabled by default. No migration, import, scheduler or automatic activation is introduced. Operator writes and rollback still require explicit authorization, fresh baselines, exact hashes and compare-and-swap receipts. Keep private payloads, evidence, release hashes and credentials outside public Git and deployment source exports.
+
+Automatic Git deployments for `codex/expanded-transfer-discovery` and `beta-next` remain disabled. Only an explicitly authorized, authentication-protected Preview may receive deployment-scoped staging credentials and reader flags. Remove a temporary deployment and revoke its exclusive credential when it is no longer needed. A public rollback restores the previous deployment/index before reconciling newly written selection pointers; revisions and evidence are retained.
+
 Preparation only. This PR integrates reusable code, synthetic fixtures and documentation. The ten private player payloads, exact hashes, eligibility evidence, receipts and rollout manifests remain outside public Git. No application route, build hook or scheduled workflow imports the operator writer. No schema change, migration, database write, deployment or activation is performed by integration.
 
 ## Scope and immutable inputs

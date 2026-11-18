@@ -7,6 +7,8 @@ import { potentialPageSql } from "../../../lib/futscoutPotential/catalog"
 import { parsePlayerCatalogParams, playerCatalogQuery } from "../../../lib/playerCatalogParams"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 import { commitJointTransfers, prepareJointTransferCommit, rollbackJointTransfers, type JointCommitItem } from "../../../services/jointTransferPersistence"
+import { preservedGameHash } from "../../../lib/realOnlyTransfers"
+import { realOnlyTransferDecision } from "../../../lib/transferReadScope"
 
 test("Echeverri: City in GAME, Benfica on loan in REAL; source observations and main contracts remain independent", () => {
   const payload = jointFixture(), before = structuredClone(payload)
@@ -106,6 +108,21 @@ function persistenceFixture() {
   const item = (id = "276528"): JointCommitItem => ({ payload: jointFixture(id), expectedSelection: null, expectedLegacyClubId: city.id, expectedPlayerUpdatedAt: fixtureDate })
   return { db: db as unknown as Parameters<typeof commitJointTransfers>[0], state: () => state, protectedState, item }
 }
+
+test("REAL-only persistence replays safely and rollback retains GAME evidence and protected player fields", async () => {
+  const f = persistenceFixture(), item = f.item(), before = structuredClone(f.protectedState), gameHash = preservedGameHash(item.payload)
+  item.payload.jointTransfer.real!.loan = { ...item.payload.jointTransfer.real!.loan!, evidence: { ...item.payload.jointTransfer.real!.loan!.evidence, contentHash: item.payload.real!.evidenceHash } }
+  item.payload = prepareJointContextPayload(item.payload, { movements: [{ eaId: item.payload.eaPlayerId, context: "REAL", kind: "LOAN_START",
+    sourceUrl: item.payload.real!.sourceUrl, evidenceHash: item.payload.real!.evidenceHash, evidenceConfirmed: true, effectiveAt: null,
+    route: { fromState: "CLUB", fromClub: city, toClub: benfica } }] })
+  item.expectedGameBaselineHash = gameHash
+  const plan = prepareJointTransferCommit([item], realOnlyTransferDecision("f".repeat(64)))
+  const receipt = await commitJointTransfers(f.db, plan, { target: "DISPOSABLE", approvedBatchHash: plan.batchHash })
+  assert.deepEqual(await commitJointTransfers(f.db, plan, { target: "DISPOSABLE", approvedBatchHash: plan.batchHash }), receipt)
+  assert.equal(preservedGameHash(item.payload), gameHash)
+  await rollbackJointTransfers(f.db, receipt, jointHash(receipt))
+  assert.equal(f.state().selections.size, 0); assert.equal(f.state().revisions.size, 1); assert.deepEqual(f.protectedState, before)
+})
 
 test("atomic persisted context revisions are idempotent; rollback removes only selection and retains evidence/economics", async () => {
   const f = persistenceFixture(), before = structuredClone(f.protectedState), plan = prepareJointTransferCommit([f.item()], "approved-batch")

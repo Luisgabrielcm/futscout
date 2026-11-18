@@ -5,6 +5,7 @@ import ts from "typescript"
 import * as clubContextReadGate from "../../lib/clubContextReadGate"
 import * as jointTransferContexts from "../../lib/jointTransferContexts"
 import * as realGameProjection from "../../lib/realGameProjection"
+import * as transferReadScope from "../../lib/transferReadScope"
 import * as clubContextPreviewPolicy from "../../lib/clubContextPreviewPolicy"
 import * as jsxRuntime from "react/jsx-runtime"
 import * as i18n from "../../lib/i18n"
@@ -65,6 +66,7 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
     if (name.endsWith("/clubContextReadGate")) return clubContextReadGate
     if (name.endsWith("/jointTransferContexts") && !Object.hasOwn(allowed, name)) return jointTransferContexts
     if (name.endsWith("/realGameProjection") && !Object.hasOwn(allowed, name)) return realGameProjection
+    if (name.endsWith("/transferReadScope") && !Object.hasOwn(allowed, name)) return transferReadScope
     if (name.endsWith("/clubContextPreviewPolicy")) return clubContextPreviewPolicy
     // Shared presentation functions run for real. This explicit allowlist has
     // no DB/env loading/network modules; operational dependencies remain fakes.

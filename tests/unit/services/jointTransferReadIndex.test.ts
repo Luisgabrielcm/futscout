@@ -6,6 +6,8 @@ import { jointHash, jointReadConfiguration, verifyJointReadIndex, extendJointRea
 import { assessRealGameProjection, realGamePolicyHash } from "../../../lib/realGameProjection"
 import { projectionFixture } from "../../fixtures/realGameProjection"
 import { city, benfica } from "../../fixtures/jointTransfer"
+import { realOnlyTransferDecision } from "../../../lib/transferReadScope"
+import { encodeJointReadIds } from "../../../lib/jointReadIds"
 import { loadCatalogModule } from "../../helpers/loadCatalogModule"
 
 const date = "2026-11-17"
@@ -48,6 +50,35 @@ function fixture(count = 361) {
   return { rows, index, env, queries, clubRows, reader, setAfterHeaders: (fn: () => void) => { afterHeaders = fn },
     db: db as unknown as NonNullable<Parameters<typeof reader.readJointTransferSelections>[1]> }
 }
+
+test("mixed authenticated index reads REAL independently and preserves GAME, controls and economic presentation", async () => {
+  const f = fixture(2), row = f.rows[1]
+  delete row.revision.payload.jointTransfer.futscoutProjection
+  row.revision.payload.jointTransfer.game.club = { ...city, id: "historical-only-unavailable" }
+  row.decisionReference = realOnlyTransferDecision("a".repeat(64))
+  row.revision.contentHash = jointHash(row.revision.payload)
+  Object.assign(f.index.entries[1], { decisionReference: row.decisionReference, payloadHash: row.revision.contentHash })
+  f.env.JOINT_TRANSFER_READ_MANIFEST_SHA256 = jointHash(f.index)
+  f.env.JOINT_TRANSFER_READ_EA_IDS = encodeJointReadIds(f.index.entries.map(e => e.eaId))
+  const result = await f.reader.readJointTransferSelections(undefined, f.db, f.env, date)
+  const realOnly = result.get(row.eaPlayerId)!, paired = result.get(f.rows[0].eaPlayerId)!
+  assert.equal(realOnly.views.game, null); assert.equal(realOnly.views.real?.parentClub?.name, city.name)
+  assert(paired.views.game); assert.equal(f.queries.length, 3)
+  assert.doesNotMatch(JSON.stringify(f.queries.at(-1)?.query), /historical-only-unavailable/)
+  const player = { club: { name: "legacy" }, salary: 10, marketValue: 20, contract: "keep", potential: 90, manual: "keep" }
+  assert.equal(f.reader.applyJointPlayerPresentation(player, realOnly, "GAME"), player)
+  const shown = f.reader.applyJointPlayerPresentation(player, realOnly, "REAL")
+  for (const k of ["salary", "marketValue", "contract", "potential", "manual"] as const) assert.equal(shown[k], player[k])
+  assert.equal(shown.club?.name, benfica.name)
+  assert.equal((await f.reader.readJointTransferSelections(["999999"], f.db, f.env, date)).size, 0)
+})
+
+test("an index cannot label a projected GAME revision as REAL-only", async () => {
+  const f = fixture(1), row = f.rows[0]
+  row.decisionReference = realOnlyTransferDecision("a".repeat(64)); f.index.entries[0].decisionReference = row.decisionReference
+  f.env.JOINT_TRANSFER_READ_MANIFEST_SHA256 = jointHash(f.index)
+  await assert.rejects(f.reader.readJointTransferSelections(undefined, f.db, f.env, date), /PAIRED_READERS|REAL_ONLY_READ_SCOPE/)
+})
 
 test("351 additions retain the ten protected entries, mixed decisions and immutable root", () => {
   const f = fixture(), prior: JointReadIndex = { ...f.index, entries: f.index.entries.slice(0, 10) }

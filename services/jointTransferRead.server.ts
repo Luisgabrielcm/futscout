@@ -5,6 +5,7 @@ import { jointHash, jointReadConfiguration, jointReadManifest, jointTransferView
   type JointReadIndexEntry, type JointReadManifest, type JointTransferPayload } from "../lib/jointTransferContexts"
 import type { PrismaClient } from "../app/generated/prisma/client"
 import { realGamePolicyHash, selectedGameMembership } from "../lib/realGameProjection"
+import { isRealOnlyTransferDecision, transferDecisionReadScope } from "../lib/transferReadScope"
 
 export type JointSelection = { payload: JointTransferPayload; views: ReturnType<typeof jointTransferViews> }
 // Process-local, bounded and partitioned by database client, approved root and UTC day.
@@ -53,7 +54,7 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
     manifest = { version: 1, decisionReference: "per-entry-index", entries: queryIds.map(eaId => {
       const entry = indexEntries!.get(eaId)!, row = rowsById.get(eaId)
       if (row && (row.version !== entry.selectionVersion || row.revisionId !== entry.revisionId)) throw new Error("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED")
-      return { eaId, payloadHash: entry.payloadHash, snapshotHash: entry.snapshotHash, contexts: ["REAL", "GAME"], gameView: "FUTSCOUT_PROJECTED" }
+      return { eaId, payloadHash: entry.payloadHash, snapshotHash: entry.snapshotHash, ...transferDecisionReadScope(entry.decisionReference) }
     }) }
   } else if (config.source === "DATABASE") {
     if (rows.length !== config.eaIds.length || new Set(rows.map(r => r.eaPlayerId)).size !== rows.length ||
@@ -63,7 +64,7 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
       entries: config.eaIds.map(eaId => {
         const row = rows.find(r => r.eaPlayerId === eaId)!
         return { eaId, payloadHash: row.revision.contentHash, snapshotHash: row.revision.rosterReference.contentHash,
-          contexts: ["REAL", "GAME"], gameView: "FUTSCOUT_PROJECTED" }
+          ...transferDecisionReadScope(row.decisionReference) }
       }) }
     const verified = jointReadManifest({ ...env, JOINT_TRANSFER_READ_MANIFEST: JSON.stringify(reconstructed) })
     if (!verified || jointHash(verified) !== config.manifestHash) throw new Error("JOINT_APPROVED_MANIFEST_CHANGED")
@@ -86,20 +87,27 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
       canonicalJson(revision.rosterReference.metadata) !== canonicalJson(payload.game.snapshot)) throw new Error("JOINT_APPROVED_PROVENANCE_CHANGED")
     if (payload.jointTransfer.futscoutProjection?.status === "READY" && approved.contexts.includes("REAL") && approved.gameView !== "FUTSCOUT_PROJECTED")
       throw new Error("JOINT_PROJECTION_REQUIRES_PAIRED_READERS")
+    if (isRealOnlyTransferDecision(selected.decisionReference) &&
+      (approved.contexts.length !== 1 || approved.contexts[0] !== "REAL" || approved.gameView === "FUTSCOUT_PROJECTED" || payload.jointTransfer.futscoutProjection))
+      throw new Error("REAL_ONLY_READ_SCOPE_MISMATCH")
     const views = jointTransferViews(payload, asOf, approved.gameView ?? "EA_SNAPSHOT")
     if (approved.gameView === "FUTSCOUT_PROJECTED" && (!views.game || !views.real)) throw new Error("READY_JOINT_PROJECTION_REQUIRED")
     if (approved.contexts.includes("REAL") && !views.real) throw new Error("JOINT_APPROVED_REAL_CONTEXT_MISSING")
     result.set(approved.eaId, { payload, views: { ...views, game: approved.contexts.includes("GAME") ? views.game : null, real: approved.contexts.includes("REAL") ? views.real : null } })
     if (cacheKey) verifiedBodies.set(approved.eaId, structuredClone(result.get(approved.eaId)!))
   }
-  for (const { payload } of result.values()) for (const m of [payload.jointTransfer.game, payload.jointTransfer.real, payload.jointTransfer.futscoutProjection?.membership]) for (const c of [m?.club, m?.parentClub]) if (c) clubIds.add(c.id)
+  const readMemberships = ({ payload, views }: JointSelection) => [
+    ...views.game ? [payload.jointTransfer.game, payload.jointTransfer.futscoutProjection?.membership] : [],
+    ...views.real ? [payload.jointTransfer.real] : [],
+  ]
+  for (const s of result.values()) for (const m of readMemberships(s)) for (const c of [m?.club, m?.parentClub]) if (c) clubIds.add(c.id)
   const clubs = await db.club.findMany({ where: { id: { in: [...clubIds] }, eaImportVisibility: "PUBLIC" },
     select: { id: true, externalId: true, name: true, slug: true, league: { select: { id: true, name: true, slug: true } } } })
   const clubsById = new Map(clubs.map(c => [c.id, c]))
   // Metadata enrichment is a join by validated identity, not a change to the immutable source payload/hash.
   for (const [id, selected] of result) {
     const payload = structuredClone(selected.payload)
-    for (const m of [payload.jointTransfer.game, payload.jointTransfer.real, payload.jointTransfer.futscoutProjection?.membership]) if (m) for (const key of ["club", "parentClub"] as const) {
+    for (const m of readMemberships({ ...selected, payload })) if (m) for (const key of ["club", "parentClub"] as const) {
       const c = m[key]
       if (!c) continue
       const live = clubsById.get(c.id)
