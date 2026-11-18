@@ -3,14 +3,20 @@ import { canonicalJson } from "../lib/clubContexts"
 import { jointHash, validateJointTransferPayload, type JointTransferPayload } from "../lib/jointTransferContexts"
 import { inspectLoanBatch } from "../lib/jointTransferLoanSync"
 import { prepareJointTransferSynchronization } from "./jointTransferSyncPreparation"
+import { isRealOnlyTransferDecision } from "../lib/transferReadScope"
+import { preservedGameHash, validateRealOnlyMovement } from "../lib/realOnlyTransfers"
 
 type Db = Pick<PrismaClient, "$transaction">
 type Selection = { revisionId: string; version: number; decisionReference: string }
 export type JointCommitItem = { payload: JointTransferPayload; expectedSelection: Selection | null;
-  expectedLegacyClubId: string | null; expectedPlayerUpdatedAt: string }
+  expectedLegacyClubId: string | null; expectedPlayerUpdatedAt: string; expectedGameBaselineHash?: string }
 export function prepareJointTransferCommit(items: readonly JointCommitItem[], decisionReference: string) {
   if (!items.length || !decisionReference.trim() || new Set(items.map(i => i.payload.eaPlayerId)).size !== items.length) throw new Error("JOINT_COMMIT_SCOPE_INVALID")
   for (const item of items) validateJointTransferPayload(item.payload)
+  if (isRealOnlyTransferDecision(decisionReference)) for (const item of items) {
+    if (item.expectedSelection !== null || item.expectedGameBaselineHash !== preservedGameHash(item.payload)) throw new Error("REAL_ONLY_NEW_SELECTION_AND_GAME_BASELINE_REQUIRED")
+    validateRealOnlyMovement(item.payload, new Date().toISOString().slice(0, 10))
+  }
   const inspected = inspectLoanBatch(items.flatMap(i => [i.payload.jointTransfer.game.loan, i.payload.jointTransfer.real?.loan,
     ...i.payload.jointTransfer.history].filter(r => r != null)), new Date().toISOString().slice(0, 10))
   if (inspected.review || inspected.rejected.length) throw new Error("JOINT_COMMIT_LOAN_REVIEW_REQUIRED")
@@ -28,7 +34,8 @@ async function playerAndClubs(tx: Prisma.TransactionClient, item: JointCommitIte
   const player = await tx.player.findUnique({ where: { externalId: id }, select: { clubId: true, updatedAt: true, eaImportVisibility: true } })
   if (!player || player.eaImportVisibility !== "PUBLIC" || player.clubId !== item.expectedLegacyClubId || player.updatedAt.toISOString() !== item.expectedPlayerUpdatedAt)
     throw new Error("JOINT_PLAYER_BASELINE_CHANGED")
-  const refs = [item.payload.jointTransfer.game, item.payload.jointTransfer.real, item.payload.jointTransfer.futscoutProjection?.membership].flatMap(m => m ? [m.club, m.parentClub].filter(c => c !== null) : [])
+  const refs = [...[item.payload.jointTransfer.game, item.payload.jointTransfer.real, item.payload.jointTransfer.futscoutProjection?.membership].flatMap(m => m ? [m.club, m.parentClub].filter(c => c !== null) : []),
+    ...item.payload.jointTransfer.movements.flatMap(m => m.route ? [m.route.fromClub, m.route.toClub].filter(c => c !== null) : [])]
   const clubs = await tx.club.findMany({ where: { id: { in: refs.map(c => c.id) } }, select: { id: true, externalId: true, name: true, slug: true, league: { select: { id: true, name: true, slug: true } } } })
   for (const c of refs) {
     const actual = clubs.find(a => a.id === c.id)

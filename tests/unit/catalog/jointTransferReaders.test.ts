@@ -39,6 +39,28 @@ test("actual card/profile headers show independent loan clubs; a free agent reta
   assert.match(realHeader, /Benfica/); assert.match(realHeader, /Emprestado pelo/); assert.doesNotMatch(realHeader, /30\/06\/2027/)
 })
 
+test("REAL-only cards and profiles show the real loan while GAME and national filters stay legacy", () => {
+  const p = jointFixture(), all = jointTransferViews(p, "2026-11-18"), views = { ...all, game: null }
+  const player = mapper.mapDatabasePlayer(catalogPlayer({ name: "Synthetic loan" }))
+  const { default: Card } = loadCatalogModule<typeof import("../../../app/components/PlayerCard")>("app/components/PlayerCard.tsx", {
+    "./PlayerActions": () => null, "../../utils/formatCurrency": { formatCurrency },
+  })
+  const props = { ...player, club: "Legacy club", transferContexts: views, transferContext: "REAL" as const }
+  assert.match(renderToStaticMarkup(createElement(Card, props)), /Benfica/)
+  assert.match(renderToStaticMarkup(createElement(Card, props)), /Emprestado pelo/)
+  const game = renderToStaticMarkup(createElement(Card, { ...props, transferContext: "GAME" }))
+  assert.match(game, /Legacy club/); assert.doesNotMatch(game, /Benfica|Emprestado pelo/)
+  const { default: RealHeader } = loadCatalogModule<typeof import("../../../app/components/PlayerRealLifeHeader")>("app/components/PlayerRealLifeHeader.tsx", {})
+  const header = renderToStaticMarkup(createElement(RealHeader, { locale: "pt", player: { id: "synthetic", slug: "synthetic", name: "Synthetic loan", imageUrl: null, nationality: null,
+    eaCatalogClub: null, approvedCurrentClub: null, transferContexts: views } }))
+  assert.match(header, /Benfica/); assert.match(header, /Manchester City/)
+  const national = loadCatalogModule<typeof import("../../../services/jointNationalTeams.server")>("services/jointNationalTeams.server.ts", {
+    "server-only": {}, "../app/generated/prisma/client": { Prisma },
+  })
+  const sql = national.jointNationalMembershipCte(new Map([[p.eaPlayerId, { payload: p, views }]]))
+  assert(!sql.values.includes(p.eaPlayerId))
+})
+
 test("integrated catalog uses the same predicates for count and rows, projects clubs and leaves economic values unchanged", async () => {
   const payload = jointFixture(), row = catalogPlayer({ externalId: payload.eaPlayerId, officialOverall: 74 })
   const selected = { payload, views: jointTransferViews(payload, "2026-11-16") }, selections = new Map([[payload.eaPlayerId, selected]])

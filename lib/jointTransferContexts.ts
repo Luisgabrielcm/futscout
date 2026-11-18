@@ -3,6 +3,7 @@ import { canonicalJson, validateClubContexts, type ClubContexts } from "./clubCo
 import { classifyMovement, projectLoanMembership, validateLoanObservation, type LoanObservation, type MovementKind, type LoanPresentation } from "./jointTransferLoanSync"
 import type { GameClubState } from "./eaSquadSync"
 import { validateRealGameProjection, realGameProjectionView, realGamePolicyHash, type RealGameProjection } from "./realGameProjection"
+import { decodeJointReadIds, jointReadIdLimit } from "./jointReadIds"
 
 export type BoundClub = { id: string; eaId: string | null; name: string; slug: string | null;
   league: { id: string; name: string; slug: string | null } | null }
@@ -12,7 +13,8 @@ export type BoundMembership = {
   nationalCoverage: "KNOWN" | "UNKNOWN" | "NOT_IN_SQUAD"
 }
 export type JointMovement = { eaId: string; context: "REAL" | "GAME"; kind: MovementKind; evidenceConfirmed: boolean;
-  sourceUrl: string; evidenceHash: string; effectiveAt: string | null }
+  sourceUrl: string; evidenceHash: string; effectiveAt: string | null;
+  route?: { fromState: "CLUB" | "FREE_AGENT"; fromClub: BoundClub | null; toClub: BoundClub } }
 export type JointTransferPayload = ClubContexts & { jointTransfer: {
   version: 1; game: BoundMembership; real: BoundMembership | null; history: readonly LoanObservation[];
   movements: readonly JointMovement[]; projected: false
@@ -57,6 +59,14 @@ export function validateJointTransferPayload(payload: JointTransferPayload, eaId
     classifyMovement(row.kind, row.evidenceConfirmed)
     if (row.eaId !== eaId || !["REAL", "GAME"].includes(row.context) || !sha.test(row.evidenceHash) || !https(row.sourceUrl) ||
       row.effectiveAt !== null && (!/^\d{4}-\d{2}-\d{2}$/.test(row.effectiveAt) || new Date(row.effectiveAt).toISOString().slice(0, 10) !== row.effectiveAt)) throw new Error("JOINT_MOVEMENT_INVALID")
+    if (row.route) {
+      const r = row.route
+      if (row.context !== "REAL" || !["CLUB", "FREE_AGENT"].includes(r.fromState) ||
+        (r.fromState === "CLUB") !== (r.fromClub !== null) || !r.toClub || r.fromClub?.id === r.toClub.id)
+        throw new Error("REAL_MOVEMENT_ROUTE_INVALID")
+      for (const c of [r.fromClub, r.toClub].filter((c): c is BoundClub => c !== null))
+        if (!c.id || !c.name || c.eaId === "111592" || c.eaId !== null && !/^\d+$/.test(c.eaId)) throw new Error("REAL_MOVEMENT_CLUB_INVALID")
+    }
   }
   validateRealGameProjection(payload)
 }
@@ -113,7 +123,7 @@ export type JointReadConfiguration = { source: "INLINE"; manifest: JointReadMani
   source: "DATABASE_INDEX"; eaIds: string[]; manifestHash: string
 }
 
-export const jointReadIndexLimit = 4096
+export const jointReadIndexLimit = jointReadIdLimit
 export type JointReadIndexEntry = { eaId: string; selectionVersion: number; revisionId: string; decisionReference: string;
   payloadHash: string; snapshotId: string; snapshotHash: string }
 export type JointReadIndex = { version: 2; policyHash: string; entries: JointReadIndexEntry[] }
@@ -154,12 +164,12 @@ export function jointReadConfiguration(env: Readonly<Record<string, string | und
     env.JOINT_REAL_GAME_PROJECTION_READ_ENABLED !== "1" || env.JOINT_REAL_GAME_POLICY_SHA256 !== realGamePolicyHash ||
     !sha.test(env.JOINT_TRANSFER_READ_MANIFEST_SHA256 ?? "")) return null
   const rawIds = env.JOINT_TRANSFER_READ_EA_IDS ?? "", rawVersion = env.JOINT_TRANSFER_READ_SELECTION_VERSION ?? ""
-  const eaIds = rawIds.split(","), selectionVersion = Number(rawVersion)
   if (env.JOINT_TRANSFER_READ_MANIFEST_SOURCE === "DATABASE_INDEX") {
-    if (env.JOINT_TRANSFER_READ_SELECTION_VERSION !== undefined || rawIds.length > jointReadIndexLimit * 13 - 1 ||
-      !eaIds.length || eaIds.length > jointReadIndexLimit || new Set(eaIds).size !== eaIds.length || eaIds.some(id => !/^[1-9]\d{0,11}$/.test(id))) return null
+    const eaIds = decodeJointReadIds(rawIds)
+    if (env.JOINT_TRANSFER_READ_SELECTION_VERSION !== undefined || !eaIds) return null
     return { source: "DATABASE_INDEX", eaIds, manifestHash: env.JOINT_TRANSFER_READ_MANIFEST_SHA256! }
   }
+  const eaIds = rawIds.split(","), selectionVersion = Number(rawVersion)
   if (rawIds.length > 200 || !eaIds.length || eaIds.length > 10 || new Set(eaIds).size !== eaIds.length ||
     eaIds.some(id => !/^[1-9]\d{0,11}$/.test(id)) || !/^[1-9]\d{0,9}$/.test(rawVersion) || !Number.isSafeInteger(selectionVersion)) return null
   return { source: "DATABASE", eaIds, selectionVersion, manifestHash: env.JOINT_TRANSFER_READ_MANIFEST_SHA256! }
