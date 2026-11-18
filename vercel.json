@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": {
+      "codex/expanded-transfer-discovery": false,
       "codex/joint-reader-capacity-2973": false,
       "codex/joint-loan-protected-preview": false,
       "codex/generic-economic-repository-reconcile": false,
