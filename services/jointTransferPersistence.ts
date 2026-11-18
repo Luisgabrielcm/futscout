@@ -5,6 +5,7 @@ import { inspectLoanBatch } from "../lib/jointTransferLoanSync"
 import { prepareJointTransferSynchronization } from "./jointTransferSyncPreparation"
 import { isRealOnlyTransferDecision } from "../lib/transferReadScope"
 import { preservedGameHash, validateRealOnlyMovement } from "../lib/realOnlyTransfers"
+import { clubBindingNameMatches } from "../lib/realGameProjection"
 
 type Db = Pick<PrismaClient, "$transaction">
 type Selection = { revisionId: string; version: number; decisionReference: string }
@@ -34,12 +35,14 @@ async function playerAndClubs(tx: Prisma.TransactionClient, item: JointCommitIte
   const player = await tx.player.findUnique({ where: { externalId: id }, select: { clubId: true, updatedAt: true, eaImportVisibility: true } })
   if (!player || player.eaImportVisibility !== "PUBLIC" || player.clubId !== item.expectedLegacyClubId || player.updatedAt.toISOString() !== item.expectedPlayerUpdatedAt)
     throw new Error("JOINT_PLAYER_BASELINE_CHANGED")
-  const refs = [...[item.payload.jointTransfer.game, item.payload.jointTransfer.real, item.payload.jointTransfer.futscoutProjection?.membership].flatMap(m => m ? [m.club, m.parentClub].filter(c => c !== null) : []),
-    ...item.payload.jointTransfer.movements.flatMap(m => m.route ? [m.route.fromClub, m.route.toClub].filter(c => c !== null) : [])]
-  const clubs = await tx.club.findMany({ where: { id: { in: refs.map(c => c.id) } }, select: { id: true, externalId: true, name: true, slug: true, league: { select: { id: true, name: true, slug: true } } } })
-  for (const c of refs) {
+  const j = item.payload.jointTransfer
+  const refs = [...[j.game, j.real, j.futscoutProjection?.membership].flatMap((m, i) => m ? [m.club, m.parentClub].filter(c => c !== null)
+    .map(c => ({ club: c, context: i === 2 ? "PROJECTION" as const : m.context })) : []),
+    ...j.movements.flatMap(m => m.route ? [m.route.fromClub, m.route.toClub].filter(c => c !== null).map(c => ({ club: c, context: m.context })) : [])]
+  const clubs = await tx.club.findMany({ where: { id: { in: refs.map(r => r.club.id) } }, select: { id: true, externalId: true, name: true, slug: true, league: { select: { id: true, name: true, slug: true } } } })
+  for (const { club: c, context } of refs) {
     const actual = clubs.find(a => a.id === c.id)
-    if (!actual || actual.externalId !== c.eaId || actual.name !== c.name || c.slug !== null && actual.slug !== c.slug ||
+    if (!actual || actual.externalId !== c.eaId || !clubBindingNameMatches(c.eaId, c.name, actual.name, context) || c.slug !== null && actual.slug !== c.slug ||
       c.league && (actual.league.id !== c.league.id || actual.league.name !== c.league.name || c.league.slug !== null && actual.league.slug !== c.league.slug)) throw new Error("JOINT_CLUB_BINDING_CHANGED")
   }
 }

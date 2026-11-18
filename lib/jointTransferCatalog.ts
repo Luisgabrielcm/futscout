@@ -2,12 +2,16 @@ import { Prisma } from "../app/generated/prisma/client"
 import type { GetPlayersParams } from "./playerCatalogParams"
 import { nationalitySearchAliases } from "./nationalitySearch"
 import type { JointTransferPayload } from "./jointTransferContexts"
-import { selectedGameMembership } from "./realGameProjection"
+import { selectedGameMembership, projectedGameClub } from "./realGameProjection"
 
 /** The same selected IDs drive Prisma count/rows and SQL economic ordering before pagination. */
 export function jointCatalogFilter(payloads: readonly JointTransferPayload[], params: GetPlayersParams, scope?: { clubId?: string }, projectedEaIds: ReadonlySet<string> = new Set()) {
   const context = params.membershipContext ?? "GAME"
-  const selected = payloads.map(p => ({ eaId: p.eaPlayerId, member: context === "GAME" ? selectedGameMembership(p, projectedEaIds.has(p.eaPlayerId)) : p.jointTransfer.real })).filter(r => r.member !== null)
+  const selected = payloads.map(p => {
+    const projected = context === "GAME" && projectedEaIds.has(p.eaPlayerId)
+    const member = context === "GAME" ? selectedGameMembership(p, projected) : p.jointTransfer.real
+    return { eaId: p.eaPlayerId, member: projected && member ? { ...member, club: projectedGameClub(member.club), parentClub: projectedGameClub(member.parentClub) } : member }
+  }).filter(r => r.member !== null)
   const overrides = selected.map(r => r.eaId)
   const where: Prisma.PlayerWhereInput[] = [], sql: Prisma.Sql[] = []
   const ids = (values: string[]) => values.length ? Prisma.sql`p."externalId" IN (${Prisma.join(values)})` : Prisma.sql`FALSE`

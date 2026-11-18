@@ -88,14 +88,14 @@ test("filters and SQL economic sorting share bound IDs before LIMIT/OFFSET, and 
   assert.match(playerCatalogQuery(params), /parentClub=fixture-city/)
 })
 
-function persistenceFixture() {
+function persistenceFixture(clubs = [city, benfica]) {
   let state = { refs: new Map<string, unknown>(), revisions: new Map<string, unknown>(), selections: new Map<string, Record<string, unknown>>() }
   const protectedState = { salary: 12, marketValue: 34, potential: 85, contract: "2029", manual: "untouched", clubId: city.id }
   const match = (row: Record<string, unknown>, where: Record<string, unknown>) => Object.entries(where).every(([k, v]) => row[k] === v)
   const db = { $transaction: async (work: (tx: unknown) => Promise<unknown>) => {
     const draft = structuredClone(state)
     const tx = { $queryRawUnsafe: async () => [], player: { findUnique: async ({ where }: { where: { externalId: string } }) => where.externalId === "999999" ? null : { clubId: protectedState.clubId, eaImportVisibility: "PUBLIC", updatedAt: new Date(fixtureDate) } },
-      club: { findMany: async () => [city, benfica].map(c => ({ ...c, externalId: c.eaId })) },
+      club: { findMany: async () => clubs.map(c => ({ ...c, externalId: c.eaId })) },
       eaRosterReference: { findUnique: async ({ where }: { where: { id: string } }) => draft.refs.get(where.id) ?? null, create: async ({ data }: { data: { id: string } }) => { draft.refs.set(data.id, data); return data } },
       playerClubContextRevision: { findUnique: async ({ where }: { where: { id: string } }) => draft.revisions.get(where.id) ?? null, create: async ({ data }: { data: { id: string } }) => { draft.revisions.set(data.id, data); return data } },
       playerClubContextSelection: { findUnique: async ({ where }: { where: { eaPlayerId: string } }) => draft.selections.get(where.eaPlayerId) ?? null,
@@ -108,6 +108,26 @@ function persistenceFixture() {
   const item = (id = "276528"): JointCommitItem => ({ payload: jointFixture(id), expectedSelection: null, expectedLegacyClubId: city.id, expectedPlayerUpdatedAt: fixtureDate })
   return { db: db as unknown as Parameters<typeof commitJointTransfers>[0], state: () => state, protectedState, item }
 }
+
+test("verified REAL brand alias binds by exact EA ID, slug and league without changing signed names", async () => {
+  const real = { ...benfica, eaId: "115845", name: "Atalanta" }, registered = { ...real, name: "Bergamo Calcio" }
+  const make = (f: ReturnType<typeof persistenceFixture>) => {
+    const item = f.item(), p = item.payload
+    p.real!.club = { eaId: real.eaId, name: real.name }
+    p.jointTransfer.real!.club = real; p.jointTransfer.real!.loan = { ...p.jointTransfer.real!.loan!, playingClub: real }
+    return prepareJointTransferCommit([item], "approved-brand-alias")
+  }
+  const f = persistenceFixture([city, registered]), plan = make(f), hash = jointHash(plan)
+  const receipt = await commitJointTransfers(f.db, plan, { target: "DISPOSABLE", approvedBatchHash: plan.batchHash })
+  assert.equal(receipt.entries.length, 1); assert.equal(jointHash(plan), hash)
+  assert.equal(plan.items[0].payload.jointTransfer.real!.club!.name, "Atalanta")
+  for (const invalid of [{ ...registered, eaId: "999" }, { ...registered, id: "wrong" }, { ...registered, name: "Unverified alias" },
+    { ...registered, slug: "wrong" }, { ...registered, league: { ...registered.league!, id: "wrong" } }]) {
+    const rejected = persistenceFixture([city, invalid]), bad = make(rejected)
+    await assert.rejects(commitJointTransfers(rejected.db, bad, { target: "DISPOSABLE", approvedBatchHash: bad.batchHash }), /CLUB_BINDING_CHANGED/)
+    assert.equal(rejected.state().selections.size, 0)
+  }
+})
 
 test("REAL-only persistence replays safely and rollback retains GAME evidence and protected player fields", async () => {
   const f = persistenceFixture(), item = f.item(), before = structuredClone(f.protectedState), gameHash = preservedGameHash(item.payload)

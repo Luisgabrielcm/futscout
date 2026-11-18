@@ -4,7 +4,7 @@ import { canonicalJson } from "../lib/clubContexts"
 import { jointHash, jointReadConfiguration, jointReadManifest, jointTransferViews, validateJointTransferPayload, verifyJointReadIndex,
   type JointReadIndexEntry, type JointReadManifest, type JointTransferPayload } from "../lib/jointTransferContexts"
 import type { PrismaClient } from "../app/generated/prisma/client"
-import { realGamePolicyHash, selectedGameMembership } from "../lib/realGameProjection"
+import { realGamePolicyHash, selectedGameMembership, projectedGameClubView } from "../lib/realGameProjection"
 import { isRealOnlyTransferDecision, transferDecisionReadScope } from "../lib/transferReadScope"
 
 export type JointSelection = { payload: JointTransferPayload; views: ReturnType<typeof jointTransferViews> }
@@ -114,7 +114,8 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
       if (!live || live.externalId !== c.eaId) throw new Error("JOINT_READ_CLUB_IDENTITY_CHANGED")
       m[key] = { ...c, slug: live.slug, league: live.league }
     }
-    result.set(id, { payload, views: selected.views })
+    const projected = payload.jointTransfer.futscoutProjection?.membership
+    result.set(id, { payload, views: { ...selected.views, game: projectedGameClubView(selected.views.game, [projected?.club ?? null, projected?.parentClub ?? null]) } })
   }
   if (cacheKey && verifiedBodies.size) {
     const versions = indexBodies.get(db) ?? new Map<string, Map<string, JointSelection>>()
@@ -133,6 +134,6 @@ export function applyJointPlayerPresentation<T extends { club: unknown; league?:
   if (!selected || !membership || !(context === "GAME" ? selected.views.game : selected.views.real)) return player
   const club = membership.club
   return { ...player, transferContexts: selected.views, transferContext: context,
-    club: club ? { id: club.id, slug: club.slug, name: club.name, imageUrl: null, asset: null } : null,
+    club: club ? { id: club.id, slug: club.slug, name: (context === "GAME" ? selected.views.game : selected.views.real)?.playingClub?.name ?? club.name, imageUrl: null, asset: null } : null,
     league: club?.league?.name ?? null, leagueSlug: club?.league?.slug ?? null, leagueAsset: null, leagueLogoUrl: null }
 }
