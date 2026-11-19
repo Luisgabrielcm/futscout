@@ -3862,6 +3862,9 @@ body, body *, body *::before, body *::after { text-shadow: none; -webkit-text-st
 .goalkeeperDataNotice h3 { color: var(--beige-light); }
 .goalkeeperDataNotice dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 12px; }
 .goalkeeperDataNotice dd { margin: 0; color: var(--green); font-weight: 700; }
+@media (max-width: 600px) {
+  .goalkeeperDataNotice dt { overflow-wrap: anywhere; }
+}
 .clubSquadPlayer dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 110px), 1fr)); gap: 12px; margin: 0; }
 .clubSquadPlayer dt { font-size: 11px; color: var(--gray); }
 .clubSquadPlayer dd { margin: 4px 0 0; font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }

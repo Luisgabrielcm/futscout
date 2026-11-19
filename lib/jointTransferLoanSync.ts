@@ -3,6 +3,7 @@ import { canonicalJson } from "./clubContexts"
 import type { GameClubState } from "./eaSquadSync"
 
 export type LoanContext = "REAL" | "GAME"
+export type MembershipState = GameClubState | "RETIRED"
 export type LoanClub = Readonly<{ id: string; name: string }>
 export type LoanEvidence = Readonly<{
   url: string; evidenceDate: string | null; consultedAt: string; contentHash: string
@@ -21,7 +22,7 @@ export type LoanObservation = Readonly<{
   identityConfirmed: boolean; chronologyConfirmed: boolean; movementTypeConfirmed: boolean
   evidence: LoanEvidence
 }>
-export type MovementKind = "PERMANENT_TRANSFER" | "LOAN_START" | "LOAN_RETURN_CONFIRMED" | "LOAN_RECALL_CONFIRMED" | "LOAN_TO_PERMANENT" | "CURRENT_CLUB_CONFIRMED"
+export type MovementKind = "PERMANENT_TRANSFER" | "LOAN_START" | "LOAN_RETURN_CONFIRMED" | "LOAN_RECALL_CONFIRMED" | "LOAN_TO_PERMANENT" | "CURRENT_CLUB_CONFIRMED" | "CURRENT_FREE_AGENT_CONFIRMED" | "RETIREMENT_CONFIRMED"
 const hash = (v: unknown) => createHash("sha256").update(canonicalJson(v)).digest("hex")
 const date = (value: string | null) => value === null || /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value
@@ -108,13 +109,13 @@ export function inspectLoanBatch(rows: readonly LoanObservation[], asOf: string)
 
 export function classifyMovement(kind: MovementKind, evidenceConfirmed: boolean) {
   if (!evidenceConfirmed) throw new Error("MOVEMENT_EVIDENCE_REQUIRED")
-  if (!["PERMANENT_TRANSFER", "LOAN_START", "LOAN_RETURN_CONFIRMED", "LOAN_RECALL_CONFIRMED", "LOAN_TO_PERMANENT", "CURRENT_CLUB_CONFIRMED"].includes(kind)) throw new Error("MOVEMENT_KIND_INVALID")
+  if (!["PERMANENT_TRANSFER", "LOAN_START", "LOAN_RETURN_CONFIRMED", "LOAN_RECALL_CONFIRMED", "LOAN_TO_PERMANENT", "CURRENT_CLUB_CONFIRMED", "CURRENT_FREE_AGENT_CONFIRMED", "RETIREMENT_CONFIRMED"].includes(kind)) throw new Error("MOVEMENT_KIND_INVALID")
   return { kind, changesMainContractOwner: kind === "PERMANENT_TRANSFER" || kind === "LOAN_TO_PERMANENT",
     autoReturnOnEndDate: false, autoPurchaseOnOptionOrObligation: false }
 }
 
 export type LoanMembership = Readonly<{
-  eaId: string; context: LoanContext; state: GameClubState; club: LoanClub | null
+  eaId: string; context: LoanContext; state: MembershipState; club: LoanClub | null
   nationalTeams: readonly { eaTeamId: string; name: string }[]
 }>
 export type ProjectedEligibility = {
@@ -127,6 +128,7 @@ export function projectLoanMembership(input: {
   mode?: "NATIVE_CONTEXT" | "FUTSCOUT_PROJECTED"; eligibility?: ProjectedEligibility; approvedEligibilityPolicyHash?: string
 }) {
   const { membership, loan, asOf } = input
+  if (membership.context === "GAME" && membership.state === "RETIRED") throw new Error("RETIREMENT_IS_REAL_CONTEXT_ONLY")
   const projected = input.mode === "FUTSCOUT_PROJECTED"
   if (projected && (!input.eligibility?.allowed || input.eligibility.eaId !== membership.eaId ||
       input.eligibility.destinationId !== membership.club?.id || !input.eligibility.policyVersion ||
@@ -142,7 +144,7 @@ export function projectLoanMembership(input: {
   return {
     eaId: membership.eaId, context: membership.context, clubState: membership.state,
     playingClub: membership.club, parentClub: loan && isActive(loan) ? loan.parentClub : null,
-    clubLabel: membership.club?.name ?? ({ FREE_AGENT: "Agente livre", UNKNOWN: "Clube desconhecido", NOT_IN_SQUAD: "Não encontrado neste squad", CLUB: "Clube desconhecido" }[membership.state]),
+    clubLabel: membership.club?.name ?? ({ FREE_AGENT: "Agente livre", RETIRED: "Aposentado", UNKNOWN: "Clube desconhecido", NOT_IN_SQUAD: "Não encontrado neste squad", CLUB: "Clube desconhecido" }[membership.state]),
     loanBadge: active ? `Emprestado pelo ${active.parentClub.name}` : null,
     loanStatus: state, loanDates: loan ? { startsAt: loan.startsAt, endsAt: loan.endsAt, endSeason: loan.endSeason } : null,
     purchase: loan?.purchase ?? null, evidence: loan?.evidence ?? null,
@@ -155,7 +157,7 @@ export function projectLoanMembership(input: {
 }
 export type LoanPresentation = ReturnType<typeof projectLoanMembership>
 export function filterLoanPresentations(rows: readonly LoanPresentation[], filter: {
-  context: LoanContext; playingClubId?: string; parentClubId?: string; state?: GameClubState; nationalTeamEaId?: string
+  context: LoanContext; playingClubId?: string; parentClubId?: string; state?: MembershipState; nationalTeamEaId?: string
 }) {
   return rows.filter(row => row.context === filter.context &&
     (!filter.playingClubId || row.playingClub?.id === filter.playingClubId) &&

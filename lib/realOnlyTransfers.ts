@@ -9,11 +9,17 @@ export function validateRealOnlyMovement(p: JointTransferPayload, asOf: string) 
   validateJointTransferPayload(p)
   if (!p.real || !p.jointTransfer.real || p.jointTransfer.futscoutProjection) throw new Error("REAL_ONLY_INDEPENDENT_CONTEXT_REQUIRED")
   const m = p.jointTransfer.movements.at(-1), real = p.jointTransfer.real
-  if (!m || m.context !== "REAL" || !m.evidenceConfirmed || !["PERMANENT_TRANSFER", "LOAN_TO_PERMANENT", "LOAN_START", "CURRENT_CLUB_CONFIRMED"].includes(m.kind))
+  if (!m || m.context !== "REAL" || !m.evidenceConfirmed || !["PERMANENT_TRANSFER", "LOAN_TO_PERMANENT", "LOAN_START", "CURRENT_CLUB_CONFIRMED", "CURRENT_FREE_AGENT_CONFIRMED", "RETIREMENT_CONFIRMED"].includes(m.kind))
     throw new Error("REAL_ONLY_EXPLICIT_MOVEMENT_REQUIRED")
   if (m.evidenceHash !== p.real.evidenceHash || m.sourceUrl !== p.real.sourceUrl)
     throw new Error("REAL_ONLY_MOVEMENT_BINDING_REQUIRED")
   if (m.effectiveAt && m.effectiveAt > asOf) throw new Error("REAL_ONLY_FUTURE_MOVEMENT")
+  if (m.kind === "CURRENT_FREE_AGENT_CONFIRMED" || m.kind === "RETIREMENT_CONFIRMED") {
+    const expected = m.kind === "RETIREMENT_CONFIRMED" ? "RETIRED" : "FREE_AGENT"
+    if (real.state !== expected || p.real.status !== expected || real.club || real.loan || real.parentClub || m.route)
+      throw new Error("REAL_ONLY_EMPLOYMENT_STATUS_INVALID")
+    return m.kind === "RETIREMENT_CONFIRMED" ? "REAL_ONLY_RETIRED" as const : "REAL_ONLY_FREE_AGENT" as const
+  }
   if (m.kind === "CURRENT_CLUB_CONFIRMED") {
     if (real.state !== "CLUB" || !real.club || real.loan || real.parentClub || m.route || m.effectiveAt !== null)
       throw new Error("REAL_ONLY_MEMBERSHIP_CANNOT_ASSERT_MOVEMENT")
