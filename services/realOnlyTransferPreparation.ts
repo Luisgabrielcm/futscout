@@ -5,7 +5,7 @@ import { realOnlyTransferDecision } from "../lib/transferReadScope"
 
 export type RealOnlyTransferCandidate = {
   base: JointTransferPayload; expectedBaseHash: string; patch: Parameters<typeof prepareRealOnlyPayload>[1];
-  proof: { identityConfirmed: boolean; movementTypeConfirmed: boolean; currentClubOnlyConfirmed?: boolean; currentPlayingConfirmed: boolean;
+  proof: { identityConfirmed: boolean; movementTypeConfirmed: boolean; currentClubOnlyConfirmed?: boolean; currentEmploymentStatusConfirmed?: boolean; currentPlayingConfirmed: boolean;
     chronologyConfirmed: boolean; sourceFileVerified: boolean; sourceHash: string; currentSourceHash: string;
     currentObservedAt: string; authority: "OFFICIAL" | "CORROBORATED" | "LEAD_ONLY"; conflicts: readonly string[] };
   gamePendingReasons: readonly string[]
@@ -18,7 +18,7 @@ export function prepareRealOnlyTransferBatch(input: { candidates: readonly RealO
   if (!Number.isInteger(chunk) || chunk < 1 || chunk > 200) throw new Error("REAL_ONLY_CHUNK_INVALID")
   const excluded = new Set(input.excludedEaIds), grouped = new Map<string, RealOnlyTransferCandidate[]>()
   for (const c of input.candidates) grouped.set(c.base.eaPlayerId, [...grouped.get(c.base.eaPlayerId) ?? [], c])
-  const eligible: { eaId: string; payload: JointTransferPayload; expectedGameBaselineHash: string; category: "REAL_ONLY_TRANSFER" | "REAL_ONLY_LOAN" | "REAL_ONLY_CLUB_CONFIRMATION"; gamePendingReasons: readonly string[] }[] = []
+  const eligible: { eaId: string; payload: JointTransferPayload; expectedGameBaselineHash: string; category: "REAL_ONLY_TRANSFER" | "REAL_ONLY_LOAN" | "REAL_ONLY_CLUB_CONFIRMATION" | "REAL_ONLY_FREE_AGENT" | "REAL_ONLY_RETIRED"; gamePendingReasons: readonly string[] }[] = []
   const pending: { eaId: string; reasons: string[] }[] = [], duplicatesAvoided: string[] = []
   for (const [eaId, rows] of grouped) {
     if (excluded.has(eaId)) { duplicatesAvoided.push(eaId); continue }
@@ -29,8 +29,11 @@ export function prepareRealOnlyTransferBatch(input: { candidates: readonly RealO
       if (p.conflicts.length) throw new Error(p.conflicts.join(";"))
       if (jointHash(c.base) !== c.expectedBaseHash) throw new Error("REAL_ONLY_BASELINE_CHANGED")
       const membershipOnly = c.patch.movement.kind === "CURRENT_CLUB_CONFIRMED"
+      const employmentOnly = ["CURRENT_FREE_AGENT_CONFIRMED", "RETIREMENT_CONFIRMED"].includes(c.patch.movement.kind)
       if (membershipOnly && (p.currentClubOnlyConfirmed !== true || p.movementTypeConfirmed !== false)) throw new Error("REAL_ONLY_MEMBERSHIP_PROOF_REQUIRED")
-      if (![p.identityConfirmed, membershipOnly ? p.currentClubOnlyConfirmed : p.movementTypeConfirmed, p.currentPlayingConfirmed, p.chronologyConfirmed, p.sourceFileVerified].every(Boolean) ||
+      if (employmentOnly && (p.currentEmploymentStatusConfirmed !== true || p.movementTypeConfirmed !== false)) throw new Error("REAL_ONLY_EMPLOYMENT_PROOF_REQUIRED")
+      if (![p.identityConfirmed, employmentOnly ? p.currentEmploymentStatusConfirmed : membershipOnly ? p.currentClubOnlyConfirmed : p.movementTypeConfirmed,
+        employmentOnly ? p.currentEmploymentStatusConfirmed : p.currentPlayingConfirmed, p.chronologyConfirmed, p.sourceFileVerified].every(Boolean) ||
         !["OFFICIAL", "CORROBORATED"].includes(p.authority) || !/^[a-f0-9]{64}$/.test(p.currentSourceHash)) throw new Error("REAL_ONLY_PROOF_INCOMPLETE")
       const observed = Date.parse(p.currentObservedAt), dayEnd = Date.parse(input.asOf) + 86400000 - 1
       if (!Number.isFinite(observed) || observed > dayEnd || dayEnd - observed > 7 * 86400000) throw new Error("REAL_ONLY_CURRENT_STATUS_REQUIRES_REFRESH")
@@ -54,6 +57,8 @@ export function prepareRealOnlyTransferBatch(input: { candidates: readonly RealO
   return { version: 1, inputHash, checkpoint, batches, remainingBatches: batches.filter(b => !checkpoint.completedBatchIds.includes(b.batchId)), eligible: eligible.length,
     transfers: eligible.filter(r => r.category === "REAL_ONLY_TRANSFER").length, loans: eligible.filter(r => r.category === "REAL_ONLY_LOAN").length,
     clubConfirmations: eligible.filter(r => r.category === "REAL_ONLY_CLUB_CONFIRMATION").length,
+    freeAgents: eligible.filter(r => r.category === "REAL_ONLY_FREE_AGENT").length,
+    retirements: eligible.filter(r => r.category === "REAL_ONLY_RETIRED").length,
     pending, duplicatesAvoided, executionAuthorized: false, productionWrites: 0, gameWrites: 0, canonicalEaReferenceChosen: false,
     paidCalls: 0, autoActivationAllowed: false, requiresFreshTargetBaseline: true }
 }

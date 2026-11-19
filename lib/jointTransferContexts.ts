@@ -1,14 +1,13 @@
 import { createHash } from "node:crypto"
 import { canonicalJson, validateClubContexts, type ClubContexts } from "./clubContexts"
-import { classifyMovement, projectLoanMembership, validateLoanObservation, type LoanObservation, type MovementKind, type LoanPresentation } from "./jointTransferLoanSync"
-import type { GameClubState } from "./eaSquadSync"
+import { classifyMovement, projectLoanMembership, validateLoanObservation, type LoanObservation, type MovementKind, type LoanPresentation, type MembershipState } from "./jointTransferLoanSync"
 import { validateRealGameProjection, realGameProjectionView, realGamePolicyHash, type RealGameProjection } from "./realGameProjection"
 import { decodeJointReadIds, jointReadIdLimit } from "./jointReadIds"
 
 export type BoundClub = { id: string; eaId: string | null; name: string; slug: string | null;
   league: { id: string; name: string; slug: string | null } | null }
 export type BoundMembership = {
-  context: "REAL" | "GAME"; state: GameClubState; club: BoundClub | null; parentClub: BoundClub | null
+  context: "REAL" | "GAME"; state: MembershipState; club: BoundClub | null; parentClub: BoundClub | null
   loan: LoanObservation | null; nationalTeams: readonly { eaTeamId: string; name: string }[]
   nationalCoverage: "KNOWN" | "UNKNOWN" | "NOT_IN_SQUAD"
 }
@@ -30,7 +29,7 @@ export function validateJointTransferPayload(payload: JointTransferPayload, eaId
   if (!j || j.version !== 1 || j.projected !== false || j.game.context !== "GAME" || j.real && j.real.context !== "REAL")
     throw new Error("JOINT_CONTEXT_VERSION_OR_PROJECTION_INVALID")
   for (const member of [j.game, ...(j.real ? [j.real] : [])]) {
-    if (!["CLUB", "FREE_AGENT", "UNKNOWN", "NOT_IN_SQUAD"].includes(member.state) ||
+    if (!["CLUB", "FREE_AGENT", "UNKNOWN", "NOT_IN_SQUAD", ...(member.context === "REAL" ? ["RETIRED"] : [])].includes(member.state) ||
       (member.state === "CLUB") !== (member.club !== null) || !["KNOWN", "UNKNOWN", "NOT_IN_SQUAD"].includes(member.nationalCoverage)) throw new Error("JOINT_MEMBERSHIP_INVALID")
     for (const club of [member.club, member.parentClub].filter((c): c is BoundClub => c !== null))
       if (!club.id || !club.name || club.eaId === "111592" || club.eaId !== null && !/^\d+$/.test(club.eaId)) throw new Error("JOINT_CLUB_BINDING_INVALID")
@@ -52,11 +51,19 @@ export function validateJointTransferPayload(payload: JointTransferPayload, eaId
   const game = j.game
   if ((game.state === "CLUB" ? "CLUB" : game.state === "FREE_AGENT" ? "NG_FA" : "UNKNOWN") !== payload.game.status ||
     game.club?.eaId !== (payload.game.club?.eaId ?? undefined) && game.club !== null) throw new Error("JOINT_GAME_STATE_MISMATCH")
-  if (j.real && ((j.real.state === "CLUB" ? "CLUB" : j.real.state === "FREE_AGENT" ? "FREE_AGENT" : "UNKNOWN") !== payload.real?.status ||
+  if (j.real && ((j.real.state === "CLUB" ? "CLUB" : j.real.state === "FREE_AGENT" ? "FREE_AGENT" : j.real.state === "RETIRED" ? "RETIRED" : "UNKNOWN") !== payload.real?.status ||
     j.real.club && (j.real.club.name !== payload.real?.club?.name || j.real.club.eaId !== payload.real?.club?.eaId))) throw new Error("JOINT_REAL_STATE_MISMATCH")
+  if (j.real && ["FREE_AGENT", "RETIRED"].includes(j.real.state)) {
+    const latest = j.movements.filter(m => m.context === "REAL").at(-1)
+    const expected = j.real.state === "RETIRED" ? "RETIREMENT_CONFIRMED" : "CURRENT_FREE_AGENT_CONFIRMED"
+    if (latest?.kind !== expected || latest.evidenceHash !== payload.real?.evidenceHash || latest.sourceUrl !== payload.real?.sourceUrl || latest.route)
+      throw new Error("JOINT_REAL_EMPLOYMENT_EVIDENCE_REQUIRED")
+  }
   for (const row of j.history) { validateLoanObservation(row); if (row.eaId !== eaId) throw new Error("JOINT_HISTORY_IDENTITY_MISMATCH") }
   for (const row of j.movements) {
     classifyMovement(row.kind, row.evidenceConfirmed)
+    if (["CURRENT_FREE_AGENT_CONFIRMED", "RETIREMENT_CONFIRMED"].includes(row.kind) && row.context !== "REAL")
+      throw new Error("EMPLOYMENT_OBSERVATION_IS_REAL_ONLY")
     if (row.eaId !== eaId || !["REAL", "GAME"].includes(row.context) || !sha.test(row.evidenceHash) || !https(row.sourceUrl) ||
       row.effectiveAt !== null && (!/^\d{4}-\d{2}-\d{2}$/.test(row.effectiveAt) || new Date(row.effectiveAt).toISOString().slice(0, 10) !== row.effectiveAt)) throw new Error("JOINT_MOVEMENT_INVALID")
     if (row.route) {

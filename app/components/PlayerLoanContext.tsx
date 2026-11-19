@@ -16,7 +16,10 @@ export default function PlayerLoanContext({ value, playerName, variant = "profil
 }) {
   const pt = locale === "pt"
   const shownDate = (date: string | null) => date ? pt ? date.split("-").reverse().join("/") : date : pt ? "Não informada" : "Not documented"
-  const status = value.loanStatus === "ACTIVE_IN_SNAPSHOT" ? pt ? "Emprestado neste snapshot" : "On loan in this snapshot"
+  const employmentOnly = value.context === "REAL" && ["FREE_AGENT", "RETIRED"].includes(value.clubState)
+  const status = employmentOnly ? value.clubState === "RETIRED" ? pt ? "Aposentadoria confirmada" : "Retirement confirmed"
+    : pt ? "Agente livre confirmado" : "Free agent confirmed"
+    : value.loanStatus === "ACTIVE_IN_SNAPSHOT" ? pt ? "Emprestado neste snapshot" : "On loan in this snapshot"
     : value.loanStatus === "ACTIVE" ? pt ? "Empréstimo ativo" : "Active loan"
     : value.loanStatus === "PENDING_VERIFICATION" ? pt ? "Situação atual em verificação" : "Current status under review"
     : value.loanStatus === "RETURN_CONFIRMED" ? pt ? "Retorno confirmado" : "Return confirmed"
@@ -29,7 +32,7 @@ export default function PlayerLoanContext({ value, playerName, variant = "profil
     : purchase === "CONDITIONAL_OBLIGATION" ? pt ? "Obrigação de compra condicionada" : "Conditional purchase obligation"
     : purchase === "NONE_CONFIRMED" ? pt ? "Ausência de cláusula confirmada" : "Absence of purchase terms confirmed"
     : pt ? "Não documentada" : "Not documented"
-  const clubLabel = locale === "en" && value.clubState !== "CLUB" ? { FREE_AGENT: "Free agent", UNKNOWN: "Unknown club", NOT_IN_SQUAD: "Not found in this squad" }[value.clubState] : value.clubLabel
+  const clubLabel = locale === "en" && value.clubState !== "CLUB" ? { FREE_AGENT: "Free agent", RETIRED: "Retired", UNKNOWN: "Unknown club", NOT_IN_SQUAD: "Not found in this squad" }[value.clubState] : value.clubLabel
   return <section className="loan-context" aria-label={`${playerName} — ${value.displayContext}`}>
     <p className="loan-context-kicker">{value.displayContext === "FUTSCOUT_PROJECTED" ? pt ? "Elenco projetado FutScout" : "FutScout projected roster"
       : value.context === "REAL" ? pt ? "Vida real" : "Real life" : "EA FC 27"}</p>
@@ -40,12 +43,12 @@ export default function PlayerLoanContext({ value, playerName, variant = "profil
     {variant === "profile" && <>
       <dl className="loan-context-dl">
         <div><dt>{pt ? "Clube atual neste contexto" : "Current club in this context"}</dt><dd>{clubLabel}</dd></div>
-        <div><dt>{pt ? "Origem do empréstimo documentado" : "Documented loan parent"}</dt><dd>{value.loanParties?.parentClub.name ?? (pt ? "Não documentada" : "Not documented")}</dd></div>
+        {!employmentOnly && <div><dt>{pt ? "Origem do empréstimo documentado" : "Documented loan parent"}</dt><dd>{value.loanParties?.parentClub.name ?? (pt ? "Não documentada" : "Not documented")}</dd></div>}
         <div><dt>Status</dt><dd>{status}</dd></div>
-        <div><dt>{pt ? "Início do empréstimo" : "Loan start"}</dt><dd>{shownDate(value.loanDates?.startsAt ?? null)}</dd></div>
+        {!employmentOnly && <><div><dt>{pt ? "Início do empréstimo" : "Loan start"}</dt><dd>{shownDate(value.loanDates?.startsAt ?? null)}</dd></div>
         <div><dt>{pt ? "Término do empréstimo" : "Loan end"}</dt><dd>{value.loanDates?.endsAt ? shownDate(value.loanDates.endsAt)
           : value.loanDates?.endSeason ? `${pt ? "Temporada" : "Season"} ${value.loanDates.endSeason} — ${pt ? "data exata não confirmada" : "exact date unconfirmed"}` : shownDate(null)}</dd></div>
-        <div><dt>{pt ? "Compra definitiva" : "Permanent purchase"}</dt><dd>{terms}{value.purchase?.condition && ` — ${value.purchase.condition}`}</dd></div>
+        <div><dt>{pt ? "Compra definitiva" : "Permanent purchase"}</dt><dd>{terms}{value.purchase?.condition && ` — ${value.purchase.condition}`}</dd></div></>}
       </dl>
       {value.mainContractClub && <p className="loan-context-note">{pt ? "O vínculo principal pertence ao clube de origem na evidência consultada. As datas do empréstimo não representam o término desse contrato." : "The main registration belongs to the parent club in the consulted evidence. Loan dates do not establish the end of that contract."}</p>}
       {purchase === "OBLIGATION" && !value.purchase?.condition && <p className="loan-context-note">{pt ? "Condições de acionamento da compra não confirmadas nesta evidência." : "Purchase trigger conditions are not confirmed in this evidence."}</p>}
