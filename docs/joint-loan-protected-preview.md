@@ -6,7 +6,7 @@ New cohorts can select a verified REAL transfer or loan while leaving GAME on it
 
 The database index can mix paired and REAL-only selections. Its root still authenticates every ordered EA ID, revision, version, decision and snapshot; REAL-only entries contribute no GAME override to profiles, cards, catalog filters or national teams. Immutable GAME evidence remains stored separately. Reader requests keep the existing bulk metadata/payload/club query pattern and READ ONLY adapter.
 
-The bounded index supports up to 8,192 identities. The EA-ID transport also accepts versioned DEFLATE and delta-DEFLATE encodings without changing the decoded order or authenticated pins. Decoding rejects duplicate/invalid IDs, unsupported versions, overflow and oversized output. Existing plain-ID configurations remain compatible. Compression does not certify the total deployment environment budget; the platform must validate the actual candidate configuration.
+The bounded index supports up to 16,384 identities. The EA-ID transport also accepts versioned DEFLATE and delta-DEFLATE encodings without changing the decoded order or authenticated pins. Decoding rejects duplicate/invalid IDs, unsupported versions, overflow and oversized output. Existing plain-ID configurations remain compatible. Compression does not certify the total deployment environment budget; the platform must validate the actual candidate configuration.
 
 Readers remain disabled by default. No migration, import, scheduler or automatic activation is introduced. Operator writes and rollback still require explicit authorization, fresh baselines, exact hashes and compare-and-swap receipts. Keep private payloads, evidence, release hashes and credentials outside public Git and deployment source exports.
 
