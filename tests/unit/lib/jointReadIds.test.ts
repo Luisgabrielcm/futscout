@@ -28,3 +28,16 @@ test("delta transport preserves unsorted IDs and rejects noncanonical numbers an
   for (const text of ["0", "1,0", "1,-1", "01", "1,-0", "999999999999,1", "1,1000000000000", "1,1.5", "1,+1"])
     assert.equal(decodeJointReadIds(packed(text)), null)
 })
+
+
+test("expanded cohorts preserve prior IDs and appended IDs across the previous transport limit", () => {
+  const existing = Array.from({ length: 7789 }, (_, i) => String(800001 + i))
+  const added = Array.from({ length: 571 }, (_, i) => String(900001 + i)).reverse()
+  const ids = [...existing, ...added]
+  assert(ids.length > 8192 && ids.length <= jointReadIdLimit)
+  const decoded = decodeJointReadIds(encodeJointReadIds(ids))
+  assert.deepEqual(decoded, ids)
+  assert.deepEqual(decoded?.slice(0, existing.length), existing)
+  assert.deepEqual(decoded?.slice(existing.length), added)
+  assert.deepEqual(decodeJointReadIds(ids.join(",")), ids)
+})

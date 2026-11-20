@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": {
+      "codex/context-reader-capacity-16384": false,
       "codex/autonomous-transfer-resolution-20261119": false,
       "codex/expanded-transfer-discovery": false,
       "codex/joint-reader-capacity-2973": false,

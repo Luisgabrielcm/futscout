@@ -1,6 +1,6 @@
 import { deflateRawSync, inflateRawSync } from "node:zlib"
 
-export const jointReadIdLimit = 8192
+export const jointReadIdLimit = 16384
 const maxBytes = jointReadIdLimit * 13 - 1
 const prefix = "deflate:v1:"
 const deltaPrefix = "deflate-delta:v1:"
