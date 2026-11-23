@@ -103,7 +103,8 @@ export function parseResearchPayload(field: ResearchField, action: ResearchActio
   }
   if (field === "CLAUSE") {
     const clause = parseManualPayload("CLAUSE", raw) as ClausePayload
-    if (action !== "RECORD" && (clause.status !== "YES" || !clause.amount || !clause.currency))
+    if (action !== "RECORD" && (clause.status === "UNKNOWN" ||
+        clause.status === "YES" && (!clause.amount || !clause.currency)))
       throw Error("RESEARCH_CLAUSE_UNCONFIRMED")
     return clause
   }

@@ -7,7 +7,7 @@ import { spawn } from "node:child_process"
 import { randomUUID } from "node:crypto"
 import { Client, Pool } from "pg"
 import { createResearchEconomicWriter, writeResearchEconomicBatch } from "../../services/researchEconomicWriter"
-import { publicEconomicOverlay, publicContractUntil } from "../../lib/publicEconomicOverlay"
+import { publicEconomicOverlay, publicContractUntil, publicClause } from "../../lib/publicEconomicOverlay"
 import { parseResearchPayload } from "../../lib/researchEconomic"
 
 assert(process.argv.includes("--disposable-authorized"))
@@ -113,7 +113,25 @@ try {
   await assert.rejects(write({ ...salaryPublication, action: "ROLLBACK", payload: null,
     rollbackToId: null, requestId: randomUUID(), expectedHeadRevision: netPublished.revision }),
   /RESEARCH_MANUAL_PRIORITY/)
-  console.log("PG17 RESEARCH_ECONOMIC_PASS: evidence, publication, manual priority, CAS, idempotency, rollback, history")
+  const noClause = { ...base, field: "CLAUSE" as const, action: "PUBLISH" as const,
+    requestId: randomUUID(), expectedHeadRevision: 0,
+    payload: { status: "NO" as const, amount: null, currency: null, conditions: null, validUntil: null } }
+  const clausePublished = await write(noClause)
+  assert.equal(clausePublished.publishedNow, true)
+  assert.equal((await write(noClause)).replay, true)
+  const clause = (await pool.query('SELECT payload FROM "ResearchEconomicPublic" WHERE field=$1', ["CLAUSE"])).rows[0].payload
+  assert.deepEqual(parseResearchPayload("CLAUSE", "PUBLISH", clause), noClause.payload)
+  assert.equal(publicClause(publicEconomicOverlay(undefined, { clause }), "pt"), "Sem cláusula")
+  await assert.rejects(write({ ...noClause, requestId: randomUUID(), expectedHeadRevision: 1,
+    payload: { ...noClause.payload, status: "UNKNOWN" } }), /RESEARCH_CLAUSE_UNCONFIRMED/)
+  assert.equal((await pool.query('SELECT payload FROM "ResearchEconomicPublic" WHERE field=$1', ["CLAUSE"])).rows[0].payload.status, "NO")
+  await write({ ...noClause, action: "ROLLBACK", payload: null, rollbackToId: null,
+    requestId: randomUUID(), expectedHeadRevision: 1 })
+  assert.equal((await pool.query('SELECT count(*)::int count FROM "ResearchEconomicPublic" WHERE field=$1', ["CLAUSE"])).rows[0].count, 0)
+  await write({ ...noClause, action: "ROLLBACK", payload: null, rollbackToId: clausePublished.id,
+    requestId: randomUUID(), expectedHeadRevision: 2 })
+  assert.deepEqual((await pool.query('SELECT payload FROM "ResearchEconomicPublic" WHERE field=$1', ["CLAUSE"])).rows[0].payload, noClause.payload)
+  console.log("PG17 RESEARCH_ECONOMIC_PASS: evidence, publication, manual priority, CAS, idempotency, rollback, history, confirmed clause absence")
 } finally {
   await pool?.end(); await owner?.end()
   if (started) await command("pg_ctl", ["-D", cluster, "-m", "immediate", "-w", "stop"])

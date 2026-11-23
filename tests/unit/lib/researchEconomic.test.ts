@@ -9,6 +9,33 @@ const base = { playerId: "p", eaId: "123", clubId: "c", sourceUrl: "https://exam
   sourcePublishedOn: "2026-11-01", capturedOn: "2026-11-08", classification: "OFFICIAL" as const,
   field: "CONTRACT" as const, action: "PUBLISH" as const, requestId: randomUUID(), expectedHeadRevision: 0 }
 
+test("confirmed absence of a clause is publishable and readable without inventing a zero amount", () => {
+  const absent = { status: "NO" as const, amount: null, currency: null, conditions: null, validUntil: null }
+  for (const action of ["RECORD", "PUBLISH", "ROLLBACK"] as const)
+    assert.deepEqual(parseResearchPayload("CLAUSE", action, absent), absent)
+  const command = prepareResearchCommand({ ...base, field: "CLAUSE", payload: absent })
+  assert.deepEqual(command.payload, absent)
+  const read = parseResearchPayload("CLAUSE", "PUBLISH", command.payload)
+  const overlay = publicEconomicOverlay(undefined, { clause: read as typeof absent })
+  assert.equal(publicClause(overlay, "pt"), "Sem cláusula")
+  assert.equal(publicClause(overlay, "en"), "No clause")
+  const manual = { revisions: { CLAUSE: 1 }, clause: { ...absent, status: "YES" as const,
+    amount: "1000000", currency: "EUR" } }
+  assert.equal(publicClause(publicEconomicOverlay(manual, { clause: absent }), "pt"),
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "EUR" }).format(1000000))
+})
+
+test("unknown or malformed absence cannot be published as no clause", () => {
+  const absent = { status: "NO", amount: null, currency: null, conditions: null, validUntil: null }
+  for (const payload of [{ ...absent, amount: "0" }, { ...absent, currency: "EUR" },
+    { ...absent, conditions: "Unverified" }, { ...absent, validUntil: "2027-06-30" },
+    { ...absent, status: "UNKNOWN" }, { ...absent, status: "YES" },
+    { ...absent, status: "YES", amount: "0", currency: "EUR" }])
+    assert.throws(() => parseResearchPayload("CLAUSE", "PUBLISH", payload))
+  assert.equal((parseResearchPayload("CLAUSE", "RECORD", { ...absent, status: "UNKNOWN" }) as { status: string }).status, "UNKNOWN")
+  assert.throws(() => prepareResearchCommand({ ...base, field: "CLAUSE", payload: absent, sourceUrl: "http://example.test" }))
+})
+
 test("research evidence validates precision, provenance and salary composition", () => {
   assert.equal(formatResearchContract({ until: "2030", precision: "YEAR" }, "pt"), "2030")
   assert.equal(formatResearchContract({ until: "2030-06", precision: "MONTH" }, "pt"), "06/2030")
