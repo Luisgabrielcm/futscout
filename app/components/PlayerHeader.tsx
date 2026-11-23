@@ -274,7 +274,10 @@ export default function PlayerHeader({ locale = "pt",
             <a href={fixedSalary.sourceUrl} target="_blank" rel="noopener noreferrer">{locale === "pt" ? "Fonte" : "Source"}</a>
           </dd></div>}
           <div><dt>{visualText(locale, "contractUntil")}</dt><dd>{publicContractUntil(economicOverlay, locale)}</dd></div>
-          <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{publicClause(economicOverlay, locale)}</dd></div>
+          <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{publicClause(economicOverlay, locale)}
+            {economicOverlay?.clause?.status === "YES" && economicOverlay.clause.conditions &&
+              <small className="mutedText releaseClauseConditions" style={{ display: "block" }}>{economicOverlay.clause.conditions}</small>}
+          </dd></div>
         </dl>
       </div>
     </section>
