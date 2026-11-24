@@ -14,7 +14,7 @@ export type ResearchSalaryReference = { weeklyAmount: string; currency: "EUR" | 
   originalAmount?: string; originalPeriod?: "WEEK" | "MONTH" | "YEAR" }
 export type ResearchPayload = ResearchContract | ClausePayload | SalaryPayload | ResearchSalaryReference
 export type ResearchCommand = {
-  playerId: string; eaId: string; clubId: string; field: ResearchField; action: ResearchAction;
+  playerId: string; eaId: string; clubId: string | null; field: ResearchField; action: ResearchAction;
   requestId: string; sourceUrl: string; sourcePublishedOn: string | null; capturedOn: string;
   classification: ResearchClassification; payload: unknown; expectedHeadRevision?: number | null;
   rollbackToId?: string | null
@@ -127,7 +127,7 @@ export function normalizeResearchSalary(input: Omit<ResearchSalaryReference, "we
 export function prepareResearchCommand(input: ResearchCommand) {
   const safeSource = validPublicUrl(input.sourceUrl)
   if (!/^[a-f0-9-]{36}$/i.test(input.requestId) || !/^[0-9]+$/.test(input.eaId) ||
-      !input.playerId || !input.clubId || !["SALARY", "CONTRACT", "CLAUSE"].includes(input.field) ||
+      !input.playerId || !(input.clubId === null || typeof input.clubId === "string" && input.clubId.length > 0) || !["SALARY", "CONTRACT", "CLAUSE"].includes(input.field) ||
       !["RECORD", "PUBLISH", "ROLLBACK"].includes(input.action) ||
       !["OFFICIAL", "REPORTED", "ESTIMATED", "UNKNOWN"].includes(input.classification) ||
       !safeSource || input.sourceUrl.length > 1000 ||

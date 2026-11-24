@@ -59,7 +59,7 @@ model ResearchEconomicRevision {
   id String @id
   playerId String
   eaId String
-  clubId String
+  clubId String?
   field String
   revision Int
   requestId String @unique

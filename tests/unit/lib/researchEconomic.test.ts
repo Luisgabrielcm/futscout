@@ -9,6 +9,15 @@ const base = { playerId: "p", eaId: "123", clubId: "c", sourceUrl: "https://exam
   sourcePublishedOn: "2026-11-01", capturedOn: "2026-11-08", classification: "OFFICIAL" as const,
   field: "CONTRACT" as const, action: "PUBLISH" as const, requestId: randomUUID(), expectedHeadRevision: 0 }
 
+test("an explicitly absent legacy club is valid; an omitted or malformed binding is not", () => {
+  const command = { ...base, payload: { until: "2029", precision: "YEAR" } }
+  const absent = prepareResearchCommand({ ...command, clubId: null })
+  assert.equal(absent.clubId, null)
+  assert.notEqual(absent.requestHash, prepareResearchCommand(command).requestHash)
+  for (const clubId of [undefined, "", 0, {}])
+    assert.throws(() => prepareResearchCommand({ ...command, clubId } as never), /RESEARCH_COMMAND_INVALID/)
+})
+
 test("confirmed absence of a clause is publishable and readable without inventing a zero amount", () => {
   const absent = { status: "NO" as const, amount: null, currency: null, conditions: null, validUntil: null }
   for (const action of ["RECORD", "PUBLISH", "ROLLBACK"] as const)
