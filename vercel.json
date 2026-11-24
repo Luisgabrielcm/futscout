@@ -12,7 +12,8 @@
       "codex/generic-economic-repository-reconcile": false,
       "codex/generic-economics-publication": false,
       "codex/club-contexts-readers-preview": false,
-      "beta-next": false
+      "beta-next": false,
+      "codex/research-economic-null-club": false
     }
   }
 }

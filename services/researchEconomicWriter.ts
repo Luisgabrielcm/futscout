@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import type { Pool } from "pg"
 import { parseResearchPayload, prepareResearchCommand, researchHash, type ResearchCommand, type ResearchPayload } from "../lib/researchEconomic"
 
-type RevisionRow = { id: string; playerId: string; eaId: string; clubId: string; field: string; revision: number;
+type RevisionRow = { id: string; playerId: string; eaId: string; clubId: string | null; field: string; revision: number;
   requestHash: string; action: string; payload: ResearchPayload | null; classification: string;
   sourceUrl: string; sourcePublishedOn: string | null }
 type HeadRow = { revisionId: string; revision: number }
@@ -34,7 +34,7 @@ export function createResearchEconomicWriter(pool: Pick<Pool, "connect" | "query
           publishedNow: head?.revisionId === priorRequest.id }
       }
       const player = (await client.query<{ id: string }>(
-        'SELECT id FROM "Player" WHERE id=$1 AND "externalId"=$2 AND "clubId"=$3',
+        'SELECT id FROM "Player" WHERE id=$1 AND "externalId"=$2 AND "clubId" IS NOT DISTINCT FROM $3::text',
         [command.playerId, command.eaId, command.clubId])).rows[0]
       if (!player) throw Error("RESEARCH_PLAYER_OR_CLUB_MISMATCH")
       const manual = (await client.query<{ present: boolean }>(
