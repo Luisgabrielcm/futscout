@@ -7,7 +7,7 @@ export default function PlayerClubContexts({ contexts, locale = "pt" }: { contex
   const day = (date: string) => new Intl.DateTimeFormat(en ? "en-GB" : "pt-BR", { timeZone: "UTC" }).format(new Date(date))
   const gameName = game.status === "CLUB" ? game.club!.name : game.status === "NG_FA" ? "NG - FA" : en ? "Unknown" : "Não identificado"
   const realName = real?.status === "CLUB" ? real.club!.name : real?.status === "FREE_AGENT" ?
-    en ? "Confirmed free agent" : "Agente livre confirmado" : real?.status === "RETIRED" ?
+    en ? "Player without a club" : "Jogador sem clube" : real?.status === "RETIRED" ?
       en ? "Retired" : "Aposentado" : en ? "Not confirmed" : "Não confirmado"
   return <div className="playerClubContexts" style={{ display: "grid", gap: "0.75rem", marginBlock: "0.75rem" }}>
     <div><span className="catalogContextLabel">{en ? "In game" : "No jogo"} · {game.snapshot.gameVersion}</span>

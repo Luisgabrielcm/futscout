@@ -16,9 +16,9 @@ export default function PlayerLoanContext({ value, playerName, variant = "profil
 }) {
   const pt = locale === "pt"
   const shownDate = (date: string | null) => date ? pt ? date.split("-").reverse().join("/") : date : pt ? "Não informada" : "Not documented"
-  const employmentOnly = value.context === "REAL" && ["FREE_AGENT", "RETIRED"].includes(value.clubState)
+  const employmentOnly = value.realFreeAgent || value.context === "REAL" && ["FREE_AGENT", "RETIRED"].includes(value.clubState)
   const status = employmentOnly ? value.clubState === "RETIRED" ? pt ? "Aposentadoria confirmada" : "Retirement confirmed"
-    : pt ? "Agente livre confirmado" : "Free agent confirmed"
+    : pt ? "Jogador sem clube" : "Player without a club"
     : value.loanStatus === "ACTIVE_IN_SNAPSHOT" ? pt ? "Emprestado neste snapshot" : "On loan in this snapshot"
     : value.loanStatus === "ACTIVE" ? pt ? "Empréstimo ativo" : "Active loan"
     : value.loanStatus === "PENDING_VERIFICATION" ? pt ? "Situação atual em verificação" : "Current status under review"
@@ -32,7 +32,8 @@ export default function PlayerLoanContext({ value, playerName, variant = "profil
     : purchase === "CONDITIONAL_OBLIGATION" ? pt ? "Obrigação de compra condicionada" : "Conditional purchase obligation"
     : purchase === "NONE_CONFIRMED" ? pt ? "Ausência de cláusula confirmada" : "Absence of purchase terms confirmed"
     : pt ? "Não documentada" : "Not documented"
-  const clubLabel = locale === "en" && value.clubState !== "CLUB" ? { FREE_AGENT: "Free agent", RETIRED: "Retired", UNKNOWN: "Unknown club", NOT_IN_SQUAD: "Not found in this squad" }[value.clubState] : value.clubLabel
+  const clubLabel = value.realFreeAgent ? pt ? "Jogador sem clube" : "Player without a club"
+    : locale === "en" && value.clubState !== "CLUB" ? { FREE_AGENT: "Free agent", RETIRED: "Retired", UNKNOWN: "Unknown club", NOT_IN_SQUAD: "Not found in this squad" }[value.clubState] : value.clubLabel
   return <section className="loan-context" aria-label={`${playerName} — ${value.displayContext}`}>
     <p className="loan-context-kicker">{value.displayContext === "FUTSCOUT_PROJECTED" ? pt ? "Elenco projetado FutScout" : "FutScout projected roster"
       : value.context === "REAL" ? pt ? "Vida real" : "Real life" : "EA FC 27"}</p>

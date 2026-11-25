@@ -96,7 +96,7 @@ test("REAL employment cards and profiles show verified status without fabricated
     assert.equal(filterLoanPresentations([value, views.game!], { context: "REAL", state }).length, 1)
     for (const locale of ["pt", "en"] as const) for (const variant of ["card", "profile"] as const) {
       const html = renderToStaticMarkup(createElement(Component, { value, playerName: "Synthetic identity", locale, variant }))
-      assert.match(html, state === "RETIRED" ? locale === "pt" ? /Aposentado/ : /Retired/ : locale === "pt" ? /Agente livre/ : /Free agent/)
+      assert.match(html, state === "RETIRED" ? locale === "pt" ? /Aposentado/ : /Retired/ : locale === "pt" ? /Jogador sem clube/ : /Player without a club/)
       assert.doesNotMatch(html, /Emprestado pelo|On loan from|Benfica|Loan start|Início do empréstimo|Purchase option/)
     }
   }

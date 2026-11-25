@@ -30,3 +30,15 @@ test("shared responsive layout and English labels use the same facts", () => {
   const html = renderToStaticMarkup(createElement(PlayerLoanContext, { value, playerName: "Synthetic", locale: "en" }))
   assert.match(html, /On loan from/); assert.match(html, /exact date unconfirmed/)
 })
+
+test("actual real unemployment uses the requested phrase in REAL and current GAME, without changing game-only free agency", () => {
+  const real = projectLoanMembership({ membership: { eaId: "800001", context: "REAL", state: "FREE_AGENT", club: null, nationalTeams: [] }, loan: null, asOf: "2026-11-25" })
+  for (const context of ["REAL", "GAME"] as const) for (const locale of ["pt", "en"] as const) {
+    const html = renderToStaticMarkup(createElement(PlayerLoanContext, { value: { ...real, context }, playerName: "Synthetic", locale }))
+    assert.match(html, locale === "pt" ? /Jogador sem clube/ : /Player without a club/)
+    assert.doesNotMatch(html, /Agente livre|Free agent|Início do empréstimo|Loan start/)
+  }
+  const gameOnly = projectLoanMembership({ membership: { eaId: "800002", context: "GAME", state: "FREE_AGENT", club: null, nationalTeams: [] }, loan: null, asOf: "2026-11-25" })
+  const html = renderToStaticMarkup(createElement(PlayerLoanContext, { value: gameOnly, playerName: "Synthetic" }))
+  assert.match(html, /Agente livre/); assert.doesNotMatch(html, /Jogador sem clube/)
+})
