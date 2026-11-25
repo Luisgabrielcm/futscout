@@ -13,7 +13,8 @@
       "codex/generic-economics-publication": false,
       "codex/club-contexts-readers-preview": false,
       "beta-next": false,
-      "codex/research-economic-null-club": false
+      "codex/research-economic-null-club": false,
+      "codex/context-reader-version-transition": false
     }
   }
 }

@@ -52,6 +52,122 @@ function fixture(count = 361) {
     db: db as unknown as NonNullable<Parameters<typeof reader.readJointTransferSelections>[1]> }
 }
 
+function transitionFixture() {
+  const f = fixture(2)
+  const paired = structuredClone(f.rows)
+  for (const row of f.rows) {
+    delete row.revision.payload.jointTransfer.futscoutProjection
+    row.decisionReference = realOnlyTransferDecision("a".repeat(64))
+    row.revision.contentHash = jointHash(row.revision.payload)
+    row.revisionId = `before:${row.eaPlayerId}:${row.revision.contentHash}`
+  }
+  const before = structuredClone(f.rows), after = paired.map(row => ({ ...row,
+    version: 2, revisionId: `after:${row.eaPlayerId}`, decisionReference: "approved-paired-transition" })),
+    rollback = before.map(row => ({ ...structuredClone(row), version: 3 }))
+  const index = (rows: typeof f.rows): JointReadIndex => ({ version: 2, policyHash: realGamePolicyHash,
+    entries: rows.map(r => ({ eaId: r.eaPlayerId, revisionId: r.revisionId, selectionVersion: r.version,
+      decisionReference: r.decisionReference, payloadHash: r.revision.contentHash,
+      snapshotId: r.revision.rosterReferenceId, snapshotHash: r.revision.rosterReference.contentHash })) })
+  const roots = { before: jointHash(index(before)), after: jointHash(index(after)), rollback: jointHash(index(rollback)) }
+  f.env.JOINT_TRANSFER_READ_MANIFEST_SHA256 = roots.before
+  f.env.JOINT_TRANSFER_READ_TRANSITION_ENABLED = "1"
+  f.env.JOINT_TRANSFER_READ_TRANSITION_SHA256S = [roots.after, roots.rollback].join(",")
+  const install = (rows: typeof f.rows) => f.rows.splice(0, f.rows.length, ...structuredClone(rows))
+  return { ...f, before, after, rollback, roots, index, install }
+}
+
+test("a transition requires exactly two distinct explicit additional roots in index mode", () => {
+  const f = transitionFixture()
+  assert(jointReadConfiguration(f.env))
+  for (const patch of [
+    { JOINT_TRANSFER_READ_TRANSITION_ENABLED: undefined },
+    { JOINT_TRANSFER_READ_TRANSITION_ENABLED: "0" },
+    { JOINT_TRANSFER_READ_TRANSITION_ENABLED: "true" },
+    { JOINT_TRANSFER_READ_TRANSITION_SHA256S: undefined },
+    { JOINT_TRANSFER_READ_TRANSITION_SHA256S: f.roots.after },
+    { JOINT_TRANSFER_READ_TRANSITION_SHA256S: `${f.roots.after},${f.roots.after}` },
+    { JOINT_TRANSFER_READ_TRANSITION_SHA256S: `${f.roots.before},${f.roots.after}` },
+    { JOINT_TRANSFER_READ_TRANSITION_SHA256S: `${f.roots.after},${"X".repeat(64)}` },
+    { JOINT_TRANSFER_READ_TRANSITION_SHA256S: `${f.roots.after}, ${f.roots.rollback}` },
+    { JOINT_TRANSFER_READ_TRANSITION_SHA256S: `${f.roots.after},${f.roots.rollback},${"f".repeat(64)}` },
+    { JOINT_TRANSFER_READ_MANIFEST_SOURCE: "DATABASE" },
+    { JOINT_TRANSFER_READ_MANIFEST_SOURCE: undefined },
+  ]) assert.equal(jointReadConfiguration({ ...f.env, ...patch }), null)
+})
+
+test("before, applied and rollback states use separate authenticated caches and preserve REAL and economics", async () => {
+  const f = transitionFixture(), id = f.before[0].eaPlayerId
+  const player = { club: "legacy", salary: 12, marketValue: 23, contract: "keep", potential: 87, manual: "keep" }
+  for (const [step, rows] of [f.before, f.after, f.rollback, f.after].entries()) {
+    f.install(rows)
+    const start = f.queries.length, selected = (await f.reader.readJointTransferSelections([id], f.db, f.env, date)).get(id)!
+    assert.equal(f.queries.length - start, step === 3 ? 2 : 3, "only the same authenticated root can reuse bodies")
+    assert.deepEqual(selected.payload.real, f.before[0].revision.payload.real)
+    assert.deepEqual(selected.payload.game, f.before[0].revision.payload.game)
+    assert.equal(Boolean(selected.views.game), rows === f.after)
+    const shown = f.reader.applyJointPlayerPresentation(player, selected)
+    for (const k of ["salary", "marketValue", "contract", "potential", "manual"] as const) assert.equal(shown[k], player[k])
+    assert.deepEqual(selected.payload.jointTransfer.game.nationalTeams, f.before[0].revision.payload.jointTransfer.game.nationalTeams)
+  }
+})
+
+test("unknown roots and partial transitions fail before any payload query, including unrequested players", async () => {
+  for (const mutate of [
+    (f: ReturnType<typeof transitionFixture>) => { f.rows[1].version = 4 },
+    (f: ReturnType<typeof transitionFixture>) => { f.rows[0] = structuredClone(f.after[0]) },
+    (f: ReturnType<typeof transitionFixture>) => { f.rows[1].decisionReference = "unapproved" },
+    (f: ReturnType<typeof transitionFixture>) => { f.env.JOINT_TRANSFER_READ_EA_IDS = f.rows.map(r => r.eaPlayerId).reverse().join(",") },
+  ]) {
+    const f = transitionFixture(); mutate(f)
+    await assert.rejects(f.reader.readJointTransferSelections([f.rows[0].eaPlayerId], f.db, f.env, date), /INDEX_CHANGED/)
+    assert.deepEqual(f.queries.map(q => q.kind), ["headers"])
+  }
+})
+
+test("an atomic version switch between headers and bodies retries once against an approved root", async () => {
+  const f = transitionFixture(), id = f.rows[0].eaPlayerId
+  f.setAfterHeaders(() => f.install(f.after))
+  const selected = (await f.reader.readJointTransferSelections([id], f.db, f.env, date)).get(id)!
+  assert(selected.views.game); assert.equal(selected.views.real?.clubLabel, benfica.name)
+  assert.deepEqual(f.queries.map(q => q.kind), ["headers", "payloads", "headers", "payloads", "clubs"])
+})
+
+test("a second version race fails closed without an unbounded retry loop", async () => {
+  const f = transitionFixture(); let headers = 0
+  f.setAfterHeaders(() => f.install(++headers === 1 ? f.after : f.rollback))
+  await assert.rejects(f.reader.readJointTransferSelections([f.rows[0].eaPlayerId], f.db, f.env, date), /INDEX_SELECTIONS_CHANGED/)
+  assert.deepEqual(f.queries.map(q => q.kind), ["headers", "payloads", "headers", "payloads"])
+})
+
+test("the retry cannot admit a root outside the approved set", async () => {
+  const f = transitionFixture()
+  f.setAfterHeaders(() => { f.install(f.after); f.rows[1].decisionReference = "unapproved" })
+  await assert.rejects(f.reader.readJointTransferSelections([f.rows[0].eaPlayerId], f.db, f.env, date), /INDEX_CHANGED/)
+  assert.deepEqual(f.queries.map(q => q.kind), ["headers", "payloads", "headers"])
+})
+
+test("payload tampering is never retried even under an approved transition root", async () => {
+  const f = transitionFixture(); f.rows[0].revision.payload.real!.observedAt = "2026-11-15T00:00:00Z"
+  await assert.rejects(f.reader.readJointTransferSelections([f.rows[0].eaPlayerId], f.db, f.env, date), /JOINT_|REAL_GAME_/)
+  assert.deepEqual(f.queries.map(q => q.kind), ["headers", "payloads"])
+})
+
+test("ordinary single-root readers retain the original fail-closed race behavior", async () => {
+  const f = transitionFixture()
+  delete f.env.JOINT_TRANSFER_READ_TRANSITION_ENABLED; delete f.env.JOINT_TRANSFER_READ_TRANSITION_SHA256S
+  f.setAfterHeaders(() => f.install(f.after))
+  await assert.rejects(f.reader.readJointTransferSelections([f.rows[0].eaPlayerId], f.db, f.env, date), /INDEX_SELECTIONS_CHANGED/)
+  assert.deepEqual(f.queries.map(q => q.kind), ["headers", "payloads"])
+})
+
+test("transition mode keeps a warm unchanged root at one header plus one club query", async () => {
+  const f = transitionFixture(), id = f.rows[0].eaPlayerId
+  await f.reader.readJointTransferSelections([id], f.db, f.env, date)
+  const start = f.queries.length
+  await f.reader.readJointTransferSelections([id], f.db, f.env, date)
+  assert.deepEqual(f.queries.slice(start).map(q => q.kind), ["headers", "clubs"])
+})
+
 test("mixed authenticated index reads REAL independently and preserves GAME, controls and economic presentation", async () => {
   const f = fixture(2), row = f.rows[1]
   delete row.revision.payload.jointTransfer.futscoutProjection
