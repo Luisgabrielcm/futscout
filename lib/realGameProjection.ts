@@ -42,6 +42,14 @@ export const realGamePolicy = Object.freeze({
 } as const)
 export const projectionHash = (v: unknown) => createHash("sha256").update(canonicalJson(v)).digest("hex")
 export const realGamePolicyHash = projectionHash(realGamePolicy)
+/** Additive owner decision; existing v1 payloads and their hashes retain their original meaning. */
+export const currentRealGamePolicy = Object.freeze({
+  ...realGamePolicy, version: "futscout-real-game-v2",
+  approvalReference: "owner-approved:2026-11-25:current-real-club-and-free-agent",
+  confirmedRealFreeAgent: "PROJECT_FREE_AGENT_IF_PLAYER_CONFIRMED_IN_GAME",
+  absentHistoricalNationalCoverage: "UNKNOWN_IN_CURRENT_PROJECTION",
+} as const)
+export const currentRealGamePolicyHash = projectionHash(currentRealGamePolicy)
 export type EligibilityEvidence = { url: string; contentHash: string; consultedAt: string; evidenceDate: string | null;
   gameVersion: "FC27" | null; eaId?: string | null; clubId?: string | null;
   individualDecision?: "ELIGIBLE" | "INELIGIBLE";
@@ -49,13 +57,13 @@ export type EligibilityEvidence = { url: string; contentHash: string; consultedA
   strength: "PRIMARY" | "SECONDARY_CORROBORATED"; scope: "CAREER" | "GENERAL_LICENSING" | "REAL_IDENTITY" | "UT_ONLY" }
 export type RealGameEligibility = {
   eaId: string; policyHash: string; identity: "CONFIRMED" | "AMBIGUOUS"; gamePresence: "AVAILABLE" | "UNAVAILABLE" | "UNKNOWN";
-  destinationClubId: string; destinationInGame: boolean; originClubId: string | null; originAvailable: boolean;
+  destinationClubId: string | null; destinationInGame: boolean; originClubId: string | null; originAvailable: boolean;
   destinationLicense: "LICENSED_PLAYERS" | "NO_LICENSED_PLAYERS" | "PARTIAL" | "UNKNOWN";
   individualPlayerEligibility: "ELIGIBLE" | "INELIGIBLE" | "UNKNOWN";
   evidence: readonly EligibilityEvidence[]
 }
 export type RealGameProjection = {
-  version: 1; asOf: string; policyHash: string; approvalReference: string; sourceRealHash: string; originalEaGameHash: string;
+  version: 1 | 2; asOf: string; policyHash: string; approvalReference: string; sourceRealHash: string; originalEaGameHash: string;
   movement: JointMovement; eligibility: RealGameEligibility;
   status: "READY" | "REVIEW"; reasons: string[]; representation: "CLUB" | "FREE_AGENT" | "PENDING";
   membership: BoundMembership | null;
@@ -75,12 +83,21 @@ const validEvidence = (e: EligibilityEvidence) => {
 }
 
 export function assessRealGameProjection(payload: JointTransferPayload, eligibility: RealGameEligibility, movement: JointMovement, asOf: string): RealGameProjection {
+  return assessProjection(payload, eligibility, movement, asOf, 1)
+}
+export function assessCurrentRealGameProjection(payload: JointTransferPayload, eligibility: RealGameEligibility, movement: JointMovement, asOf: string): RealGameProjection {
+  return assessProjection(payload, eligibility, movement, asOf, 2)
+}
+function assessProjection(payload: JointTransferPayload, eligibility: RealGameEligibility, movement: JointMovement, asOf: string, version: 1 | 2): RealGameProjection {
   // Persistable evidence must have the same canonical hash after JSONB round-trip.
   eligibility = JSON.parse(JSON.stringify(eligibility)) as RealGameEligibility
   movement = JSON.parse(JSON.stringify(movement)) as JointMovement
   if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf) || new Date(asOf).toISOString().slice(0, 10) !== asOf) throw new Error("REAL_GAME_CLOCK_INVALID")
   const real = payload.jointTransfer.real, reasons: string[] = []
-  if (eligibility.policyHash !== realGamePolicyHash) reasons.push("APPROVED_POLICY_HASH_MISMATCH")
+  const policy = version === 2 ? currentRealGamePolicy : realGamePolicy
+  const policyHash = version === 2 ? currentRealGamePolicyHash : realGamePolicyHash
+  const realFreeAgent = version === 2 && real?.state === "FREE_AGENT"
+  if (eligibility.policyHash !== policyHash) reasons.push("APPROVED_POLICY_HASH_MISMATCH")
   if (eligibility.eaId !== payload.eaPlayerId || movement.eaId !== payload.eaPlayerId || eligibility.identity !== "CONFIRMED") reasons.push("IDENTITY_REVIEW")
   if (!real || !payload.real || !movement.evidenceConfirmed || movement.context !== "REAL" || !payload.jointTransfer.movements.some(m => projectionHash(m) === projectionHash(movement))) reasons.push("CONFIRMED_REAL_MOVEMENT_REQUIRED")
   if (movement.evidenceHash !== real?.loan?.evidence.contentHash && movement.evidenceHash !== payload.real?.evidenceHash) reasons.push("REAL_MOVEMENT_EVIDENCE_NOT_BOUND")
@@ -89,27 +106,34 @@ export function assessRealGameProjection(payload: JointTransferPayload, eligibil
   if (eligibility.evidence.some(e => !validEvidence(e))) reasons.push("ELIGIBILITY_EVIDENCE_INVALID")
   const has = (role: EligibilityEvidence["role"]) => eligibility.evidence.some(e => e.role === role && validEvidence(e) && e.scope !== "UT_ONLY" &&
     (role === "PLAYER_IDENTITY" || role === "PLAYER_GAME_PRESENCE" ? e.eaId === payload.eaPlayerId : e.clubId === (role === "DESTINATION_SQUAD_LICENSE" ? real?.club?.id : real?.parentClub?.id)))
-  for (const role of ["PLAYER_IDENTITY", "PLAYER_GAME_PRESENCE", "DESTINATION_SQUAD_LICENSE"] as const) if (!has(role)) reasons.push(`MISSING_${role}_EVIDENCE`)
-  if (!real?.club || real.state !== "CLUB" || real.club.id !== eligibility.destinationClubId) reasons.push("REAL_DESTINATION_BINDING_REVIEW")
+  for (const role of ["PLAYER_IDENTITY", "PLAYER_GAME_PRESENCE"] as const) if (!has(role)) reasons.push(`MISSING_${role}_EVIDENCE`)
+  if (!realFreeAgent && !has("DESTINATION_SQUAD_LICENSE")) reasons.push("MISSING_DESTINATION_SQUAD_LICENSE_EVIDENCE")
+  if (realFreeAgent) {
+    if (payload.real?.status !== "FREE_AGENT" || payload.real.club !== null || real.club !== null || real.loan || real.parentClub ||
+      movement.kind !== "CURRENT_FREE_AGENT_CONFIRMED" || payload.jointTransfer.movements.filter(m => m.context === "REAL").at(-1)?.kind !== "CURRENT_FREE_AGENT_CONFIRMED")
+      reasons.push("CONFIRMED_REAL_FREE_AGENT_REQUIRED")
+    if (eligibility.destinationClubId !== null || eligibility.destinationInGame || eligibility.originClubId !== null || eligibility.originAvailable ||
+      eligibility.destinationLicense !== "UNKNOWN" || eligibility.individualPlayerEligibility !== "UNKNOWN") reasons.push("FREE_AGENT_MUST_NOT_BIND_A_CLUB")
+  } else if (!real?.club || real.state !== "CLUB" || real.club.id !== eligibility.destinationClubId) reasons.push("REAL_DESTINATION_BINDING_REVIEW")
   if (real?.loan && (loanEffectiveState(real.loan, asOf) !== "ACTIVE" || real.parentClub?.id !== eligibility.originClubId)) reasons.push("REAL_LOAN_CHRONOLOGY_OR_ORIGIN_REVIEW")
   if (real?.loan && !["LOAN_START"].includes(movement.kind)) reasons.push("ACTIVE_LOAN_MOVEMENT_TYPE_MISMATCH")
   if (!real?.loan && movement.kind === "LOAN_START") reasons.push("REAL_LOAN_FACT_REQUIRED")
-  if (eligibility.destinationLicense === "UNKNOWN" || eligibility.destinationLicense === "PARTIAL" && eligibility.individualPlayerEligibility === "UNKNOWN") reasons.push("DESTINATION_LICENSE_REVIEW")
+  if (!realFreeAgent && (eligibility.destinationLicense === "UNKNOWN" || eligibility.destinationLicense === "PARTIAL" && eligibility.individualPlayerEligibility === "UNKNOWN")) reasons.push("DESTINATION_LICENSE_REVIEW")
   if (eligibility.destinationLicense === "PARTIAL" && eligibility.individualPlayerEligibility !== "UNKNOWN" && !eligibility.evidence.some(e =>
     e.role === "PLAYER_DESTINATION_ELIGIBILITY" && validEvidence(e) && e.scope !== "UT_ONLY" && e.eaId === payload.eaPlayerId &&
     e.clubId === real?.club?.id && e.individualDecision === eligibility.individualPlayerEligibility)) reasons.push("INDIVIDUAL_DESTINATION_LICENSE_PROOF_REQUIRED")
-  const freeAgent = eligibility.destinationLicense === "NO_LICENSED_PLAYERS" || eligibility.destinationLicense === "PARTIAL" && eligibility.individualPlayerEligibility === "INELIGIBLE"
+  const freeAgent = realFreeAgent || eligibility.destinationLicense === "NO_LICENSED_PLAYERS" || eligibility.destinationLicense === "PARTIAL" && eligibility.individualPlayerEligibility === "INELIGIBLE"
   if (!freeAgent && (!eligibility.destinationInGame || !real?.club?.eaId)) reasons.push("GAME_DESTINATION_AVAILABILITY_REVIEW")
   if (real?.loan && !freeAgent && (!eligibility.originAvailable || !real.parentClub?.eaId || !has("ORIGIN_GAME_PRESENCE"))) reasons.push("GAME_LOAN_ORIGIN_REVIEW")
   const route = real?.loan && real.parentClub && real.club ? { parentClub: real.parentClub, playingClub: real.club } : null
   return {
-    version: 1, asOf, policyHash: realGamePolicyHash, approvalReference: realGamePolicy.approvalReference,
+    version, asOf, policyHash, approvalReference: policy.approvalReference,
     sourceRealHash: projectionHash(sourceReal(payload)), originalEaGameHash: projectionHash(payload.game), movement, eligibility,
     status: reasons.length ? "REVIEW" : "READY", reasons: [...new Set(reasons)], representation: reasons.length ? "PENDING" : freeAgent ? "FREE_AGENT" : "CLUB",
     membership: reasons.length || !real ? null : { ...real, context: "GAME", state: freeAgent ? "FREE_AGENT" : "CLUB", club: freeAgent ? null : real.club,
       // Free-agent representation keeps the documented REAL route without fabricating a GAME loan.
       parentClub: route?.parentClub ?? null, loan: freeAgent ? null : real.loan,
-      nationalTeams: payload.jointTransfer.game.nationalTeams, nationalCoverage: payload.jointTransfer.game.nationalCoverage },
+      nationalTeams: payload.jointTransfer.game.nationalTeams, nationalCoverage: version === 2 && payload.jointTransfer.game.nationalCoverage === "NOT_IN_SQUAD" ? "UNKNOWN" : payload.jointTransfer.game.nationalCoverage },
     realLoanRoute: route, officialEaMovementClaimed: false,
   }
 }
@@ -118,8 +142,8 @@ export function validateRealGameProjection(payload: JointTransferPayload) {
   const p = payload.jointTransfer.futscoutProjection
   if (!p) return
   const checkedAt = p.asOf
-  if (!checkedAt || p.version !== 1 || p.officialEaMovementClaimed !== false ||
-    canonicalJson(assessRealGameProjection(payload, p.eligibility, p.movement, checkedAt)) !== canonicalJson(p)) throw new Error("REAL_GAME_PROJECTION_INVALID_OR_STALE")
+  if (!checkedAt || ![1, 2].includes(p.version) || p.officialEaMovementClaimed !== false ||
+    canonicalJson(assessProjection(payload, p.eligibility, p.movement, checkedAt, p.version)) !== canonicalJson(p)) throw new Error("REAL_GAME_PROJECTION_INVALID_OR_STALE")
 }
 
 /** Only the display context becomes GAME; the underlying loan evidence remains REAL, never an EA claim. */
@@ -127,7 +151,7 @@ export function realGameProjectionView(payload: JointTransferPayload, asOf: stri
   const p = payload.jointTransfer.futscoutProjection
   if (!p || p.status !== "READY" || !p.membership) return null
   validateRealGameProjection(payload)
-  if (assessRealGameProjection(payload, p.eligibility, p.movement, asOf).status !== "READY") throw new Error("REAL_GAME_PROJECTION_REQUIRES_REVALIDATION")
+  if (assessProjection(payload, p.eligibility, p.movement, asOf, p.version).status !== "READY") throw new Error("REAL_GAME_PROJECTION_REQUIRES_REVALIDATION")
   const m = p.membership, real = payload.jointTransfer.real!
   // Approval is checked above; derive loan facts from REAL without relabeling them as EA evidence.
   const value = projectLoanMembership({ membership: { eaId: payload.eaPlayerId, context: "REAL", state: m.state, club: m.club, nationalTeams: m.nationalTeams },
