@@ -26,7 +26,7 @@ import ClubBadge from "./ClubBadge"
 import LeagueLogo from "./LeagueLogo"
 import { visualText } from "../../lib/i18n/visualRevision"
 import { wagePresentation, type PublishedWage } from "../../lib/wagePublication"
-import { publicClause, publicContractUntil, type PublicEconomicOverlay } from "../../lib/publicEconomicOverlay"
+import { publicClause, publicContractUntil, zeroGameFreeAgentEconomics, type PublicEconomicOverlay } from "../../lib/publicEconomicOverlay"
 
 type PlayerHeaderProps = {
   locale?: Locale
@@ -43,7 +43,8 @@ export default function PlayerHeader({ locale = "pt",
   fixedSalary,
   economicOverlay,
 }: PlayerHeaderProps) {
-  const publishedWage = wagePresentation(wage, player.id, locale)
+  const zeroGameEconomics = zeroGameFreeAgentEconomics(player, "GAME")
+  const publishedWage = zeroGameEconomics ? null : wagePresentation(wage, player.id, locale)
   const positions = getPlayerProfilePositions(player)
   const clubHref = entityHref(locale, "clubes", player.club?.slug)
   const leagueHref = entityHref(locale, "ligas", player.leagueSlug)
@@ -259,23 +260,24 @@ export default function PlayerHeader({ locale = "pt",
             MERCADO
         ================================== */}
 
-        <dl className="careerFields" aria-label={visualText(locale, "economicData")} style={{ gridColumn: "1 / -1" }}>
+        <dl className="careerFields" data-game-economics={zeroGameEconomics ? "free-agent-zeroed" : undefined} aria-label={visualText(locale, "economicData")} style={{ gridColumn: "1 / -1" }}>
           <div>
             <dt>{visualText(locale, "marketValue")}</dt>
             <dd className="playerHeaderMarketValue">{player.marketValue !== null
               ? formatCurrency(player.marketValue, locale)
               : "—"}<EstimatedValueNote provider={player.economicMarketValue?.provider} value={player.marketValue} locale={locale} /></dd>
           </div>
-            <div><dt>{publishedWage?.title ?? visualText(locale, "weeklySalary")}</dt><dd>{publishedWage?.value ?? "—"}
+            <div><dt>{publishedWage?.title ?? visualText(locale, "weeklySalary")}</dt><dd>{zeroGameEconomics ? formatCurrency(0, locale) : publishedWage?.value ?? "—"}
+              {zeroGameEconomics && <small className="mutedText" style={{ display: "block" }}>{locale === "pt" ? "Agente livre no jogo" : "Free agent in game"}</small>}
               {publishedWage && <><small className="mutedText" style={{ display: "block" }}>{publishedWage.label}</small><small className="mutedText" style={{ display: "block" }}>{publishedWage.detail}</small></>}
             </dd></div>
-          {fixedSalary && <div><dt>{fixedSalary.title}</dt><dd>{fixedSalary.value}
+          {!zeroGameEconomics && fixedSalary && <div><dt>{fixedSalary.title}</dt><dd>{fixedSalary.value}
             <small className="mutedText" style={{ display: "block" }}>{fixedSalary.detail}</small>
             <a href={fixedSalary.sourceUrl} target="_blank" rel="noopener noreferrer">{locale === "pt" ? "Fonte" : "Source"}</a>
           </dd></div>}
-          <div><dt>{visualText(locale, "contractUntil")}</dt><dd>{publicContractUntil(economicOverlay, locale)}</dd></div>
-          <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{publicClause(economicOverlay, locale)}
-            {economicOverlay?.clause?.status === "YES" && economicOverlay.clause.conditions &&
+          <div><dt>{visualText(locale, "contractUntil")}</dt><dd>{zeroGameEconomics ? "0" : publicContractUntil(economicOverlay, locale)}</dd></div>
+          <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{zeroGameEconomics ? formatCurrency(0, locale) : publicClause(economicOverlay, locale)}
+            {!zeroGameEconomics && economicOverlay?.clause?.status === "YES" && economicOverlay.clause.conditions &&
               <small className="mutedText releaseClauseConditions" style={{ display: "block" }}>{economicOverlay.clause.conditions}</small>}
           </dd></div>
         </dl>

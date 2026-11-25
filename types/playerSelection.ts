@@ -5,6 +5,7 @@ export type ComparisonAttribute = (typeof COMPARISON_ATTRIBUTES)[number]
 
 export type SelectedPlayer = {
   transferContexts?: import("../lib/jointTransferContexts").JointTransferViews
+  clubContexts?: import("../lib/clubContexts").ClubContexts
   transferContext?: "GAME" | "REAL"
   id: string; slug: string; name: string; position: string
   wage?: import("../lib/wagePublication").PublishedWage

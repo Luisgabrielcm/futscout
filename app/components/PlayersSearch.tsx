@@ -1286,7 +1286,7 @@ export default function PlayersSearch({ locale = "pt",
           players.map(
             (player) => (
               <PlayerCard locale={locale}
-                transferContexts={player.transferContexts} transferContext={player.transferContext}
+                transferContexts={player.transferContexts} clubContexts={player.clubContexts} transferContext={player.transferContext}
                 id={player.id}
                 wage={player.wage}
                 key={

@@ -104,3 +104,32 @@ test("point reader is disabled by default and reads only an explicitly selected,
   payload.game.snapshot.id = "different-reference"
   await assert.rejects(service.readPlayerClubContexts(eaId), /CLUB_CONTEXT_PROVENANCE_MISMATCH/)
 })
+
+test("native batch reader uses one query, keeps the exact four-player gate, and rejects changed pins", async () => {
+  const contexts = (JSON.parse(readFileSync("tests/fixtures/clubContextsPilot.json", "utf8")) as { contexts: ClubContexts }[]).map(r => r.contexts)
+  let enabled = "0", queries = 0, changedVersion = false, duplicate = false
+  const service = loadCatalogModule<typeof import("../../../services/playerClubContexts")>("services/playerClubContexts.ts", {
+    "server-only": {}, "node:crypto": crypto, "../lib/clubContexts": contextLibrary,
+    "../lib/prisma": { prisma: { playerClubContextSelection: { findMany: async (args: { where: { eaPlayerId: { in: string[] }; player: { eaImportVisibility: string } } }) => {
+      queries++; assert.equal(args.where.player.eaImportVisibility, "PUBLIC")
+      assert.deepEqual([...args.where.eaPlayerId.in].sort(), clubContextReadEaIds)
+      const rows = contexts.map(p => {
+        const approved = expectedClubContextPilotSelection(p.eaPlayerId)!
+        return { eaPlayerId: p.eaPlayerId, ...approved, version: changedVersion ? 2 : approved.version,
+          revision: { payload: p, contentHash: approved.contentHash, rosterReferenceId: p.game.snapshot.id,
+            rosterReference: { contentHash: p.game.snapshot.contentHash, metadata: p.game.snapshot } } }
+      })
+      return duplicate ? [...rows, rows[0]] : rows
+    } } } },
+  }, { process: { env: { VERCEL_ENV: "preview", CLUB_CONTEXTS_READ_EA_IDS: clubContextReadEaIds.join(","),
+    CLUB_CONTEXTS_READ_PILOT_HASH: clubContextReadPilot.manifestHash, get CLUB_CONTEXTS_READ_ENABLED() { return enabled } } } })
+  assert.equal((await service.readPlayerClubContextsBatch([...clubContextReadEaIds, "99999", null])).size, 0)
+  assert.equal(queries, 0); enabled = "1"
+  assert.equal((await service.readPlayerClubContextsBatch(["99999", null])).size, 0); assert.equal(queries, 0)
+  assert.equal((await service.readPlayerClubContextsBatch([...clubContextReadEaIds, clubContextReadEaIds[0], "99999"])).size, 4)
+  assert.equal(queries, 1)
+  changedVersion = true
+  await assert.rejects(service.readPlayerClubContextsBatch(clubContextReadEaIds), /SELECTION_NOT_APPROVED/)
+  changedVersion = false; duplicate = true
+  await assert.rejects(service.readPlayerClubContextsBatch(clubContextReadEaIds), /SCOPE_MISMATCH/)
+})

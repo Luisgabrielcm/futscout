@@ -9,11 +9,13 @@ import { comparisonAttribute, higherValue } from "../../lib/playerComparison"
 import { formatCurrency } from "../../utils/formatCurrency"
 import ClubBadge from "./ClubBadge"
 import { wagePresentation } from "../../lib/wagePublication"
+import { zeroGameFreeAgentEconomics } from "../../lib/publicEconomicOverlay"
 
 export default function PlayerComparison({ locale = "pt", players }: { locale?: Locale; players: [SelectedPlayer, SelectedPlayer] }) {
   const [left, right] = players
   const goalkeeper = players.some((player) => player.position === "GOL")
-  const wages = players.map(player => wagePresentation(player.wage, player.id, locale))
+  const zeroGameEconomics = players.map(player => zeroGameFreeAgentEconomics(player))
+  const wages = players.map((player, index) => zeroGameEconomics[index] ? null : wagePresentation(player.wage, player.id, locale))
   const rows: { label: string; values: [number | null, number | null]; currency?: boolean }[] = [
     { label: t(locale, "Idade"), values: [left.age, right.age] },
     { label: "OVR EA", values: [left.baseOverall, right.baseOverall] },
@@ -32,10 +34,10 @@ export default function PlayerComparison({ locale = "pt", players }: { locale?: 
       <caption>{t(locale, "Valores disponíveis · ↑ indica apenas o maior valor numérico, não uma recomendação.")}</caption>
       <thead><tr>
         <th scope="col">{t(locale, "Indicador")}</th>
-        {players.map((player) => <th scope="col" key={player.id}>
+        {players.map((player, index) => <th scope="col" key={player.id}>
           <PlayerImage locale={locale} src={player.image} alt={player.name} className="comparisonPhoto" fallbackClassName="comparisonPhoto directoryBadgeFallback" />
           <Link href={localizedHref(locale, `/jogadores/${encodeURIComponent(player.slug)}`)}>{player.name}</Link>
-          <span className="comparisonClub">{player.club && <ClubBadge locale={locale} name={player.club} asset={player.clubAsset} size="small" />}{player.club ?? t(locale, "Sem clube")}</span><span>{player.position}</span>
+          <span className="comparisonClub">{!zeroGameEconomics[index] && player.club && <ClubBadge locale={locale} name={player.club} asset={player.clubAsset} size="small" />}{zeroGameEconomics[index] ? locale === "pt" ? "Agente livre" : "Free agent" : player.club ?? t(locale, "Sem clube")}</span><span>{player.position}</span>
         </th>)}
       </tr></thead>
       <tbody>{rows.map(({ label, values, currency }) => {
@@ -47,8 +49,8 @@ export default function PlayerComparison({ locale = "pt", players }: { locale?: 
             {winner === index && <span aria-label={t(locale, "Maior valor")}> ↑</span>}
           </td>)}
         </tr>
-      })}{wages.some(Boolean) && <tr><th scope="row">{locale === "pt" ? "Remuneração semanal" : "Weekly remuneration"}</th>
-        {wages.map((wage, index) => <td key={index}>{wage ? <><span>{wage.title}</span><br /><strong>{wage.value}</strong><br /><small>{wage.label}<br />{wage.detail}</small></> : "—"}</td>)}
+      })}{(wages.some(Boolean) || zeroGameEconomics.some(Boolean)) && <tr><th scope="row">{locale === "pt" ? "Remuneração semanal" : "Weekly remuneration"}</th>
+        {wages.map((wage, index) => <td key={index} data-game-economics={zeroGameEconomics[index] ? "free-agent-zeroed" : undefined}>{zeroGameEconomics[index] ? <strong>{formatCurrency(0, locale)}</strong> : wage ? <><span>{wage.title}</span><br /><strong>{wage.value}</strong><br /><small>{wage.label}<br />{wage.detail}</small></> : "—"}</td>)}
       </tr>}</tbody>
     </table>
     {wages.some(Boolean) && <p className="comparisonNotice">{wages.find(Boolean)?.comparisonNotice}</p>}
