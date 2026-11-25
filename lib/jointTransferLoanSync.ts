@@ -144,7 +144,8 @@ export function projectLoanMembership(input: {
   return {
     eaId: membership.eaId, context: membership.context, clubState: membership.state,
     playingClub: membership.club, parentClub: loan && isActive(loan) ? loan.parentClub : null,
-    clubLabel: membership.club?.name ?? ({ FREE_AGENT: "Agente livre", RETIRED: "Aposentado", UNKNOWN: "Clube desconhecido", NOT_IN_SQUAD: "Não encontrado neste squad", CLUB: "Clube desconhecido" }[membership.state]),
+    realFreeAgent: membership.context === "REAL" && membership.state === "FREE_AGENT",
+    clubLabel: membership.context === "REAL" && membership.state === "FREE_AGENT" ? "Jogador sem clube" : membership.club?.name ?? ({ FREE_AGENT: "Agente livre", RETIRED: "Aposentado", UNKNOWN: "Clube desconhecido", NOT_IN_SQUAD: "Não encontrado neste squad", CLUB: "Clube desconhecido" }[membership.state]),
     loanBadge: active ? `Emprestado pelo ${active.parentClub.name}` : null,
     loanStatus: state, loanDates: loan ? { startsAt: loan.startsAt, endsAt: loan.endsAt, endSeason: loan.endSeason } : null,
     purchase: loan?.purchase ?? null, evidence: loan?.evidence ?? null,

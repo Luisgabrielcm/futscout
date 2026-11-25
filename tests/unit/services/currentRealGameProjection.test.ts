@@ -26,7 +26,8 @@ test("confirmed REAL free agent projects to GAME without changing the original c
   f.candidate.jointTransfer.futscoutProjection = p
   validateJointTransferPayload(f.candidate)
   const shown = jointTransferViews(f.candidate, asOf, "FUTSCOUT_PROJECTED")
-  assert.equal(shown.real?.clubLabel, "Agente livre"); assert.equal(shown.game?.clubLabel, "Agente livre")
+  assert.equal(shown.real?.clubLabel, "Jogador sem clube"); assert.equal(shown.game?.clubLabel, "Jogador sem clube")
+  assert.equal(shown.real?.realFreeAgent, true); assert.equal(shown.game?.realFreeAgent, true)
   assert.equal(shown.snapshotGame?.playingClub?.id, before.jointTransfer.game.club?.id)
 })
 test("unknown identity or GAME presence cannot be upgraded to a free agent", () => {

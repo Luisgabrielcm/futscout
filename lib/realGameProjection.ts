@@ -157,6 +157,8 @@ export function realGameProjectionView(payload: JointTransferPayload, asOf: stri
   const value = projectLoanMembership({ membership: { eaId: payload.eaPlayerId, context: "REAL", state: m.state, club: m.club, nationalTeams: m.nationalTeams },
     loan: m.loan ? { ...m.loan, parentClub: m.parentClub!, playingClub: m.club! } : null, asOf })
   return { ...value, context: "GAME", parentClub: m.parentClub,
+    realFreeAgent: real.state === "FREE_AGENT",
+    clubLabel: m.state === "FREE_AGENT" && real.state !== "FREE_AGENT" ? "Agente livre" : value.clubLabel,
     provenanceLabel: "Elenco atualizado pelo FutScout — projeção baseada em fatos reais; não é atualização oficial da EA",
     displayContext: "FUTSCOUT_PROJECTED", isOfficialSquadClaimed: false,
     evidence: value.evidence ?? (payload.real ? { url: payload.real.sourceUrl, evidenceDate: p.movement.effectiveAt, consultedAt: payload.real.observedAt,
