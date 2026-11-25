@@ -127,7 +127,7 @@ export function jointReadManifest(env: Readonly<Record<string, string | undefine
 export type JointReadConfiguration = { source: "INLINE"; manifest: JointReadManifest } | {
   source: "DATABASE"; eaIds: string[]; selectionVersion: number; manifestHash: string
 } | {
-  source: "DATABASE_INDEX"; eaIds: string[]; manifestHash: string
+  source: "DATABASE_INDEX"; eaIds: string[]; manifestHash: string; transitionHashes?: readonly [string, string]
 }
 
 export const jointReadIndexLimit = jointReadIdLimit
@@ -162,6 +162,11 @@ export function extendJointReadIndex(previous: JointReadIndex, expectedPreviousH
 /** The database transport carries no payloads. Its externally pinned manifest must be verified by the reader. */
 export function jointReadConfiguration(env: Readonly<Record<string, string | undefined>> = {}): JointReadConfiguration | null {
   if (!jointReadEnvironmentEnabled(env)) return null
+  const transitionEnabled = env.JOINT_TRANSFER_READ_TRANSITION_ENABLED
+  const transitionRaw = env.JOINT_TRANSFER_READ_TRANSITION_SHA256S
+  if (transitionEnabled !== undefined && transitionEnabled !== "0" && transitionEnabled !== "1" ||
+    transitionRaw !== undefined && transitionEnabled !== "1" ||
+    transitionEnabled === "1" && env.JOINT_TRANSFER_READ_MANIFEST_SOURCE !== "DATABASE_INDEX") return null
   if (env.JOINT_TRANSFER_READ_MANIFEST_SOURCE === undefined) {
     if (env.JOINT_TRANSFER_READ_EA_IDS !== undefined || env.JOINT_TRANSFER_READ_SELECTION_VERSION !== undefined) return null
     const manifest = jointReadManifest(env)
@@ -174,7 +179,11 @@ export function jointReadConfiguration(env: Readonly<Record<string, string | und
   if (env.JOINT_TRANSFER_READ_MANIFEST_SOURCE === "DATABASE_INDEX") {
     const eaIds = decodeJointReadIds(rawIds)
     if (env.JOINT_TRANSFER_READ_SELECTION_VERSION !== undefined || !eaIds) return null
-    return { source: "DATABASE_INDEX", eaIds, manifestHash: env.JOINT_TRANSFER_READ_MANIFEST_SHA256! }
+    const hashes = transitionEnabled === "1" ? (transitionRaw ?? "").split(",") : []
+    if (transitionEnabled === "1" && (hashes.length !== 2 || hashes.some(h => !sha.test(h)) ||
+      new Set([env.JOINT_TRANSFER_READ_MANIFEST_SHA256!, ...hashes]).size !== 3)) return null
+    return { source: "DATABASE_INDEX", eaIds, manifestHash: env.JOINT_TRANSFER_READ_MANIFEST_SHA256!,
+      ...(transitionEnabled === "1" ? { transitionHashes: hashes as [string, string] } : {}) }
   }
   const eaIds = rawIds.split(","), selectionVersion = Number(rawVersion)
   if (rawIds.length > 200 || !eaIds.length || eaIds.length > 10 || new Set(eaIds).size !== eaIds.length ||

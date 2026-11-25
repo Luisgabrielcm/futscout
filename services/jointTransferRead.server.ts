@@ -2,7 +2,7 @@ import "server-only"
 import { prisma } from "../lib/prisma"
 import { canonicalJson } from "../lib/clubContexts"
 import { jointHash, jointReadConfiguration, jointReadManifest, jointTransferViews, validateJointTransferPayload, verifyJointReadIndex,
-  type JointReadIndexEntry, type JointReadManifest, type JointTransferPayload } from "../lib/jointTransferContexts"
+  type JointReadConfiguration, type JointReadIndexEntry, type JointReadManifest, type JointTransferPayload } from "../lib/jointTransferContexts"
 import type { PrismaClient } from "../app/generated/prisma/client"
 import { realGamePolicyHash, selectedGameMembership, projectedGameClubView } from "../lib/realGameProjection"
 import { isRealOnlyTransferDecision, transferDecisionReadScope } from "../lib/transferReadScope"
@@ -11,15 +11,31 @@ export type JointSelection = { payload: JointTransferPayload; views: ReturnType<
 // Process-local, bounded and partitioned by database client, approved root and UTC day.
 // Only immutable bodies/views are cached; mutable selection pins and club identities are always read again.
 const indexBodies = new WeakMap<object, Map<string, Map<string, JointSelection>>>()
+class ApprovedIndexReadRace extends Error {
+  constructor() { super("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED") }
+}
+
 export async function readJointTransferSelections(ids?: readonly (string | null)[], db: Pick<PrismaClient, "playerClubContextSelection" | "club"> = prisma,
   env: Readonly<Record<string, string | undefined>> = process.env, asOf = new Date().toISOString().slice(0, 10)): Promise<Map<string, JointSelection>> {
   const config = jointReadConfiguration(env)
   if (!config) return new Map()
+  try {
+    return await readAuthenticatedSelections(ids, db, env, asOf, config)
+  } catch (error) {
+    // Only an authenticated transition may retry a header/body version race, once.
+    if (config.source !== "DATABASE_INDEX" || !config.transitionHashes || !(error instanceof ApprovedIndexReadRace)) throw error
+    return readAuthenticatedSelections(ids, db, env, asOf, config)
+  }
+}
+
+async function readAuthenticatedSelections(ids: readonly (string | null)[] | undefined,
+  db: Pick<PrismaClient, "playerClubContextSelection" | "club">, env: Readonly<Record<string, string | undefined>>,
+  asOf: string, config: JointReadConfiguration): Promise<Map<string, JointSelection>> {
   const configuredIds = config.source === "INLINE" ? config.manifest.entries.map(e => e.eaId) : config.eaIds
   const requested = ids ? new Set(ids) : null
   if (requested && !configuredIds.some(id => requested.has(id))) return new Map()
   let indexEntries: Map<string, JointReadIndexEntry> | null = null
-  const cacheKey = config.source === "DATABASE_INDEX" ? `${config.manifestHash}:${asOf}` : null
+  let cacheKey: string | null = null
   let cached: Map<string, JointSelection> | undefined
   if (config.source === "DATABASE_INDEX") {
     // One bounded metadata query authenticates the entire selection set. No JSON payload column is loaded here.
@@ -37,7 +53,12 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
       return { eaId, selectionVersion: r.version, revisionId: r.revisionId, decisionReference: r.decisionReference,
         payloadHash: r.revision.contentHash, snapshotId: r.revision.rosterReferenceId, snapshotHash: r.revision.rosterReference.contentHash }
     })
-    verifyJointReadIndex({ version: 2, policyHash: realGamePolicyHash, entries }, configuredIds, config.manifestHash)
+    const index = { version: 2 as const, policyHash: realGamePolicyHash, entries }
+    const authenticatedHash = config.transitionHashes ? jointHash(index) : config.manifestHash
+    if (config.transitionHashes && ![config.manifestHash, ...config.transitionHashes].includes(authenticatedHash))
+      throw new Error("JOINT_APPROVED_INDEX_CHANGED")
+    verifyJointReadIndex(index, configuredIds, authenticatedHash)
+    cacheKey = `${authenticatedHash}:${asOf}`
     indexEntries = new Map(entries.map(e => [e.eaId, e]))
     cached = indexBodies.get(db)?.get(cacheKey!)
   }
@@ -53,7 +74,10 @@ export async function readJointTransferSelections(ids?: readonly (string | null)
     if (rows.length !== missingIds.length || rowsById.size !== rows.length || missingIds.some(id => !rowsById.has(id))) throw new Error("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED")
     manifest = { version: 1, decisionReference: "per-entry-index", entries: queryIds.map(eaId => {
       const entry = indexEntries!.get(eaId)!, row = rowsById.get(eaId)
-      if (row && (row.version !== entry.selectionVersion || row.revisionId !== entry.revisionId)) throw new Error("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED")
+      if (row && (row.version !== entry.selectionVersion || row.revisionId !== entry.revisionId)) {
+        if (config.transitionHashes) throw new ApprovedIndexReadRace()
+        throw new Error("JOINT_APPROVED_INDEX_SELECTIONS_CHANGED")
+      }
       return { eaId, payloadHash: entry.payloadHash, snapshotHash: entry.snapshotHash, ...transferDecisionReadScope(entry.decisionReference) }
     }) }
   } else if (config.source === "DATABASE") {
