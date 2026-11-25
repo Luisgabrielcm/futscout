@@ -13,6 +13,7 @@ import PlayerExperienceNav from "../../../../components/PlayerExperienceNav"
 import PlayerHistory from "../../../../components/PlayerHistory"
 import PlayerRealLifeHeader from "../../../../components/PlayerRealLifeHeader"
 import PlayerRealMarketValue from "../../../../components/PlayerRealMarketValue"
+import PlayerPublishedEconomics from "../../../../components/PlayerPublishedEconomics"
 
 type RealLifePageProps = { params: Promise<{ slug: string; locale?: string }>; searchParams?: Promise<CatalogSearchParams> }
 
@@ -22,6 +23,7 @@ export default async function PlayerRealLifePage({ params, searchParams }: RealL
   const player = await getPlayerRealLifeBySlug(slug)
   if (!player) notFound()
   const catalogContext = playerCatalogContext((await searchParams)?.catalog)
+  const publishedEconomics = await PlayerPublishedEconomics({ playerId: player.id, eaId: player.eaId, locale })
   const approvedClub = player.approvedCurrentClub
   const career = approvedClub ? {
     source: "approved-current-club-v2",
@@ -38,6 +40,7 @@ export default async function PlayerRealLifePage({ params, searchParams }: RealL
     <PlayerRealLifeHeader locale={locale} player={player} />
     <PlayerExperienceNav locale={locale} slug={slug} active="real" catalogContext={catalogContext} />
     <PlayerRealMarketValue locale={locale} value={player.realMarketValue} />
+    {publishedEconomics}
     {!player.clubContexts && !player.transferContexts?.real && <PlayerCareer locale={locale} catalogClub={player.eaCatalogClub?.name ?? null} data={career} />}
     <PlayerSeasonStatistics locale={locale} rows={player.statistics ?? []} />
     {/* A public transfer projection stays empty until revision resolution is safe. */}

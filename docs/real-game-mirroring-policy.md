@@ -30,7 +30,12 @@ passam a representar remuneração ou obrigação contratual comprovada.
 
 - A seleção nacional é independente do clube. Para as exceções envolvendo
   destinos sem elenco licenciado, manter a regra aprovada de presença no jogo
-  e conferência das duas últimas convocações; não presumir FREE_AGENT somente
+  e conferência das três últimas convocações oficiais. Pela decisão mais recente
+  do proprietário, presença em pelo menos uma dessas listas permite FREE_AGENT
+  na projeção, desde que identidade e disponibilidade no jogo estejam comprovadas.
+  Ausência comprovada nas três listas deixa o atleta fora da projeção FutScout;
+  listas incompletas ou inacessíveis mantêm a decisão em revisão. Essa exclusão
+  não altera nem comprova ausência no snapshot original EA. Não presumir FREE_AGENT somente
   pelo país, nome do clube, escudo ou uniforme.
 - Clubes parcialmente licenciados exigem decisão individual. REAL comprovado
   pode continuar publicado mesmo com GAME em revisão.

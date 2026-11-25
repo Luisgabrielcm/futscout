@@ -16,6 +16,7 @@ export type RealLifeClub = {
 }
 
 export type PlayerRealLifeProfile = {
+  eaId?: string | null
   clubContexts?: import("../lib/clubContexts").ClubContexts
   transferContexts?: import("../lib/jointTransferContexts").JointTransferViews
   realMarketValue?: ReturnType<typeof import("../lib/economicData/read").readEconomicMarketValue>

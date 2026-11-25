@@ -34,6 +34,7 @@ import * as wagePublication from "../../lib/wagePublication"
 import * as wageClassification from "../../lib/wageClassification"
 import * as researchEconomic from "../../lib/researchEconomic"
 import * as publicEconomicOverlay from "../../lib/publicEconomicOverlay"
+import * as realEconomicReadGate from "../../lib/realEconomicReadGate"
 import * as visualAssets from "../../lib/visualAssets"
 import * as assetPipeline from "../../lib/assetPipeline"
 import * as brandSources from "../../lib/brackBrandSource"
@@ -95,6 +96,7 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       "lib/wageClassification": wageClassification,
       "lib/researchEconomic": researchEconomic,
       "lib/publicEconomicOverlay": publicEconomicOverlay,
+      "lib/realEconomicReadGate": realEconomicReadGate,
       "./wageClassification": wageClassification,
       "lib/visualAssets": visualAssets,
       "lib/assetPipeline": assetPipeline,
@@ -123,7 +125,7 @@ export function loadCatalogModule<T>(path: string, dependencies: Record<string, 
       return loadCatalogModule("app/components/PlayerLoanContext.tsx", {})
     if (component === "JointTransferFilters" && !Object.hasOwn(allowed, name))
       return loadCatalogModule("app/components/JointTransferFilters.tsx", {})
-    if (!Object.hasOwn(allowed, name) && component && ["EstimatedValueNote", "PlayerRealMarketValue", "PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "PlayerCurrentStatistics", "PlayerSeasonStatistics", "PlayerExperienceNav", "LeagueLogo", "ClubLogo", "ClubBadge", "BrandAssetFallback"].includes(component)) {
+    if (!Object.hasOwn(allowed, name) && component && ["PlayerPublishedEconomics", "EstimatedValueNote", "PlayerRealMarketValue", "PlayerImage", "CountryFlag", "CatalogPagination", "NationalityDirectory", "PlayerCareer", "PlayerHistory", "PlayerCurrentStatistics", "PlayerSeasonStatistics", "PlayerExperienceNav", "LeagueLogo", "ClubLogo", "ClubBadge", "BrandAssetFallback"].includes(component)) {
       return loadCatalogModule(`app/components/${component}.tsx`, { react: React })
     }
     if (name === "next/link" && !Object.hasOwn(allowed, name)) return function TestLink({ children, href, ...props }: { children: ReactNode; href: string; prefetch?: boolean }) {

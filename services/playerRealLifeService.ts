@@ -70,6 +70,7 @@ export async function getPlayerRealLifeBySlug(slug: string): Promise<PlayerRealL
     ...(joint ? { transferContexts: joint.views } : {}),
     ...(clubContexts ? { clubContexts } : {}),
     id: player.id,
+    eaId: player.externalId,
     slug: player.slug,
     name: player.name,
     imageUrl: player.imageUrl,
