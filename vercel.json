@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": {
+      "codex/top100-real-economics": false,
       "codex/clause-conditions-publication": false,
       "codex/research-clause-absence": false,
       "codex/context-reader-capacity-16384": false,
