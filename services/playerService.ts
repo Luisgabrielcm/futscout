@@ -37,15 +37,19 @@ async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapD
   context: "GAME" | "REAL" = "GAME", existingSelections?: Map<string, JointSelection>): Promise<Player[]> {
   const joint = existingSelections ?? (jointReadConfiguration(globalThis.process?.env) ?
     await (await import("./jointTransferRead.server")).readJointTransferSelections(databasePlayers.map(p => p.externalId ?? null)) : new Map<string, JointSelection>())
-  const [assets, manual, research] = await Promise.all([getBrandAssetsForEntities({
+  const nativeIds = databasePlayers.map(p => p.externalId).filter(id => canReadClubContexts(id, globalThis.process?.env))
+  const [assets, manual, research, native] = await Promise.all([getBrandAssetsForEntities({
     clubIds: [...databasePlayers.flatMap(player => player.club?.id ? [player.club.id] : []), ...[...joint.values()].flatMap(s => [s.payload.jointTransfer.game.club?.id, s.payload.jointTransfer.real?.club?.id].filter((v): v is string => !!v))],
     leagueIds: [...databasePlayers.flatMap(player => player.club?.league.id ? [player.club.league.id] : []), ...[...joint.values()].flatMap(s => [s.payload.jointTransfer.game.club?.league?.id, s.payload.jointTransfer.real?.club?.league?.id].filter((v): v is string => !!v))],
   }),
     withWage ? readManualEconomics(databasePlayers.map(player => player.id)) : Promise.resolve(new Map()),
-    withWage ? readResearchEconomics(databasePlayers.map(player => player.id)) : Promise.resolve(new Map())])
+    withWage ? readResearchEconomics(databasePlayers.map(player => player.id)) : Promise.resolve(new Map()),
+    nativeIds.length ? (await import("./playerClubContexts")).readPlayerClubContextsBatch(nativeIds) : Promise.resolve(new Map()),
+  ])
   const apply = joint.size ? (await import("./jointTransferRead.server")).applyJointPlayerPresentation : null
   return databasePlayers.map(databasePlayer => {
-    const player = { ...mapDatabasePlayer(databasePlayer), ...readFutscoutPotential(databasePlayer), ...readEconomicMarketValue(databasePlayer) }
+    const player = { ...mapDatabasePlayer(databasePlayer), ...readFutscoutPotential(databasePlayer), ...readEconomicMarketValue(databasePlayer),
+      ...(native.has(databasePlayer.externalId ?? "") ? { clubContexts: native.get(databasePlayer.externalId!), transferContext: context } : {}) }
     if (player.club && databasePlayer.club?.id) player.club.asset = assets.clubs.get(databasePlayer.club.id) ?? null
     if (databasePlayer.club?.league.id) player.leagueAsset = assets.leagues.get(databasePlayer.club.league.id) ?? null
     const wage = manualWage(player.id, manual.get(player.id)) ?? researchWage(player.id, research.get(player.id))
@@ -504,13 +508,10 @@ export async function getPlayerBySlug(
 
   const profile = mapDatabasePlayerProfile(databasePlayer)
   if (profile.status === "incomplete") return profile
-  // The profile route already uses the same gated point reader.
+  // Reuse the same bounded native/joint reads as cards; do not query the pilot twice.
   const [player] = await mapPlayersWithBrandAssets([databasePlayer], false)
   if (player.transferContexts?.game) return { status: "ready", player }
-  if (!canReadClubContexts(databasePlayer.externalId, globalThis.process?.env)) return { status: "ready", player }
-  const { readPlayerClubContexts } = await import("./playerClubContexts")
-  const clubContexts = await readPlayerClubContexts(databasePlayer.externalId)
-  return { status: "ready", player: clubContexts ? { ...player, clubContexts,
+  return { status: "ready", player: player.clubContexts ? { ...player,
     // Legacy league belongs to the legacy club projection, not this selected snapshot.
     league: null, leagueSlug: null, leagueAsset: null, leagueLogoUrl: null } : player }
 }

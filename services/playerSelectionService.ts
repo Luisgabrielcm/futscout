@@ -10,6 +10,7 @@ import { manualWage, readManualEconomics } from "./adminEconomic.server"
 import { readResearchEconomics } from "./researchEconomicRead.server"
 import { researchWage } from "../lib/researchEconomic"
 import { jointReadConfiguration } from "../lib/jointTransferContexts"
+import { canReadClubContexts } from "../lib/clubContextReadGate"
 
 export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVORITES_LIMIT = FAVORITES_LIMIT): Promise<SelectedPlayer[]> {
   const slugs = normalizePlayerSlugs(input, limit)
@@ -25,10 +26,12 @@ export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVOR
       attributes: { select: { pace: true, shooting: true, passing: true, dribbling: true, defending: true, physical: true } },
     },
   })
-  const [assets, manual, research] = await Promise.all([
+  const nativeIds = rows.map(row => row.externalId).filter(id => canReadClubContexts(id, globalThis.process?.env))
+  const [assets, manual, research, native] = await Promise.all([
     getBrandAssetsForEntities({ clubIds: rows.flatMap(row => row.club?.id ? [row.club.id] : []) }),
     readManualEconomics(rows.map(row => row.id)),
     readResearchEconomics(rows.map(row => row.id)),
+    nativeIds.length ? (await import("./playerClubContexts")).readPlayerClubContextsBatch(nativeIds) : Promise.resolve(new Map()),
   ])
   const bySlug = new Map(rows.map((row) => [row.slug, row]))
   const joint = jointReadConfiguration(globalThis.process?.env) ? await (await import("./jointTransferRead.server")).readJointTransferSelections(rows.map(r => r.externalId)) : new Map()
@@ -37,6 +40,7 @@ export async function getSelectedPlayers(input: unknown, limit: 2 | typeof FAVOR
     if (!row) return []
     return [{
       id: row.id, slug: row.slug, name: row.name, position: row.position,
+      ...(native.has(row.externalId ?? "") ? { clubContexts: native.get(row.externalId!) } : {}),
       ...((manualWage(row.id, manual.get(row.id)) ?? researchWage(row.id, research.get(row.id)))
         ? { wage: manualWage(row.id, manual.get(row.id)) ?? researchWage(row.id, research.get(row.id)) } : {}),
       club: row.club?.name ?? null, age: calculateAge(row.dateOfBirth),

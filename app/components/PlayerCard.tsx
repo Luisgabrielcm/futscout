@@ -7,6 +7,7 @@ import { visualText } from "../../lib/i18n/visualRevision"
 import type { VerifiedSalary } from "../../types/playerCareer"
 import { playerProfileHref } from "../../lib/connectedNavigation"
 import { wagePresentation, type PublishedWage } from "../../lib/wagePublication"
+import { zeroGameFreeAgentEconomics } from "../../lib/publicEconomicOverlay"
 
 import Link from "next/link"
 
@@ -21,6 +22,7 @@ import type { AssetReference } from "../../lib/assetPipeline"
 
 type PlayerCardProps = {
   transferContexts?: import("../../lib/jointTransferContexts").JointTransferViews
+  clubContexts?: import("../../lib/clubContexts").ClubContexts
   transferContext?: "GAME" | "REAL"
   locale?: Locale
   id?: string
@@ -61,7 +63,7 @@ type PlayerCardProps = {
 ======================================== */
 
 export default function PlayerCard({ locale = "pt",
-  transferContexts, transferContext = "GAME",
+  transferContexts, clubContexts, transferContext = "GAME",
   id,
   wage,
   name,
@@ -90,8 +92,9 @@ export default function PlayerCard({ locale = "pt",
   economicMarketValue,
 }: PlayerCardProps) {
   const positions = [...new Set([position, ...secondaryPositions, ...(secondaryPosition ? [secondaryPosition] : [])])]
-  const salaryLabel = displaySalary(salary, locale)
-  const publishedWage = id ? wagePresentation(wage, id, locale) : null
+  const zeroGameEconomics = zeroGameFreeAgentEconomics({ transferContexts, clubContexts }, transferContext)
+  const salaryLabel = zeroGameEconomics ? null : displaySalary(salary, locale)
+  const publishedWage = !zeroGameEconomics && id ? wagePresentation(wage, id, locale) : null
   /* ======================================
      DADOS OPCIONAIS
   ====================================== */
@@ -102,7 +105,8 @@ export default function PlayerCard({ locale = "pt",
       : t(locale, "Idade não informada")
 
   const playerClub =
-    (transferContext === "REAL" ? transferContexts?.real?.clubLabel : transferContexts?.game?.clubLabel) ?? club ??
+    (transferContext === "REAL" ? transferContexts?.real?.clubLabel : transferContexts?.game?.clubLabel) ??
+    (zeroGameEconomics ? locale === "pt" ? "Agente livre" : "Free agent" : club) ??
     t(locale, "Sem clube")
   const loan = transferContext === "REAL" ? transferContexts?.real : transferContexts?.game
 
@@ -170,7 +174,7 @@ export default function PlayerCard({ locale = "pt",
           </h3>
 
           <p className="cardClub">
-            {club && <ClubBadge locale={locale} asset={clubAsset} src={clubAsset ? null : clubImageUrl} name={club} size="small" className="cardClubBadge" />}
+            {!zeroGameEconomics && club && <ClubBadge locale={locale} asset={clubAsset} src={clubAsset ? null : clubImageUrl} name={club} size="small" className="cardClubBadge" />}
             <span>{playerClub}</span> •{" "}
             {playerAge}
           </p>
@@ -249,7 +253,7 @@ export default function PlayerCard({ locale = "pt",
           </div>
 
         </div>
-        <p className="cardSalary"><span>{publishedWage?.title ?? visualText(locale, "salary")}</span> <strong>{publishedWage?.value ?? salaryLabel ?? "—"}</strong></p>
+        <p className="cardSalary" data-game-economics={zeroGameEconomics ? "free-agent-zeroed" : undefined}><span>{publishedWage?.title ?? visualText(locale, "salary")}</span> <strong>{zeroGameEconomics ? formatCurrency(0, locale) : publishedWage?.value ?? salaryLabel ?? "—"}</strong></p>
         {publishedWage && <p className="mutedText">{publishedWage.label}<br />{publishedWage.detail}</p>}
         {!publishedWage && salaryLabel && <p className="mutedText">{visualText(locale, "observedSalary")} · {visualText(locale, "salarySource")}: {salary?.source}</p>}
       </Link>
