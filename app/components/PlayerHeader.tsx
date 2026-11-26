@@ -265,7 +265,7 @@ export default function PlayerHeader({ locale = "pt",
             <dt>{visualText(locale, "marketValue")}</dt>
             <dd className="playerHeaderMarketValue">{player.marketValue !== null
               ? formatCurrency(player.marketValue, locale)
-              : "—"}<EstimatedValueNote provider={player.economicMarketValue?.provider} value={player.marketValue} locale={locale} /></dd>
+              : "—"}<EstimatedValueNote required={player.economicMarketValue?.noticeRequired} provider={player.economicMarketValue?.provider} value={player.marketValue} locale={locale} /></dd>
           </div>
             <div><dt>{publishedWage?.title ?? visualText(locale, "weeklySalary")}</dt><dd>{zeroGameEconomics ? formatCurrency(0, locale) : publishedWage?.value ?? "—"}
               {zeroGameEconomics && <small className="mutedText" style={{ display: "block" }}>{locale === "pt" ? "Agente livre no jogo" : "Free agent in game"}</small>}

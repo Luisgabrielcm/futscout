@@ -54,7 +54,7 @@ type PlayerCardProps = {
   marketValue:
     | number
     | null
-  economicMarketValue?: { provider: string } | null
+  economicMarketValue?: { provider: string; noticeRequired?: boolean } | null
 
 }
 
@@ -249,7 +249,7 @@ export default function PlayerCard({ locale = "pt",
                 ? formatCurrency(marketValue, locale)
                 : "—"}
             </strong>
-            <EstimatedValueNote provider={economicMarketValue?.provider} value={marketValue} locale={locale} />
+            <EstimatedValueNote required={economicMarketValue?.noticeRequired} provider={economicMarketValue?.provider} value={marketValue} locale={locale} />
           </div>
 
         </div>

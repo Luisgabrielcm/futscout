@@ -17,7 +17,7 @@ function OfficialPlayer({ player, locale, bench = false }: { player: AssociatedL
     <strong>{player.name}</strong><span>{position}</span>
     <span className="pitchOverall"><small>OVR EA</small> {catalog && validPitchOverall(catalog.officialOverall) ? catalog.officialOverall : "—"}</span>
     {!catalog && <small>{lineupText(locale, "unresolved")}</small>}
-    {bench && <dl><div><dt>{clubText(locale, "potential")}</dt><dd>{catalog?.potential ?? "—"}</dd></div><div><dt>{clubText(locale, "value")}</dt><dd>{catalog?.marketValue == null ? "—" : formatCurrency(Number(catalog.marketValue), locale)}<EstimatedValueNote provider={catalog?.economicMarketValue?.provider} value={catalog?.marketValue == null ? null : Number(catalog.marketValue)} locale={locale} /></dd></div></dl>}
+    {bench && <dl><div><dt>{clubText(locale, "potential")}</dt><dd>{catalog?.potential ?? "—"}</dd></div><div><dt>{clubText(locale, "value")}</dt><dd>{catalog?.marketValue == null ? "—" : formatCurrency(Number(catalog.marketValue), locale)}<EstimatedValueNote required={catalog?.economicMarketValue?.noticeRequired} provider={catalog?.economicMarketValue?.provider} value={catalog?.marketValue == null ? null : Number(catalog.marketValue)} locale={locale} /></dd></div></dl>}
   </>
   const className = bench ? "officialBenchPlayer" : "clubPitchPlayer officialStarter"
   return catalog ? <Link prefetch={false} className={className} href={entityHref(locale, "jogadores", catalog.slug)!}>{content}</Link> : <div className={className}>{content}</div>

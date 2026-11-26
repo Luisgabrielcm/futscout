@@ -1,3 +1,4 @@
+import { privateEstimateMethod } from './privateEstimateScope'
 import type { Prisma } from "../../app/generated/prisma/client"
 import { decideValuePublication, PUBLICATION_POLICY_VERSION } from "../../experiments/futscout-value-v01/publication"
 import { publicationHoldFor } from "./publicationHolds"
@@ -35,9 +36,9 @@ export function readEconomicMarketValue(player: { id?: string; externalId?: stri
   const state = current?.observation.state
   const own = state?.provider === 'FUTSCOUT_VALUE' && current?.policyVersion === SUPPLIER_NOTICE_POLICY
   const method = state?.provider === 'LIVE_FOOTBALL' ? 'LIVE_FOOTBALL_EXISTING_CURRENT' :
-    own ? approvedEstimateMethod(state.contentHash) ?? 'UNAPPROVED_PROVIDER' : 'UNAPPROVED_PROVIDER'
-  const metadata: { provider: string; observedAt: string; method?: string; publicationPolicyVersion?: string } | null = state ? {
-    provider: state.provider, observedAt: current.observation.observedAt.toISOString(),
+    own ? approvedEstimateMethod(state.contentHash, player.id, player.externalId) ?? 'UNAPPROVED_PROVIDER' : 'UNAPPROVED_PROVIDER'
+  const metadata: { provider: string; observedAt: string; method?: string; publicationPolicyVersion?: string; noticeRequired?: boolean } | null = state ? {
+    noticeRequired: !!privateEstimateMethod(state.contentHash, player.id, player.externalId), provider: state.provider, observedAt: current.observation.observedAt.toISOString(),
     method, publicationPolicyVersion: own ? SUPPLIER_NOTICE_POLICY : PUBLICATION_POLICY_VERSION } : null
   const base = { marketValue: null as number | null, marketCurrency: null as string | null, economicMarketValue: metadata }
   if (!state) return { ...base, marketValueReadState: "MISSING_CURRENT" as const }

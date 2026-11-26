@@ -44,7 +44,7 @@ export function decideValuePublication(record: ValuePublicationInput, policy: Va
     // No reviewed contractual grant exists. Ignore caller-supplied approval
     // flags: neither the owner decision nor metadata can manufacture a licence.
     if (policy !== SUPPLIER_NOTICE_POLICY) reasons.push('MODEL_COMMERCIAL_RIGHTS_UNKNOWN')
-    else if (approvedEstimateMethod(record.estimateContentHash) !== record.method) reasons.push('OUTSIDE_SUPPLIER_PUBLICATION_SCOPE')
+    else if (approvedEstimateMethod(record.estimateContentHash, record.playerId, record.eaId) !== record.method) reasons.push('OUTSIDE_SUPPLIER_PUBLICATION_SCOPE')
   } else reasons.push('UNAVAILABLE')
   return {
     policyVersion: policy, playerId: record.playerId, eaId: record.eaId,
