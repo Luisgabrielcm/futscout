@@ -32,7 +32,7 @@ export default function PlayerMarket({ locale = "pt",
               ? formatCurrency(player.marketValue, locale)
               : "—"}
           </strong>
-          <EstimatedValueNote provider={player.economicMarketValue?.provider} value={player.marketValue} locale={locale} />
+          <EstimatedValueNote required={player.economicMarketValue?.noticeRequired} provider={player.economicMarketValue?.provider} value={player.marketValue} locale={locale} />
 
           {!hasMarketValue && (
             <span>

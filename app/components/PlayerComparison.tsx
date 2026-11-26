@@ -45,7 +45,7 @@ export default function PlayerComparison({ locale = "pt", players }: { locale?: 
         return <tr key={label}><th scope="row">{label}</th>
           {values.map((value, index) => <td key={index} className={winner === index ? "comparisonHigher" : undefined}>
             {value === null ? "—" : currency ? formatCurrency(value, locale) : value}
-            {currency && <EstimatedValueNote provider={players[index].economicMarketValue?.provider} value={value} locale={locale} />}
+            {currency && <EstimatedValueNote required={players[index].economicMarketValue?.noticeRequired} provider={players[index].economicMarketValue?.provider} value={value} locale={locale} />}
             {winner === index && <span aria-label={t(locale, "Maior valor")}> ↑</span>}
           </td>)}
         </tr>
