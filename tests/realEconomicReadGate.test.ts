@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import { renderToStaticMarkup } from "react-dom/server"
 import { canReadRealEconomics } from "../lib/realEconomicReadGate"
+import { encodeJointReadIds } from "../lib/jointReadIds"
 import { loadCatalogModule } from "./helpers/loadCatalogModule"
 import * as overlay from "../lib/publicEconomicOverlay"
 import * as research from "../lib/researchEconomic"
@@ -18,6 +19,11 @@ test("real economics is off by default, rejects malformed rollout, and selects e
   const expanded = { ...on, REAL_ECONOMICS_READ_EA_IDS: Array.from({ length: 297 }, (_, i) => i + 1).join(",") }
   assert.equal(canReadRealEconomics("297", expanded), true)
   assert.equal(canReadRealEconomics("298", expanded), false)
+  const compressed = { ...expanded, REAL_ECONOMICS_READ_EA_IDS: encodeJointReadIds(expanded.REAL_ECONOMICS_READ_EA_IDS.split(",")) }
+  assert.equal(canReadRealEconomics("297", compressed), true)
+  assert.equal(canReadRealEconomics("298", compressed), false)
+  assert.equal(canReadRealEconomics("12", { ...on, REAL_ECONOMICS_READ_EA_IDS: "deflate:v1:bad!" }), false)
+  assert.equal(canReadRealEconomics("12", { ...on, REAL_ECONOMICS_READ_EA_IDS: encodeJointReadIds(Array.from({ length: 1025 }, (_, i) => String(i + 1))) }), false)
 })
 
 function component(enabled: boolean, manual: object | undefined, published: object | undefined) {
