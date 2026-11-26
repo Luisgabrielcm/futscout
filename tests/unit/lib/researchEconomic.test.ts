@@ -54,7 +54,8 @@ test("research evidence validates precision, provenance and salary composition",
     { weeklyAmount: "500", currency: "EUR", taxType: "GROSS", composition: "BASE" })
   assert.deepEqual(parseResearchPayload("SALARY", "PUBLISH", { weeklyAmount: "500", currency: "EUR", taxType: "GROSS", composition: "BASE" }),
     { weeklyAmount: "500", currency: "EUR", taxType: "GROSS", composition: "BASE" })
-  assert.throws(() => parseResearchPayload("SALARY", "PUBLISH", { weeklyAmount: "500", currency: "EUR", taxType: "NET", composition: "BASE" }))
+  assert.deepEqual(parseResearchPayload("SALARY", "PUBLISH", { weeklyAmount: "500", currency: "EUR", taxType: "NET", composition: "BASE" }),
+    { weeklyAmount: "500", currency: "EUR", taxType: "NET", composition: "BASE" })
   const net = { weeklyAmount: "500", weeklyEur: "500", currency: "EUR", taxType: "NET", composition: "BASE",
     season: "2026-2027", fx: null }
   assert.deepEqual(parseResearchPayload("SALARY", "PUBLISH", net), net)
@@ -98,11 +99,28 @@ test("manual values dominate researched contract, clause and wage", () => {
     classification: "ESTIMATED" as const, sourcePublishedOn: null } }
   assert.equal(researchWage("p", fixed), undefined)
   assert.equal(researchFixedSalary(fixed, "pt")?.value, "€ 300.577/semana")
-  assert.equal(researchFixedSalary({ salary: { ...fixed.salary, value: { ...fixed.salary.value, taxType: "NET" } } }, "pt"), undefined)
+  assert.equal(researchFixedSalary({ salary: { ...fixed.salary, value: { ...fixed.salary.value, taxType: "NET" } } }, "pt")?.title, "Salário semanal estimado")
   const researchedNet = researchWage("p", { salary: { value: { weeklyAmount: "500", weeklyEur: "500",
     currency: "EUR", taxType: "NET", composition: "BASE", season: "2026-2027", fx: null },
     sourceUrl: "https://example.test/salary", sourcePublishedOn: null } })
   assert.equal(researchedNet?.weeklyEur, 500)
   assert.match(wagePresentation(researchedNet, "p", "pt")?.title ?? "", /líquido/i)
   assert.match(wagePresentation(researchedNet, "p", "pt")?.detail ?? "", /Base/)
+})
+
+test("original salary currencies preserve unknown composition without inventing EUR or bonus exclusions", () => {
+  for (const currency of ["EUR", "GBP", "USD", "BRL"] as const) {
+    const raw = { weeklyAmount: "500.25", currency, taxType: "UNKNOWN" as const, composition: "UNKNOWN" as const }
+    const parsed = parseResearchPayload("SALARY", "PUBLISH", raw)
+    assert.deepEqual(parsed, raw)
+    const research = { salary: { value: raw, classification: "ESTIMATED" as const, sourceUrl: "https://example.test/pay", sourcePublishedOn: null } }
+    assert.equal(researchWage("p", research), undefined)
+    const display = researchFixedSalary(research, "pt")
+    assert.match(display?.value ?? "", /500\/semana/)
+    assert.match(display?.detail ?? "", /sem conversão/)
+    assert.doesNotMatch(display?.detail ?? "", /bônus excluídos/)
+  }
+  for (const raw of [{ weeklyAmount: "0", currency: "GBP" }, { weeklyAmount: "-5", currency: "EUR" },
+    { weeklyAmount: "500", currency: "XYZ" }, { weeklyAmount: "500", currency: "BRL", weeklyEur: "100" }])
+    assert.throws(() => parseResearchPayload("SALARY", "PUBLISH", { taxType: "UNKNOWN", composition: "UNKNOWN", ...raw }))
 })

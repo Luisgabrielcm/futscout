@@ -2,7 +2,7 @@ import { connection } from "next/server"
 import { canReadRealEconomics } from "../../lib/realEconomicReadGate"
 import { visualText } from "../../lib/i18n/visualRevision"
 import { publicClause, publicContractUntil, publicEconomicOverlay } from "../../lib/publicEconomicOverlay"
-import { researchWage } from "../../lib/researchEconomic"
+import { researchFixedSalary, researchWage } from "../../lib/researchEconomic"
 import { wagePresentation } from "../../lib/wagePublication"
 import { manualWage, readManualEconomics } from "../../services/adminEconomic.server"
 import { readResearchEconomics } from "../../services/researchEconomicRead.server"
@@ -17,12 +17,14 @@ export default async function PlayerPublishedEconomics({ playerId, eaId, locale 
   const economic = publicEconomicOverlay(manual, research)
   const selectedWage = manualWage(playerId, manual) ?? researchWage(playerId, research)
   const wage = wagePresentation(selectedWage, playerId, locale)
+  const originalSalary = !manual?.salary && !selectedWage ? researchFixedSalary(research, locale) : undefined
   return <section className="profileSection" data-real-economics="published">
     <h2>{locale === "pt" ? "Salário e contrato" : "Salary and contract"}</h2>
     <dl className="careerFields">
-      <div><dt>{wage?.title ?? visualText(locale, "weeklySalary")}</dt><dd>{wage?.value ?? "—"}
+      <div><dt>{wage?.title ?? originalSalary?.title ?? visualText(locale, "weeklySalary")}</dt><dd>{wage?.value ?? originalSalary?.value ?? "—"}
         {wage && <small className="mutedText" style={{ display: "block" }}>{wage.label} · {wage.detail}</small>}
-        {selectedWage?.sourceUrl && <a href={selectedWage.sourceUrl} target="_blank" rel="noopener noreferrer">{locale === "pt" ? "Fonte" : "Source"}</a>}
+        {originalSalary && <small className="mutedText" style={{ display: "block" }}>{originalSalary.detail}</small>}
+        {(selectedWage?.sourceUrl ?? originalSalary?.sourceUrl) && <a href={selectedWage?.sourceUrl ?? originalSalary?.sourceUrl} target="_blank" rel="noopener noreferrer">{locale === "pt" ? "Fonte" : "Source"}</a>}
       </dd></div>
       <div><dt>{visualText(locale, "contractUntil")}</dt><dd>{publicContractUntil(economic, locale)}</dd></div>
       <div><dt>{visualText(locale, "releaseClause")}</dt><dd>{publicClause(economic, locale)}

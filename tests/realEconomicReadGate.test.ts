@@ -13,8 +13,11 @@ test("real economics is off by default, rejects malformed rollout, and selects e
   const on = { REAL_ECONOMICS_READ_ENABLED: "1", REAL_ECONOMICS_READ_EA_IDS: "12,123" }
   assert.equal(canReadRealEconomics("12", on), true)
   assert.equal(canReadRealEconomics("1", on), false)
-  for (const raw of ["", "12,12", "12, 13", "012", "12,", Array.from({ length: 101 }, (_, i) => i + 1).join(",")])
+  for (const raw of ["", "12,12", "12, 13", "012", "12,", Array.from({ length: 1025 }, (_, i) => i + 1).join(",")])
     assert.equal(canReadRealEconomics("12", { ...on, REAL_ECONOMICS_READ_EA_IDS: raw }), false)
+  const expanded = { ...on, REAL_ECONOMICS_READ_EA_IDS: Array.from({ length: 297 }, (_, i) => i + 1).join(",") }
+  assert.equal(canReadRealEconomics("297", expanded), true)
+  assert.equal(canReadRealEconomics("298", expanded), false)
 })
 
 function component(enabled: boolean, manual: object | undefined, published: object | undefined) {
@@ -64,4 +67,16 @@ test("missing data stays absent and does not become zero or no clause", async ()
   const markup = renderToStaticMarkup(await c.render({ playerId: "p", eaId: "12", locale: "pt" }))
   assert.doesNotMatch(markup, /Sem cláusula|€ 0/)
   assert.match(markup, /—/)
+})
+
+test("REAL renders original-currency salary without overriding a manual salary or fabricating FX", async () => {
+  const published = { salary: { value: { weeklyAmount: "1250", currency: "BRL", taxType: "UNKNOWN", composition: "UNKNOWN" },
+    sourceUrl: "https://example.com/evidence", classification: "ESTIMATED", sourcePublishedOn: null } }
+  const shown = component(true, undefined, published)
+  const markup = renderToStaticMarkup(await shown.render({ playerId: "p", eaId: "12", locale: "pt" }))
+  assert.match(markup, /R\$ 1\.250\/semana/)
+  assert.match(markup, /sem conversão/)
+  assert.doesNotMatch(markup, /€ 1\.250|bônus excluídos/)
+  const manual = component(true, { salary: { weeklyEur: "10" } }, published)
+  assert.doesNotMatch(renderToStaticMarkup(await manual.render({ playerId: "p", eaId: "12", locale: "pt" })), /R\$/)
 })
