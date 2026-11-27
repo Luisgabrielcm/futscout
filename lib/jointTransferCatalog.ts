@@ -14,7 +14,7 @@ export function jointCatalogFilter(payloads: readonly JointTransferPayload[], pa
   }).filter(r => r.member !== null)
   const overrides = selected.map(r => r.eaId)
   const where: Prisma.PlayerWhereInput[] = [], sql: Prisma.Sql[] = []
-  const excluded = context === "GAME" ? payloads.filter(p => projectedEaIds.has(p.eaPlayerId) &&
+  const excluded = context === "GAME" ? payloads.filter(p => !p.gameClubSnapshot && projectedEaIds.has(p.eaPlayerId) &&
     p.jointTransfer.futscoutProjection?.status === "READY" && p.jointTransfer.futscoutProjection.representation === "EXCLUDED").map(p => p.eaPlayerId) : []
   if (excluded.length) {
     where.push({ OR: [{ externalId: null }, { externalId: { notIn: excluded } }] })
