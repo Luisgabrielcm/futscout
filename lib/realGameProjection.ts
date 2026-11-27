@@ -66,7 +66,7 @@ export type NationalWindowReview = {
 export type EligibilityEvidence = { url: string; contentHash: string; consultedAt: string; evidenceDate: string | null;
   gameVersion: "FC27" | null; eaId?: string | null; clubId?: string | null;
   individualDecision?: "ELIGIBLE" | "INELIGIBLE";
-  role: "PLAYER_IDENTITY" | "PROFESSIONAL_RETIREMENT" | "PLAYER_GAME_PRESENCE" | "DESTINATION_SQUAD_LICENSE" | "ORIGIN_GAME_PRESENCE" | "PLAYER_DESTINATION_ELIGIBILITY";
+  role: "PLAYER_IDENTITY" | "PROFESSIONAL_RETIREMENT" | "PLAYER_GAME_PRESENCE" | "PLAYER_GAME_ABSENCE" | "DESTINATION_SQUAD_LICENSE" | "ORIGIN_GAME_PRESENCE" | "ORIGIN_REAL_CONTRACT_REFERENCE" | "PLAYER_DESTINATION_ELIGIBILITY";
   strength: "PRIMARY" | "SECONDARY_CORROBORATED"; scope: "CAREER" | "GENERAL_LICENSING" | "REAL_IDENTITY" | "UT_ONLY" }
 export type RealGameEligibility = {
   eaId: string; policyHash: string; identity: "CONFIRMED" | "AMBIGUOUS"; gamePresence: "AVAILABLE" | "UNAVAILABLE" | "UNKNOWN";
@@ -75,6 +75,7 @@ export type RealGameEligibility = {
   individualPlayerEligibility: "ELIGIBLE" | "INELIGIBLE" | "UNKNOWN";
   evidence: readonly EligibilityEvidence[]
   nationalWindowReview?: NationalWindowReview
+  originRepresentation?: "REAL_CONTRACT_REFERENCE"
 }
 export type RealGameProjection = {
   version: 1 | 2 | 3; asOf: string; policyHash: string; approvalReference: string; sourceRealHash: string; originalEaGameHash: string;
@@ -87,13 +88,13 @@ export type RealGameProjection = {
 const sourceReal = (payload: JointTransferPayload) => ({ observation: payload.real, membership: payload.jointTransfer.real })
 const validEvidence = (e: EligibilityEvidence) => {
   const scopes: Record<EligibilityEvidence["role"], readonly EligibilityEvidence["scope"][]> = {
-    PLAYER_IDENTITY: ["REAL_IDENTITY", "CAREER"], PROFESSIONAL_RETIREMENT: ["REAL_IDENTITY"], PLAYER_GAME_PRESENCE: ["CAREER"], ORIGIN_GAME_PRESENCE: ["CAREER"],
+    PLAYER_IDENTITY: ["REAL_IDENTITY", "CAREER"], PROFESSIONAL_RETIREMENT: ["REAL_IDENTITY"], PLAYER_GAME_PRESENCE: ["CAREER"], PLAYER_GAME_ABSENCE: ["CAREER"], ORIGIN_GAME_PRESENCE: ["CAREER"], ORIGIN_REAL_CONTRACT_REFERENCE: ["REAL_IDENTITY"],
     DESTINATION_SQUAD_LICENSE: ["GENERAL_LICENSING", "CAREER"], PLAYER_DESTINATION_ELIGIBILITY: ["GENERAL_LICENSING", "CAREER"],
   }
   try { return !!scopes[e.role]?.includes(e.scope) && new URL(e.url).protocol === "https:" && /^[a-f0-9]{64}$/.test(e.contentHash) && Number.isFinite(Date.parse(e.consultedAt)) &&
     (e.evidenceDate === null || Number.isFinite(Date.parse(e.evidenceDate))) && ["PRIMARY", "SECONDARY_CORROBORATED"].includes(e.strength) &&
     ["CAREER", "GENERAL_LICENSING", "REAL_IDENTITY", "UT_ONLY"].includes(e.scope) &&
-    (["PLAYER_IDENTITY", "PROFESSIONAL_RETIREMENT"].includes(e.role) || e.gameVersion === "FC27") } catch { return false }
+    (["PLAYER_IDENTITY", "PROFESSIONAL_RETIREMENT", "ORIGIN_REAL_CONTRACT_REFERENCE"].includes(e.role) || e.gameVersion === "FC27") } catch { return false }
 }
 
 export function assessRealGameProjection(payload: JointTransferPayload, eligibility: RealGameEligibility, movement: JointMovement, asOf: string): RealGameProjection {
@@ -118,6 +119,7 @@ export function assessReviewedRealGameProjection(payload: JointTransferPayload, 
   const called = validWindows && windows.some(w => w.selected)
   const absent = validWindows && windows.every(w => w.complete && !w.selected)
   let excluded = inactive
+  let realOriginReference = false
   if (inactive) {
     if (eligibility.identity !== "CONFIRMED" || eligibility.eaId !== payload.eaPlayerId || movement.eaId !== payload.eaPlayerId ||
       !payload.real || payload.real.status !== real.state || !movement.evidenceConfirmed || movement.context !== "REAL" ||
@@ -131,6 +133,16 @@ export function assessReviewedRealGameProjection(payload: JointTransferPayload, 
       !eligibility.evidence.some(e => e.role === "PLAYER_IDENTITY" && validEvidence(e) && e.eaId === payload.eaPlayerId))
       reasons.push("CONFIRMED_INACTIVE_REAL_IDENTITY_REQUIRED")
   } else {
+    const absentFromGame = eligibility.gamePresence === "UNAVAILABLE" && eligibility.evidence.some(e =>
+      e.role === "PLAYER_GAME_ABSENCE" && validEvidence(e) && e.eaId === payload.eaPlayerId &&
+      e.evidenceDate !== null && e.evidenceDate <= asOf)
+    realOriginReference = eligibility.originRepresentation === "REAL_CONTRACT_REFERENCE" && !!real?.loan &&
+      eligibility.destinationInGame && (eligibility.destinationLicense === "LICENSED_PLAYERS" ||
+        eligibility.destinationLicense === "PARTIAL" && eligibility.individualPlayerEligibility === "ELIGIBLE") &&
+      !!real.parentClub && real.parentClub.eaId === null && !eligibility.originAvailable &&
+      eligibility.originClubId === real.parentClub.id && eligibility.evidence.some(e =>
+        e.role === "ORIGIN_REAL_CONTRACT_REFERENCE" && validEvidence(e) && e.eaId === payload.eaPlayerId &&
+        e.clubId === real.parentClub!.id && e.url === real.loan!.evidence.url && e.contentHash === real.loan!.evidence.contentHash)
     const retiredProfessionally = real?.state === "CLUB" && !real.loan && !real.parentClub &&
       latest?.kind === "RETIREMENT_CONFIRMED" && movement.kind === "RETIREMENT_CONFIRMED" &&
       projectionHash(latest) === projectionHash(movement) && movement.context === "REAL" && movement.evidenceConfirmed &&
@@ -142,8 +154,11 @@ export function assessReviewedRealGameProjection(payload: JointTransferPayload, 
       eligibility.destinationLicense === "PARTIAL" && eligibility.individualPlayerEligibility === "INELIGIBLE")
     // Exclusion does not assert that the player exists in the current Career Mode roster.
     // Positive availability remains mandatory for placing a player in a club or the free-agent market.
-    reasons.push(...base.reasons.filter(r => !(excludedByCallups || retiredProfessionally) || !["GAME_AVAILABILITY_REVIEW", "MISSING_PLAYER_GAME_PRESENCE_EVIDENCE"].includes(r)))
-    if (excludedByCallups || retiredProfessionally) excluded = true
+    reasons.push(...base.reasons.filter(r => {
+      if ((excludedByCallups || retiredProfessionally || absentFromGame) && ["GAME_AVAILABILITY_REVIEW", "MISSING_PLAYER_GAME_PRESENCE_EVIDENCE"].includes(r)) return false
+      return !(realOriginReference && r === "GAME_LOAN_ORIGIN_REVIEW")
+    }))
+    if (excludedByCallups || retiredProfessionally || absentFromGame) excluded = true
     else if (base.status === "READY" && base.representation === "FREE_AGENT") {
       if (!called) reasons.push("LAST_THREE_NATIONAL_CALLUPS_REVIEW_REQUIRED")
     }
@@ -151,9 +166,11 @@ export function assessReviewedRealGameProjection(payload: JointTransferPayload, 
   const status = reasons.length ? "REVIEW" : "READY"
   return { ...base, version: 3, policyHash: reviewedRealGamePolicyHash, approvalReference: reviewedRealGamePolicy.approvalReference,
     eligibility: JSON.parse(JSON.stringify(eligibility)), status, reasons: [...new Set(reasons)],
-    representation: status === "REVIEW" ? "PENDING" : excluded ? "EXCLUDED" : base.representation,
+    representation: status === "REVIEW" ? "PENDING" : excluded ? "EXCLUDED" : realOriginReference ? "CLUB" : base.representation,
     membership: status === "REVIEW" ? null : excluded ? { context: "GAME", state: "NOT_IN_SQUAD", club: null, parentClub: null,
-      loan: null, nationalTeams: payload.jointTransfer.game.nationalTeams, nationalCoverage: payload.jointTransfer.game.nationalCoverage } : base.membership,
+      loan: null, nationalTeams: payload.jointTransfer.game.nationalTeams, nationalCoverage: payload.jointTransfer.game.nationalCoverage }
+      : realOriginReference ? { ...real!, context: "GAME", nationalTeams: payload.jointTransfer.game.nationalTeams,
+        nationalCoverage: payload.jointTransfer.game.nationalCoverage } : base.membership,
     realLoanRoute: excluded ? null : base.realLoanRoute }
 }
 function revalidateProjection(payload: JointTransferPayload, p: RealGameProjection, asOf: string) {

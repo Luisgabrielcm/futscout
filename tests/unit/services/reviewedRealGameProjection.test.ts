@@ -7,6 +7,46 @@ import { jointCatalogFilter } from "../../../lib/jointTransferCatalog"
 import { zeroGameFreeAgentEconomics } from "../../../lib/publicEconomicOverlay"
 
 const asOf = "2026-11-26"
+
+test("explicit Career Mode removal can exclude GAME without fabricating availability or changing REAL", () => {
+  const f = unlicensed(), original = structuredClone(f.candidate)
+  f.eligibility.gamePresence = "UNAVAILABLE"
+  f.eligibility.evidence = f.eligibility.evidence.filter(e => e.role !== "PLAYER_GAME_PRESENCE")
+  const proof = { ...f.eligibility.evidence[0], role: "PLAYER_GAME_ABSENCE" as const, scope: "CAREER" as const,
+    gameVersion: "FC27" as const, evidenceDate: "2026-10-10" }
+  f.eligibility.evidence = [...f.eligibility.evidence, proof]
+  const p = assessReviewedRealGameProjection(f.candidate, f.eligibility, f.movement, asOf)
+  assert.equal(p.status, "READY"); assert.equal(p.representation, "EXCLUDED")
+  assert.deepEqual(f.candidate, original)
+  for (const patch of [{ eaId: "123" }, { scope: "UT_ONLY" as const }, { evidenceDate: "2027-01-01" }, { evidenceDate: null }]) {
+    const e = { ...f.eligibility, evidence: f.eligibility.evidence.map(e => e.role === "PLAYER_GAME_ABSENCE" ? { ...e, ...patch } : e) }
+    assert.equal(assessReviewedRealGameProjection(f.candidate, e, f.movement, asOf).status, "REVIEW")
+  }
+})
+
+test("a non-game loan owner is an explicitly bound REAL contract reference, never an invented EA club", () => {
+  const f = projectionFixture(), real = f.candidate.jointTransfer.real!
+  real.parentClub = { ...real.parentClub!, eaId: null }
+  f.eligibility = { ...f.eligibility, policyHash: reviewedRealGamePolicyHash, originAvailable: false,
+    originRepresentation: "REAL_CONTRACT_REFERENCE", evidence: f.eligibility.evidence.filter(e => e.role !== "ORIGIN_GAME_PRESENCE") }
+  const proof = { ...f.eligibility.evidence[0], role: "ORIGIN_REAL_CONTRACT_REFERENCE" as const, scope: "REAL_IDENTITY" as const,
+    gameVersion: null, clubId: real.parentClub.id, url: real.loan!.evidence.url, contentHash: real.loan!.evidence.contentHash }
+  f.eligibility.evidence = [...f.eligibility.evidence, proof]
+  const original = structuredClone(f.candidate)
+  const p = assessReviewedRealGameProjection(f.candidate, f.eligibility, f.movement, asOf)
+  assert.equal(p.status, "READY"); assert.equal(p.representation, "CLUB")
+  assert.equal(p.membership?.parentClub?.eaId, null)
+  assert.deepEqual(p.realLoanRoute, { parentClub: real.parentClub, playingClub: real.club })
+  f.candidate.jointTransfer.futscoutProjection = p
+  validateJointTransferPayload(f.candidate)
+  assert.deepEqual(f.candidate.game, original.game)
+  assert.deepEqual(f.candidate.jointTransfer.game, original.jointTransfer.game)
+  assert.deepEqual(f.candidate.jointTransfer.real, original.jointTransfer.real)
+  for (const patch of [{ eaId: "123" }, { clubId: "wrong" }, { contentHash: "b".repeat(64) }, { scope: "UT_ONLY" as const }]) {
+    const e = { ...f.eligibility, evidence: f.eligibility.evidence.map(e => e.role === "ORIGIN_REAL_CONTRACT_REFERENCE" ? { ...e, ...patch } : e) }
+    assert.equal(assessReviewedRealGameProjection(original, e, f.movement, asOf).status, "REVIEW")
+  }
+})
 function inactive(retired = false) {
   const f = projectionFixture()
   const state = retired ? "RETIRED" : "FREE_AGENT"
