@@ -78,3 +78,18 @@ test("exclusion affects GAME count/rows and markets before pagination; REAL and 
   assert.doesNotMatch(JSON.stringify(real.where), /notIn/)
   assert.equal(jointCatalogFilter([f.candidate], {}, undefined).where.length, 0)
 })
+
+test("verified absence can exclude an unavailable player without inventing positive GAME availability", () => {
+  const f = unlicensed()
+  f.eligibility.gamePresence = "UNKNOWN"
+  f.eligibility.evidence = f.eligibility.evidence.filter(e => e.role !== "PLAYER_GAME_PRESENCE")
+  f.eligibility.nationalWindowReview = windows(false)
+  const projection = assessReviewedRealGameProjection(f.candidate, f.eligibility, f.movement, asOf)
+  assert.equal(projection.status, "READY")
+  assert.equal(projection.representation, "EXCLUDED")
+  assert.equal(projection.eligibility.gamePresence, "UNKNOWN")
+  assert.deepEqual(projection.membership?.nationalTeams, f.candidate.jointTransfer.game.nationalTeams)
+  for (const nationalWindowReview of [windows(true), undefined])
+    assert.equal(assessReviewedRealGameProjection(f.candidate, { ...f.eligibility, nationalWindowReview }, f.movement, asOf).status, "REVIEW")
+  assert.equal(assessReviewedRealGameProjection(f.candidate, { ...f.eligibility, identity: "AMBIGUOUS" }, f.movement, asOf).status, "REVIEW")
+})

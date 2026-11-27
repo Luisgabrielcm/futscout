@@ -130,10 +130,14 @@ export function assessReviewedRealGameProjection(payload: JointTransferPayload, 
       !eligibility.evidence.some(e => e.role === "PLAYER_IDENTITY" && validEvidence(e) && e.eaId === payload.eaPlayerId))
       reasons.push("CONFIRMED_INACTIVE_REAL_IDENTITY_REQUIRED")
   } else {
-    reasons.push(...base.reasons)
-    if (base.status === "READY" && base.representation === "FREE_AGENT") {
-      if (absent) excluded = true
-      else if (!called) reasons.push("LAST_THREE_NATIONAL_CALLUPS_REVIEW_REQUIRED")
+    const excludedByCallups = absent && (eligibility.destinationLicense === "NO_LICENSED_PLAYERS" ||
+      eligibility.destinationLicense === "PARTIAL" && eligibility.individualPlayerEligibility === "INELIGIBLE")
+    // Exclusion does not assert that the player exists in the current Career Mode roster.
+    // Positive availability remains mandatory for placing a player in a club or the free-agent market.
+    reasons.push(...base.reasons.filter(r => !excludedByCallups || !["GAME_AVAILABILITY_REVIEW", "MISSING_PLAYER_GAME_PRESENCE_EVIDENCE"].includes(r)))
+    if (excludedByCallups) excluded = true
+    else if (base.status === "READY" && base.representation === "FREE_AGENT") {
+      if (!called) reasons.push("LAST_THREE_NATIONAL_CALLUPS_REVIEW_REQUIRED")
     }
   }
   const status = reasons.length ? "REVIEW" : "READY"
