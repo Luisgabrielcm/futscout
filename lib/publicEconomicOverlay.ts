@@ -13,6 +13,7 @@ export function zeroGameFreeAgentEconomics(player: {
 }, context = player.transferContext ?? "GAME"): boolean {
   if (context !== "GAME") return false
   const views = player.transferContexts
+  if (views?.game?.displayContext === "FUTSCOUT_PROJECTED" && views.game.clubState === "NOT_IN_SQUAD" && views.game.playingClub === null) return true
   if (views?.game) return views.game.clubState === "FREE_AGENT" && views.game.playingClub === null &&
     views.real?.clubState === "CLUB" && views.real.playingClub !== null
   return player.clubContexts?.game.status === "NG_FA" && player.clubContexts.real?.status === "CLUB" && player.clubContexts.real.club !== null
