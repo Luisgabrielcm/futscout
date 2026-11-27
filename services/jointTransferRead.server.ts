@@ -5,7 +5,7 @@ import { jointHash, jointReadConfiguration, jointReadManifest, jointTransferView
   type JointReadConfiguration, type JointReadIndexEntry, type JointReadManifest, type JointTransferPayload } from "../lib/jointTransferContexts"
 import type { PrismaClient } from "../app/generated/prisma/client"
 import { realGamePolicyHash, selectedGameMembership, projectedGameClubView } from "../lib/realGameProjection"
-import { isRealOnlyTransferDecision, transferDecisionReadScope } from "../lib/transferReadScope"
+import { isRealOnlyTransferDecision, isGameClubSnapshotDecision, transferDecisionReadScope } from "../lib/transferReadScope"
 
 export type JointSelection = { payload: JointTransferPayload; views: ReturnType<typeof jointTransferViews> }
 // Process-local, bounded and partitioned by database client, approved root and UTC day.
@@ -105,6 +105,8 @@ async function readAuthenticatedSelections(ids: readonly (string | null)[] | und
     if (!selected) throw new Error("JOINT_APPROVED_SELECTION_MISSING")
     const revision = selected.revision, payload = revision.payload as unknown as JointTransferPayload
     validateJointTransferPayload(payload, approved.eaId)
+    if (Boolean(payload.gameClubSnapshot) !== isGameClubSnapshotDecision(selected.decisionReference))
+      throw new Error("GAME_CLUB_SNAPSHOT_READ_SCOPE_MISMATCH")
     if (selected.decisionReference !== (indexEntries?.get(approved.eaId)?.decisionReference ?? manifest.decisionReference) || revision.eaPlayerId !== approved.eaId || revision.contentHash !== approved.payloadHash ||
       jointHash(payload) !== approved.payloadHash || payload.game.snapshot.contentHash !== approved.snapshotHash ||
       revision.rosterReferenceId !== payload.game.snapshot.id || revision.rosterReference.contentHash !== approved.snapshotHash ||
@@ -121,7 +123,7 @@ async function readAuthenticatedSelections(ids: readonly (string | null)[] | und
     if (cacheKey) verifiedBodies.set(approved.eaId, structuredClone(result.get(approved.eaId)!))
   }
   const readMemberships = ({ payload, views }: JointSelection) => [
-    ...views.game ? [payload.jointTransfer.game, payload.jointTransfer.futscoutProjection?.membership] : [],
+    ...views.game ? [payload.jointTransfer.game, payload.jointTransfer.futscoutProjection?.membership, payload.gameClubSnapshot?.membership] : [],
     ...views.real ? [payload.jointTransfer.real] : [],
   ]
   for (const s of result.values()) for (const m of readMemberships(s)) for (const c of [m?.club, m?.parentClub]) if (c) clubIds.add(c.id)

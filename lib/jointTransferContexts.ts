@@ -3,6 +3,7 @@ import { canonicalJson, validateClubContexts, type ClubContexts } from "./clubCo
 import { classifyMovement, projectLoanMembership, validateLoanObservation, type LoanObservation, type MovementKind, type LoanPresentation, type MembershipState } from "./jointTransferLoanSync"
 import { validateRealGameProjection, realGameProjectionView, realGamePolicyHash, type RealGameProjection } from "./realGameProjection"
 import { decodeJointReadIds, jointReadIdLimit } from "./jointReadIds"
+import { validateGameClubSnapshot, type GameClubSnapshot } from "./gameClubSnapshot"
 
 export type BoundClub = { id: string; eaId: string | null; name: string; slug: string | null;
   league: { id: string; name: string; slug: string | null } | null }
@@ -14,7 +15,7 @@ export type BoundMembership = {
 export type JointMovement = { eaId: string; context: "REAL" | "GAME"; kind: MovementKind; evidenceConfirmed: boolean;
   sourceUrl: string; evidenceHash: string; effectiveAt: string | null;
   route?: { fromState: "CLUB" | "FREE_AGENT"; fromClub: BoundClub | null; toClub: BoundClub } }
-export type JointTransferPayload = ClubContexts & { jointTransfer: {
+export type JointTransferPayload = ClubContexts & { gameClubSnapshot?: GameClubSnapshot; jointTransfer: {
   version: 1; game: BoundMembership; real: BoundMembership | null; history: readonly LoanObservation[];
   movements: readonly JointMovement[]; projected: false
   futscoutProjection?: RealGameProjection
@@ -76,32 +77,36 @@ export function validateJointTransferPayload(payload: JointTransferPayload, eaId
     }
   }
   validateRealGameProjection(payload)
+  validateGameClubSnapshot(payload)
 }
 
 /** Source observations retain their original IDs/hashes. Only the display adapter binds database club IDs. */
 export function jointTransferViews(payload: JointTransferPayload, asOf: string, mode: "EA_SNAPSHOT" | "FUTSCOUT_PROJECTED" = "EA_SNAPSHOT"): JointTransferViews {
   validateJointTransferPayload(payload)
-  const view = (m: BoundMembership) => {
+  const view = (m: BoundMembership, snapshot = payload.game.snapshot, evidenceHash = payload.game.evidenceHash) => {
     const value = projectLoanMembership({ asOf, membership: {
       eaId: payload.eaPlayerId, context: m.context, state: m.state, club: m.club, nationalTeams: m.nationalTeams,
     }, loan: m.loan ? { ...m.loan, parentClub: m.parentClub!, playingClub: m.club! } : null })
     if (!value.evidence && m.context === "GAME") value.evidence = {
-      url: payload.game.snapshot.sourceUrl, evidenceDate: payload.game.snapshot.effectiveAt?.slice(0, 10) ?? null,
-      consultedAt: payload.game.snapshot.observedAt, contentHash: payload.game.evidenceHash,
-      snapshot: { version: payload.game.snapshot.rosterVersion ?? "FC 27 — arquivo consultado", contentHash: payload.game.snapshot.contentHash, effectiveAt: payload.game.snapshot.effectiveAt?.slice(0, 10) ?? null },
+      url: snapshot.sourceUrl, evidenceDate: snapshot.effectiveAt?.slice(0, 10) ?? null,
+      consultedAt: snapshot.observedAt, contentHash: evidenceHash,
+      snapshot: { version: snapshot.rosterVersion ?? "FC 27 — arquivo consultado", contentHash: snapshot.contentHash, effectiveAt: snapshot.effectiveAt?.slice(0, 10) ?? null },
     }
     if (!value.evidence && m.context === "REAL" && payload.real) value.evidence = { url: payload.real.sourceUrl,
       evidenceDate: payload.real.effectiveAt?.slice(0, 10) ?? null, consultedAt: payload.real.observedAt, contentHash: payload.real.evidenceHash, snapshot: null }
     return value
   }
   const original = view(payload.jointTransfer.game)
-  return { game: mode === "FUTSCOUT_PROJECTED" ? realGameProjectionView(payload, asOf) : original,
+  const selected = payload.gameClubSnapshot
+  return { game: selected ? view(selected.membership, selected.snapshot, selected.evidenceHash) : mode === "FUTSCOUT_PROJECTED" ? realGameProjectionView(payload, asOf) : original,
     real: payload.jointTransfer.real ? view(payload.jointTransfer.real) : null,
-    ...(mode === "FUTSCOUT_PROJECTED" ? { snapshotGame: original,
+    ...(selected ? { gameEconomicsZero: selected.economicsZeroBefore } : {}),
+    ...(mode === "FUTSCOUT_PROJECTED" || selected ? { snapshotGame: original,
       projectedRealLoanRoute: payload.jointTransfer.futscoutProjection?.representation === "FREE_AGENT" ? payload.jointTransfer.futscoutProjection.realLoanRoute : null } : {}),
   }
 }
 export type JointTransferViews = { game: LoanPresentation | null; real: LoanPresentation | null; snapshotGame?: LoanPresentation | null;
+  gameEconomicsZero?: boolean;
   projectedRealLoanRoute?: RealGameProjection["realLoanRoute"] }
 
 export type JointReadManifest = { version: 1; decisionReference: string; entries: { eaId: string; payloadHash: string; snapshotHash: string; contexts: ("REAL" | "GAME")[];

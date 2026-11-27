@@ -257,6 +257,7 @@ export function realGameProjectionView(payload: JointTransferPayload, asOf: stri
 }
 
 export function selectedGameMembership(payload: JointTransferPayload, projected: boolean): BoundMembership {
+  if (payload.gameClubSnapshot) return payload.gameClubSnapshot.membership
   if (!projected) return payload.jointTransfer.game
   const p = payload.jointTransfer.futscoutProjection
   if (!p || p.status !== "READY" || !p.membership) throw new Error("READY_JOINT_PROJECTION_REQUIRED")

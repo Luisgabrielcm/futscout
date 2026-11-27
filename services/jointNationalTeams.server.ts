@@ -1,6 +1,7 @@
 import "server-only"
 import { Prisma, type PrismaClient } from "../app/generated/prisma/client"
 import type { JointSelection } from "./jointTransferRead.server"
+import { selectedGameMembership } from "../lib/realGameProjection"
 
 type Db = Pick<PrismaClient, "$queryRaw">
 /** A club-free player is still a national member. Unknown coverage never deletes a prior membership. */
@@ -46,7 +47,7 @@ export async function getJointNationalPlayers(db: Db, selected: ReadonlyMap<stri
     const s = selected.get(r.externalId), view = s?.views.game, birth = r.dateOfBirth
     let age = birth ? now.getUTCFullYear() - birth.getUTCFullYear() : null
     if (birth && age !== null && (now.getUTCMonth() < birth.getUTCMonth() || now.getUTCMonth() === birth.getUTCMonth() && now.getUTCDate() < birth.getUTCDate())) age--
-    return { ...r, age, ...(view ? { clubName: view.clubLabel, clubSlug: s!.payload.jointTransfer.game.club?.slug ?? null,
+    return { ...r, age, ...(view ? { clubName: view.clubLabel, clubSlug: selectedGameMembership(s!.payload, view.displayContext === "FUTSCOUT_PROJECTED").club?.slug ?? null,
       loanParentName: view.loanBadge ? view.parentClub?.name ?? null : null, snapshotLabel: view.provenanceLabel } : {}) }
   }) }
 }

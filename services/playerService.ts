@@ -39,8 +39,8 @@ async function mapPlayersWithBrandAssets(databasePlayers: Parameters<typeof mapD
     await (await import("./jointTransferRead.server")).readJointTransferSelections(databasePlayers.map(p => p.externalId ?? null)) : new Map<string, JointSelection>())
   const nativeIds = databasePlayers.map(p => p.externalId).filter(id => canReadClubContexts(id, globalThis.process?.env))
   const [assets, manual, research, native] = await Promise.all([getBrandAssetsForEntities({
-    clubIds: [...databasePlayers.flatMap(player => player.club?.id ? [player.club.id] : []), ...[...joint.values()].flatMap(s => [s.payload.jointTransfer.game.club?.id, s.payload.jointTransfer.real?.club?.id].filter((v): v is string => !!v))],
-    leagueIds: [...databasePlayers.flatMap(player => player.club?.league.id ? [player.club.league.id] : []), ...[...joint.values()].flatMap(s => [s.payload.jointTransfer.game.club?.league?.id, s.payload.jointTransfer.real?.club?.league?.id].filter((v): v is string => !!v))],
+    clubIds: [...databasePlayers.flatMap(player => player.club?.id ? [player.club.id] : []), ...[...joint.values()].flatMap(s => [s.payload.jointTransfer.game.club?.id, s.payload.gameClubSnapshot?.membership.club?.id, s.payload.jointTransfer.real?.club?.id].filter((v): v is string => !!v))],
+    leagueIds: [...databasePlayers.flatMap(player => player.club?.league.id ? [player.club.league.id] : []), ...[...joint.values()].flatMap(s => [s.payload.jointTransfer.game.club?.league?.id, s.payload.gameClubSnapshot?.membership.club?.league?.id, s.payload.jointTransfer.real?.club?.league?.id].filter((v): v is string => !!v))],
   }),
     withWage ? readManualEconomics(databasePlayers.map(player => player.id)) : Promise.resolve(new Map()),
     withWage ? readResearchEconomics(databasePlayers.map(player => player.id)) : Promise.resolve(new Map()),
