@@ -8,6 +8,7 @@ const clubBrands: Readonly<Record<string, { real: string; game: string }>> = Obj
   "115845": { real: "Atalanta", game: "Bergamo Calcio" },
   "131681": { real: "AC Milan", game: "Milano FC" },
   "131682": { real: "Inter", game: "Lombardia FC" },
+  "115841": { real: "Lazio", game: "Latium" },
 })
 export function clubBindingNameMatches(eaId: string | null, observed: string, registered: string, context: "REAL" | "GAME" | "PROJECTION") {
   if (observed === registered) return true

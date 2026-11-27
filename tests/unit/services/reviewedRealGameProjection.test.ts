@@ -1,7 +1,7 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import { projectionFixture } from "../../fixtures/realGameProjection"
-import { assessReviewedRealGameProjection, reviewedRealGamePolicyHash } from "../../../lib/realGameProjection"
+import { assessReviewedRealGameProjection, reviewedRealGamePolicyHash, clubBindingNameMatches, projectedGameClub } from "../../../lib/realGameProjection"
 import { jointTransferViews, validateJointTransferPayload } from "../../../lib/jointTransferContexts"
 import { jointCatalogFilter } from "../../../lib/jointTransferCatalog"
 import { zeroGameFreeAgentEconomics } from "../../../lib/publicEconomicOverlay"
@@ -26,6 +26,13 @@ function unlicensed() {
 }
 const windows = (selected: boolean) => ({ windows: ["2026-09-01", "2026-10-01", "2026-11-01"].map((date, i) =>
   ({ date, selected: selected && i === 2, complete: true, url: `https://example.invalid/callup/${i}`, contentHash: "a".repeat(64) })) })
+
+test("the Lazio brand alias is bound to its existing EA identity and never rewrites the GAME reference", () => {
+  assert.equal(clubBindingNameMatches("115841", "Lazio", "Latium", "REAL"), true)
+  assert.equal(clubBindingNameMatches("115841", "Lazio", "Latium", "GAME"), false)
+  assert.equal(clubBindingNameMatches("115845", "Lazio", "Latium", "REAL"), false)
+  assert.equal(projectedGameClub({ eaId: "115841", name: "Lazio" })?.name, "Latium")
+})
 
 test("reviewed free agency and retirement exclude GAME while preserving REAL, EA snapshot and national teams", () => {
   for (const retired of [false, true]) {
