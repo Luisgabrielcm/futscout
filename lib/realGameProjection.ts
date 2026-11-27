@@ -66,7 +66,7 @@ export type NationalWindowReview = {
 export type EligibilityEvidence = { url: string; contentHash: string; consultedAt: string; evidenceDate: string | null;
   gameVersion: "FC27" | null; eaId?: string | null; clubId?: string | null;
   individualDecision?: "ELIGIBLE" | "INELIGIBLE";
-  role: "PLAYER_IDENTITY" | "PLAYER_GAME_PRESENCE" | "DESTINATION_SQUAD_LICENSE" | "ORIGIN_GAME_PRESENCE" | "PLAYER_DESTINATION_ELIGIBILITY";
+  role: "PLAYER_IDENTITY" | "PROFESSIONAL_RETIREMENT" | "PLAYER_GAME_PRESENCE" | "DESTINATION_SQUAD_LICENSE" | "ORIGIN_GAME_PRESENCE" | "PLAYER_DESTINATION_ELIGIBILITY";
   strength: "PRIMARY" | "SECONDARY_CORROBORATED"; scope: "CAREER" | "GENERAL_LICENSING" | "REAL_IDENTITY" | "UT_ONLY" }
 export type RealGameEligibility = {
   eaId: string; policyHash: string; identity: "CONFIRMED" | "AMBIGUOUS"; gamePresence: "AVAILABLE" | "UNAVAILABLE" | "UNKNOWN";
@@ -87,13 +87,13 @@ export type RealGameProjection = {
 const sourceReal = (payload: JointTransferPayload) => ({ observation: payload.real, membership: payload.jointTransfer.real })
 const validEvidence = (e: EligibilityEvidence) => {
   const scopes: Record<EligibilityEvidence["role"], readonly EligibilityEvidence["scope"][]> = {
-    PLAYER_IDENTITY: ["REAL_IDENTITY", "CAREER"], PLAYER_GAME_PRESENCE: ["CAREER"], ORIGIN_GAME_PRESENCE: ["CAREER"],
+    PLAYER_IDENTITY: ["REAL_IDENTITY", "CAREER"], PROFESSIONAL_RETIREMENT: ["REAL_IDENTITY"], PLAYER_GAME_PRESENCE: ["CAREER"], ORIGIN_GAME_PRESENCE: ["CAREER"],
     DESTINATION_SQUAD_LICENSE: ["GENERAL_LICENSING", "CAREER"], PLAYER_DESTINATION_ELIGIBILITY: ["GENERAL_LICENSING", "CAREER"],
   }
   try { return !!scopes[e.role]?.includes(e.scope) && new URL(e.url).protocol === "https:" && /^[a-f0-9]{64}$/.test(e.contentHash) && Number.isFinite(Date.parse(e.consultedAt)) &&
     (e.evidenceDate === null || Number.isFinite(Date.parse(e.evidenceDate))) && ["PRIMARY", "SECONDARY_CORROBORATED"].includes(e.strength) &&
     ["CAREER", "GENERAL_LICENSING", "REAL_IDENTITY", "UT_ONLY"].includes(e.scope) &&
-    (e.role === "PLAYER_IDENTITY" || e.gameVersion === "FC27") } catch { return false }
+    (["PLAYER_IDENTITY", "PROFESSIONAL_RETIREMENT"].includes(e.role) || e.gameVersion === "FC27") } catch { return false }
 }
 
 export function assessRealGameProjection(payload: JointTransferPayload, eligibility: RealGameEligibility, movement: JointMovement, asOf: string): RealGameProjection {
@@ -131,12 +131,19 @@ export function assessReviewedRealGameProjection(payload: JointTransferPayload, 
       !eligibility.evidence.some(e => e.role === "PLAYER_IDENTITY" && validEvidence(e) && e.eaId === payload.eaPlayerId))
       reasons.push("CONFIRMED_INACTIVE_REAL_IDENTITY_REQUIRED")
   } else {
+    const retiredProfessionally = real?.state === "CLUB" && !real.loan && !real.parentClub &&
+      latest?.kind === "RETIREMENT_CONFIRMED" && movement.kind === "RETIREMENT_CONFIRMED" &&
+      projectionHash(latest) === projectionHash(movement) && movement.context === "REAL" && movement.evidenceConfirmed &&
+      (!movement.effectiveAt || movement.effectiveAt <= asOf) && !eligibility.destinationInGame &&
+      eligibility.destinationLicense === "NO_LICENSED_PLAYERS" && eligibility.evidence.some(e =>
+        e.role === "PROFESSIONAL_RETIREMENT" && validEvidence(e) && e.eaId === payload.eaPlayerId &&
+        e.clubId === real.club?.id && e.contentHash === movement.evidenceHash && e.url === movement.sourceUrl)
     const excludedByCallups = absent && (eligibility.destinationLicense === "NO_LICENSED_PLAYERS" ||
       eligibility.destinationLicense === "PARTIAL" && eligibility.individualPlayerEligibility === "INELIGIBLE")
     // Exclusion does not assert that the player exists in the current Career Mode roster.
     // Positive availability remains mandatory for placing a player in a club or the free-agent market.
-    reasons.push(...base.reasons.filter(r => !excludedByCallups || !["GAME_AVAILABILITY_REVIEW", "MISSING_PLAYER_GAME_PRESENCE_EVIDENCE"].includes(r)))
-    if (excludedByCallups) excluded = true
+    reasons.push(...base.reasons.filter(r => !(excludedByCallups || retiredProfessionally) || !["GAME_AVAILABILITY_REVIEW", "MISSING_PLAYER_GAME_PRESENCE_EVIDENCE"].includes(r)))
+    if (excludedByCallups || retiredProfessionally) excluded = true
     else if (base.status === "READY" && base.representation === "FREE_AGENT") {
       if (!called) reasons.push("LAST_THREE_NATIONAL_CALLUPS_REVIEW_REQUIRED")
     }

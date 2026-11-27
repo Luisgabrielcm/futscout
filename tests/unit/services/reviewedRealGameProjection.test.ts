@@ -104,3 +104,23 @@ test("verified absence can exclude an unavailable player without inventing posit
     assert.equal(assessReviewedRealGameProjection(f.candidate, { ...f.eligibility, nationalWindowReview }, f.movement, asOf).status, "REVIEW")
   assert.equal(assessReviewedRealGameProjection(f.candidate, { ...f.eligibility, identity: "AMBIGUOUS" }, f.movement, asOf).status, "REVIEW")
 })
+
+test("documented professional retirement excludes GAME while preserving a separate amateur REAL club", () => {
+  const f = unlicensed()
+  f.candidate.jointTransfer.real = { ...f.candidate.jointTransfer.real!, parentClub: null, loan: null }
+  f.movement = { ...f.movement, kind: "RETIREMENT_CONFIRMED", evidenceHash: f.candidate.real!.evidenceHash, sourceUrl: f.candidate.real!.sourceUrl }
+  f.candidate.jointTransfer.movements = [f.movement]
+  f.eligibility.originClubId = null; f.eligibility.originAvailable = false; f.eligibility.gamePresence = "UNKNOWN"
+  f.eligibility.evidence = [...f.eligibility.evidence, { ...f.eligibility.evidence[0], role: "PROFESSIONAL_RETIREMENT", scope: "REAL_IDENTITY",
+    gameVersion: null, eaId: f.candidate.eaPlayerId, clubId: f.candidate.jointTransfer.real.club!.id,
+    url: f.movement.sourceUrl, contentHash: f.movement.evidenceHash }]
+  const original = structuredClone(f.candidate)
+  f.candidate.jointTransfer.futscoutProjection = assessReviewedRealGameProjection(f.candidate, f.eligibility, f.movement, asOf)
+  assert.equal(f.candidate.jointTransfer.futscoutProjection.representation, "EXCLUDED", f.candidate.jointTransfer.futscoutProjection.reasons.join(","))
+  validateJointTransferPayload(f.candidate)
+  assert.deepEqual(f.candidate.real, original.real)
+  assert.deepEqual(f.candidate.jointTransfer.real, original.jointTransfer.real)
+  assert.deepEqual(f.candidate.game, original.game)
+  const wrong = { ...f.eligibility, evidence: f.eligibility.evidence.map(e => e.role === "PROFESSIONAL_RETIREMENT" ? { ...e, eaId: "123" } : e) }
+  assert.equal(assessReviewedRealGameProjection(f.candidate, wrong, f.movement, asOf).status, "REVIEW")
+})
