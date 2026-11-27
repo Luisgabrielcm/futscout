@@ -4,6 +4,7 @@ import { projectionFixture } from "../../fixtures/realGameProjection"
 import { assessReviewedRealGameProjection, reviewedRealGamePolicyHash } from "../../../lib/realGameProjection"
 import { jointTransferViews, validateJointTransferPayload } from "../../../lib/jointTransferContexts"
 import { jointCatalogFilter } from "../../../lib/jointTransferCatalog"
+import { zeroGameFreeAgentEconomics } from "../../../lib/publicEconomicOverlay"
 
 const asOf = "2026-11-26"
 function inactive(retired = false) {
@@ -36,6 +37,9 @@ test("reviewed free agency and retirement exclude GAME while preserving REAL, EA
     const views = jointTransferViews(f.candidate, asOf, "FUTSCOUT_PROJECTED")
     assert.equal(views.game?.clubState, "NOT_IN_SQUAD")
     assert.equal(views.game?.clubLabel, "Fora da projeção FutScout")
+    assert.equal(views.game?.realFreeAgent, false)
+    assert.equal(zeroGameFreeAgentEconomics({ transferContexts: views }), true)
+    assert.equal(zeroGameFreeAgentEconomics({ transferContexts: views }, "REAL"), false)
     assert.equal(views.real?.clubLabel, retired ? "Aposentado" : "Jogador sem clube")
     assert.deepEqual(f.candidate.game, before.game)
     assert.deepEqual(f.candidate.jointTransfer.game, before.jointTransfer.game)
